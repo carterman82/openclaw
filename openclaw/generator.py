@@ -1,0 +1,1 @@
+"""Stub — populated in Phase 2 step 2.4."""

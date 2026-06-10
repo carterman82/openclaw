@@ -1,0 +1,20 @@
+# Secrets — never commit
+.env
+*.local.txt
+CREDENTIALS.local.txt
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Per-tool session state
+.claude/
