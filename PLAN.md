@@ -307,7 +307,7 @@ and a committed `.env.example` documents the required keys.
 - [ ] `.env.example` contains keys (with dummy values): `OPENAI_API_KEY`, `WP_BASE_URL`, `WP_USERNAME`, `WP_APP_PASSWORD`
 - [ ] `.env` contains the same keys with real values
 - [ ] `OPENAI_API_KEY` starts with `sk-` (or `sk-proj-`)
-- [ ] `WP_BASE_URL` is `http://openclaw-sandbox.local` (no trailing slash)
+- [ ] `WP_BASE_URL` is `http://localhost:8088` (no trailing slash) — Docker stack URL per the §4 pivot
 - [ ] `WP_USERNAME` is `openclaw-agent`
 - [ ] `WP_APP_PASSWORD` is the 24-char password from step 1.10 (spaces stripped or preserved — WP accepts both)
 - [ ] `.env` is in `.gitignore` and `git status` does NOT show it
