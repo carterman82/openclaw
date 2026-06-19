@@ -162,23 +162,40 @@ def get_site_name() -> str:
     return resp.json().get("name", "").strip()
 
 
-def list_recent_post_titles(limit: int = 20) -> list[str]:
-    """Return recent public post titles for topic de-duplication."""
+def list_recent_post_titles(limit: int = 50) -> list[str]:
+    """Return recent post titles (published + drafts) for topic de-duplication.
+
+    Tries an authenticated request first so drafts are included — a draft
+    created seconds ago can still trigger the avoidance check. Falls back to
+    the public endpoint (published posts only) if auth fails.
+    """
     cfg = Config.load()
-    resp = requests.get(
-        f"{cfg.WP_BASE_URL}/wp-json/wp/v2/posts",
-        params={
-            "per_page": max(1, min(limit, 100)),
-            "orderby": "date",
-            "order": "desc",
-        },
-        timeout=30,
-    )
-    _raise_for_status(resp)
-    titles = []
-    for post in resp.json():
-        rendered = post.get("title", {}).get("rendered", "")
-        title = _plain_text(rendered)
-        if title:
-            titles.append(title)
-    return titles
+    auth = (cfg.WP_USERNAME, cfg.WP_APP_PASSWORD)
+    per_page = max(1, min(limit, 100))
+
+    seen: dict[int, str] = {}
+
+    for status in ("any", "publish"):
+        params: dict = {"per_page": per_page, "orderby": "date", "order": "desc"}
+        use_auth = auth if status == "any" else None
+        if status == "any":
+            params["status"] = "any"
+        resp = requests.get(
+            f"{cfg.WP_BASE_URL}/wp-json/wp/v2/posts",
+            params=params,
+            auth=use_auth,
+            timeout=30,
+        )
+        if not resp.ok:
+            if status == "any":
+                continue  # auth failed — fall through to public fetch
+            resp.raise_for_status()
+        for post in resp.json():
+            pid = post.get("id")
+            rendered = post.get("title", {}).get("rendered", "")
+            title = _plain_text(rendered)
+            if pid and title and pid not in seen:
+                seen[pid] = title
+        break  # authenticated fetch succeeded; no need for the public fallback
+
+    return list(seen.values())[:limit]

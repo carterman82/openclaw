@@ -92,8 +92,10 @@ def _build_avoidance_message(recent_titles: list[str] | None) -> str:
         return ""
     title_lines = "\n".join(f"- {title}" for title in recent_titles)
     return (
-        "\n\nDo not write about the same subject, object, example, or angle as "
-        "any of these recent posts. Pick a clearly different topic:\n"
+        "\n\nThe following articles have ALREADY been published on this site. "
+        "You MUST NOT choose a topic that covers the same subject, concept, technique, "
+        "character, or angle — even if the title wording is different. "
+        "If in doubt, choose something completely unrelated:\n"
         f"{title_lines}"
     )
 
