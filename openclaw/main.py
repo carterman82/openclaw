@@ -10,7 +10,7 @@ import sys
 
 from .config import Config
 from .generator import generate_article
-from .publisher import get_category_names, get_site_name, list_recent_post_titles, publish_post
+from .publisher import get_category_names, get_seo_plugin, get_site_name, list_recent_post_titles, publish_post
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,8 @@ def main(argv: list[str] | None = None) -> int:
             logger.info("Config loaded.")
             site_name = get_site_name()
             logger.info("Site name: %r", site_name)
+            seo_plugin = get_seo_plugin()
+            logger.info("SEO plugin: %r", seo_plugin)
             wp_categories = get_category_names()
             logger.info("WP categories: %s", list(wp_categories))
             if args.category and args.category not in wp_categories:
@@ -90,19 +92,31 @@ def main(argv: list[str] | None = None) -> int:
             )
             word_count = len(_strip_html(article["body_html"]).split())
             logger.info(
-                "Claude returned (title=%r, category=%r, words=~%d).",
+                "Claude returned (title=%r, category=%r, words=~%d, slug=%r, keyphrase=%r).",
                 article["title"],
                 article["category"],
                 word_count,
+                article.get("slug"),
+                article.get("focus_keyphrase"),
             )
             status = "draft" if args.draft else "publish"
-            logger.info("POST to WP (status=%s).", status)
+            logger.info(
+                "POST to WP (status=%s, excerpt=%s, slug=%s, seo_plugin=%r).",
+                status,
+                bool(article.get("excerpt")),
+                bool(article.get("slug")),
+                seo_plugin,
+            )
             post = publish_post(
                 title=article["title"],
                 body_html=article["body_html"],
                 category=article["category"],
                 tags=article["tags"],
                 status=status,
+                excerpt=article.get("excerpt"),
+                slug=article.get("slug"),
+                focus_keyphrase=article.get("focus_keyphrase"),
+                seo_plugin=seo_plugin,
             )
             url = post.get("link") or post.get("guid", {}).get("rendered", "unknown")
             logger.info("Published: %s", url)

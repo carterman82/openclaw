@@ -92,6 +92,10 @@ def publish_post(
     category: str,
     tags: list[str],
     status: str = "publish",
+    excerpt: str | None = None,
+    slug: str | None = None,
+    focus_keyphrase: str | None = None,
+    seo_plugin: str | None = None,
 ) -> dict:
     """POST an article to WordPress and return the created post JSON."""
     cfg = Config.load()
@@ -106,20 +110,48 @@ def publish_post(
         )
     tag_ids = [tid for t in tags if (tid := _get_or_create_tag(base_url, auth, t)) is not None]
 
+    payload: dict = {
+        "title": title,
+        "content": body_html,
+        "status": status,
+        "categories": [category_map[category]],
+        "tags": tag_ids,
+    }
+    if excerpt:
+        payload["excerpt"] = excerpt
+    if slug:
+        payload["slug"] = slug
+    if focus_keyphrase and seo_plugin in _SEO_META_KEY:
+        payload["meta"] = {_SEO_META_KEY[seo_plugin]: focus_keyphrase}
+
     resp = requests.post(
         f"{base_url}/wp-json/wp/v2/posts",
-        json={
-            "title": title,
-            "content": body_html,
-            "status": status,
-            "categories": [category_map[category]],
-            "tags": tag_ids,
-        },
+        json=payload,
         auth=auth,
         timeout=60,
     )
     _raise_for_status(resp)
     return resp.json()
+
+
+_SEO_META_KEY: dict[str, str] = {
+    "yoast": "_yoast_wpseo_focuskw",
+    "rankmath": "rank_math_focus_keyword",
+}
+
+
+def get_seo_plugin() -> str | None:
+    """Return 'yoast', 'rankmath', or None based on /wp-json/ namespaces."""
+    cfg = Config.load()
+    resp = requests.get(f"{cfg.WP_BASE_URL}/wp-json/", timeout=15)
+    if not resp.ok:
+        return None
+    namespaces = resp.json().get("namespaces", [])
+    if "yoast/v1" in namespaces:
+        return "yoast"
+    if "rankmath/v1" in namespaces:
+        return "rankmath"
+    return None
 
 
 def get_site_name() -> str:

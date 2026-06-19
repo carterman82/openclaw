@@ -25,8 +25,11 @@ def _build_tool_schema(categories: tuple[str, ...]) -> dict:
                 "body_html": {"type": "string"},
                 "category": {"type": "string", "enum": list(categories)},
                 "tags": {"type": "array", "items": {"type": "string"}},
+                "excerpt": {"type": "string"},
+                "slug": {"type": "string"},
+                "focus_keyphrase": {"type": "string"},
             },
-            "required": ["title", "body_html", "category", "tags"],
+            "required": ["title", "body_html", "category", "tags", "excerpt", "slug", "focus_keyphrase"],
         },
     }
 
@@ -44,7 +47,13 @@ def _build_system_prompt(categories: tuple[str, ...]) -> str:
         "<li>, <strong>, <em>. Do not use Markdown.\n"
         f"- assign exactly one category from this closed list: "
         f"{', '.join(categories)}. Never invent new categories.\n"
-        "- supply 3 to 5 short tags: lowercase, single-word or hyphenated.\n\n"
+        "- supply 3 to 5 short tags: lowercase, single-word or hyphenated.\n"
+        "- write an `excerpt`: 150-160 characters, includes the focus keyphrase, "
+        "gives a clear reason to click. No 'In this article…' opener.\n"
+        "- choose a `focus_keyphrase`: 2-4 words a reader would type into Google "
+        "to find this article. Must appear naturally in the title and body.\n"
+        "- write a `slug`: the URL path — 3-6 lowercase words joined by hyphens, "
+        "no stop words (a, the, of, in, and…), contains the focus keyphrase.\n\n"
         "Submit the article by calling the submit_article tool."
     )
 
