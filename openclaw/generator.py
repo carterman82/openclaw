@@ -49,15 +49,28 @@ def _build_system_prompt(categories: tuple[str, ...]) -> str:
     )
 
 
-def _build_user_message(topic: str | None, category: str | None) -> str:
-    parts = ["Write one evergreen article."]
+def _build_user_message(
+    topic: str | None,
+    category: str | None,
+    site_name: str | None = None,
+) -> str:
+    if site_name:
+        parts = [f"Write one evergreen article suited to the audience of '{site_name}'."]
+    else:
+        parts = ["Write one evergreen article."]
     if topic:
         parts.append(f"Topic: {topic}.")
     else:
-        parts.append(
-            "Pick the topic yourself. Choose something concrete, surprising, "
-            "and not time-sensitive."
-        )
+        if site_name:
+            parts.append(
+                f"Pick the topic yourself. Choose something concrete, surprising, "
+                f"and not time-sensitive that a fan of '{site_name}' would find valuable."
+            )
+        else:
+            parts.append(
+                "Pick the topic yourself. Choose something concrete, surprising, "
+                "and not time-sensitive."
+            )
     if category:
         parts.append(f"Assign category exactly: {category}.")
     else:
@@ -81,12 +94,13 @@ def generate_article(
     category: str | None = None,
     recent_titles: list[str] | None = None,
     categories: tuple[str, ...] | None = None,
+    site_name: str | None = None,
 ) -> dict:
     """Generate one evergreen article via Claude (sonnet 4.6).
 
     Returns a dict with keys: title, body_html, category, tags.
-    `categories` overrides ALLOWED_CATEGORIES if provided (used when the
-    target WP site has a different category set than the default).
+    `categories` overrides ALLOWED_CATEGORIES if provided.
+    `site_name` steers topic selection toward the site's theme.
     """
     effective_categories = categories or ALLOWED_CATEGORIES
     if category and category not in effective_categories:
@@ -103,7 +117,7 @@ def generate_article(
             {
                 "role": "user",
                 "content": (
-                    _build_user_message(topic, category)
+                    _build_user_message(topic, category, site_name)
                     + _build_avoidance_message(recent_titles)
                 ),
             }

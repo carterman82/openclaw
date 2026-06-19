@@ -10,7 +10,7 @@ import sys
 
 from .config import Config
 from .generator import generate_article
-from .publisher import get_category_names, list_recent_post_titles, publish_post
+from .publisher import get_category_names, get_site_name, list_recent_post_titles, publish_post
 
 logger = logging.getLogger(__name__)
 
@@ -59,6 +59,8 @@ def main(argv: list[str] | None = None) -> int:
         try:
             Config.load()
             logger.info("Config loaded.")
+            site_name = get_site_name()
+            logger.info("Site name: %r", site_name)
             wp_categories = get_category_names()
             logger.info("WP categories: %s", list(wp_categories))
             if args.category and args.category not in wp_categories:
@@ -84,6 +86,7 @@ def main(argv: list[str] | None = None) -> int:
                 category=args.category,
                 recent_titles=recent_titles,
                 categories=wp_categories,
+                site_name=site_name or None,
             )
             word_count = len(_strip_html(article["body_html"]).split())
             logger.info(

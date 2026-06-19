@@ -89,6 +89,7 @@ Append decisions here as they're made. Format: `- YYYY-MM-DD: decision — why`
 - 2026-06-19: Moved the allowed category tuple into `openclaw/constants.py` — keeps generator, publisher, and CLI category validation on the same source of truth.
 - 2026-06-19: Added recent-title de-duplication before generation — Anthropic Messages calls are already stateless, but the model was converging on honey when asked to pick its own topic. `main.py` now fetches recent WP post titles and passes them to `generate_article()` as an explicit "avoid these subjects" list when `--topic` is omitted.
 - 2026-06-18: Made categories dynamic — `main.py` calls `publisher.get_category_names()` at startup to fetch the live WP category list; that list is passed into `generate_article()` so the Claude tool schema and system prompt reflect whatever categories actually exist on the configured site. `constants.py` is kept as an offline fallback. Enables pointing the agent at any WP site without code changes — only `.env` needs updating.
+- 2026-06-18: Site-aware topic selection — `publisher.get_site_name()` fetches the WP site name from `/wp-json/` (public, no auth). When `--topic` is omitted, the user message now reads "Write one evergreen article suited to the audience of '{site_name}'" so Claude steers topics toward the site's theme automatically.
 
 ## 5. Roadmap
 

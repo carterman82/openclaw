@@ -122,6 +122,14 @@ def publish_post(
     return resp.json()
 
 
+def get_site_name() -> str:
+    """Return the WP site name from the REST API root (no auth required)."""
+    cfg = Config.load()
+    resp = requests.get(f"{cfg.WP_BASE_URL}/wp-json/", timeout=15)
+    _raise_for_status(resp)
+    return resp.json().get("name", "").strip()
+
+
 def list_recent_post_titles(limit: int = 20) -> list[str]:
     """Return recent public post titles for topic de-duplication."""
     cfg = Config.load()
