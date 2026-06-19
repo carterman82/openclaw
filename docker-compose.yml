@@ -24,7 +24,7 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8088:80"
+      - "127.0.0.1:8088:80"
     environment:
       WORDPRESS_DB_HOST: db:3306
       WORDPRESS_DB_USER: wp
@@ -35,6 +35,7 @@ services:
         define('WP_SITEURL', 'http://localhost:8088');
     volumes:
       - wp_data:/var/www/html
+      - ./wp-content/mu-plugins:/var/www/html/wp-content/mu-plugins:ro
 
   wpcli:
     image: wordpress:cli-php8.3
@@ -47,6 +48,7 @@ services:
       WORDPRESS_DB_NAME: wordpress
     volumes:
       - wp_data:/var/www/html
+      - ./wp-content/mu-plugins:/var/www/html/wp-content/mu-plugins:ro
     user: "33:33"
     entrypoint: ["wp"]
 
