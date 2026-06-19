@@ -44,7 +44,7 @@ def _load_categories(base_url: str, auth: tuple[str, str]) -> dict[str, int]:
     return _category_cache
 
 
-def _get_or_create_tag(base_url: str, auth: tuple[str, str], name: str) -> int:
+def _get_or_create_tag(base_url: str, auth: tuple[str, str], name: str) -> int | None:
     if name in _tag_cache:
         return _tag_cache[name]
     resp = requests.get(
@@ -64,6 +64,13 @@ def _get_or_create_tag(base_url: str, auth: tuple[str, str], name: str) -> int:
         auth=auth,
         timeout=30,
     )
+    if resp.status_code in (401, 403):
+        logger.warning(
+            "Cannot create tag %r (HTTP %d — user lacks manage_categories). Skipping.",
+            name,
+            resp.status_code,
+        )
+        return None
     _raise_for_status(resp)
     tag_id = resp.json()["id"]
     _tag_cache[name] = tag_id
@@ -97,7 +104,7 @@ def publish_post(
             f"Category {category!r} not found in WordPress. "
             f"Found: {list(category_map)}"
         )
-    tag_ids = [_get_or_create_tag(base_url, auth, t) for t in tags]
+    tag_ids = [tid for t in tags if (tid := _get_or_create_tag(base_url, auth, t)) is not None]
 
     resp = requests.post(
         f"{base_url}/wp-json/wp/v2/posts",

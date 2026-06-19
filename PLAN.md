@@ -441,6 +441,70 @@ article in one of the four categories. Now you're ready to schedule it
 
 ---
 
+## 7b. External WordPress site — setup & verification
+
+Goal: point the agent at an existing WP site by updating `.env` only.
+No code changes are needed; all categories are fetched from the target site
+at runtime.
+
+### Step E.1 — Create an Application Password on the target site
+
+**Done looks like:** A dedicated Application Password exists for a user with
+at least the **Author** role. The password is stored in `.env`.
+
+**Verification:**
+- [ ] WP Admin → Users → (select user) → confirm the "Username" field (login name, NOT display name or email) — this is `WP_USERNAME`
+- [ ] User role is **Author** or higher (Author can create/publish posts; Contributor cannot publish; Subscriber cannot create posts)
+- [ ] Application Passwords section visible on the user profile page (requires HTTPS on the site — no mu-plugin needed unlike the local HTTP setup)
+- [ ] New password created (name it `openclaw-cli`) and copied immediately from the modal
+- [ ] `.env` updated:
+  - `WP_BASE_URL` = site URL, no trailing slash (e.g. `https://example.com`)
+  - `WP_USERNAME` = WP login name (slug) exactly as shown in the "Username" field
+  - `WP_APP_PASSWORD` = the generated password (spaces optional; 24 chars)
+
+### Step E.2 — Verify REST API authentication
+
+Run these one-liners to confirm credentials work before running the agent:
+
+```powershell
+# Should print your username and roles (not 401)
+.venv\Scripts\python.exe -c @"
+import requests, os
+from dotenv import load_dotenv; load_dotenv()
+r = requests.get(os.getenv('WP_BASE_URL').rstrip('/') + '/wp-json/wp/v2/users/me',
+    auth=(os.getenv('WP_USERNAME'), os.getenv('WP_APP_PASSWORD')))
+print(r.status_code, r.json().get('slug',''), r.json().get('roles',''), r.json().get('code',''))
+"@
+```
+
+**Verification:**
+- [ ] `GET /wp-json/wp/v2/users/me` returns **200** with your username slug and role (e.g. `200 clayton ['author']`)
+- [ ] Role shown is `author`, `editor`, or `administrator` (not `subscriber` or `contributor`)
+
+```powershell
+# Should print the site's categories (not 401)
+.venv\Scripts\python.exe -c "from openclaw.publisher import get_category_names; print(get_category_names())"
+```
+
+- [ ] `get_category_names()` prints the category names from the target site
+
+### Step E.3 — Verify post creation (draft)
+
+```powershell
+python -m openclaw post --draft
+```
+
+**Verification:**
+- [ ] Exit code 0
+- [ ] Final line printed is the draft URL on the target site
+- [ ] Log shows `WARNING Cannot create tag` lines if user lacks `manage_categories` — this is acceptable; tags are skipped gracefully
+- [ ] Log does NOT show `ERROR Run failed`
+- [ ] Draft appears in WP Admin → Posts → Drafts on the target site
+- [ ] Draft author is the `WP_USERNAME` user
+- [ ] Draft assigned to one of the site's real categories
+
+---
+
 ## 8. Open questions
 
 - Theme — defaulting to whatever block theme ships with WP for now; revisit if visual polish becomes a priority.
