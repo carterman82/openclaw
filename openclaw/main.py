@@ -9,9 +9,8 @@ import re
 import sys
 
 from .config import Config
-from .constants import ALLOWED_CATEGORIES
 from .generator import generate_article
-from .publisher import list_recent_post_titles, publish_post
+from .publisher import get_category_names, list_recent_post_titles, publish_post
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +29,8 @@ def _build_parser() -> argparse.ArgumentParser:
     post.add_argument("--topic", help="Article topic (Claude picks if omitted).")
     post.add_argument(
         "--category",
-        choices=ALLOWED_CATEGORIES,
-        metavar="{" + ",".join(ALLOWED_CATEGORIES) + "}",
-        help="Force a specific category (Claude picks if omitted).",
+        metavar="CATEGORY",
+        help="Force a specific category (Claude picks if omitted). Valid values are fetched from the configured WP site at runtime.",
     )
     post.add_argument(
         "--draft",
@@ -61,6 +59,15 @@ def main(argv: list[str] | None = None) -> int:
         try:
             Config.load()
             logger.info("Config loaded.")
+            wp_categories = get_category_names()
+            logger.info("WP categories: %s", list(wp_categories))
+            if args.category and args.category not in wp_categories:
+                logger.error(
+                    "--category %r not found on site. Available: %s",
+                    args.category,
+                    list(wp_categories),
+                )
+                return 1
             recent_titles = [] if args.topic else list_recent_post_titles()
             if recent_titles:
                 logger.info(
@@ -76,6 +83,7 @@ def main(argv: list[str] | None = None) -> int:
                 topic=args.topic,
                 category=args.category,
                 recent_titles=recent_titles,
+                categories=wp_categories,
             )
             word_count = len(_strip_html(article["body_html"]).split())
             logger.info(

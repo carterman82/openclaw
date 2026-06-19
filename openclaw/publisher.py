@@ -9,7 +9,6 @@ import re
 import requests
 
 from .config import Config
-from .constants import ALLOWED_CATEGORIES
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +71,14 @@ def _get_or_create_tag(base_url: str, auth: tuple[str, str], name: str) -> int:
     return tag_id
 
 
+def get_category_names() -> tuple[str, ...]:
+    """Return all non-Uncategorized category names from the configured WP site."""
+    cfg = Config.load()
+    auth = (cfg.WP_USERNAME, cfg.WP_APP_PASSWORD)
+    category_map = _load_categories(cfg.WP_BASE_URL, auth)
+    return tuple(name for name in category_map if name.lower() != "uncategorized")
+
+
 def publish_post(
     title: str,
     body_html: str,
@@ -80,10 +87,6 @@ def publish_post(
     status: str = "publish",
 ) -> dict:
     """POST an article to WordPress and return the created post JSON."""
-    if category not in ALLOWED_CATEGORIES:
-        raise ValueError(
-            f"category must be one of {ALLOWED_CATEGORIES}, got {category!r}"
-        )
     cfg = Config.load()
     auth = (cfg.WP_USERNAME, cfg.WP_APP_PASSWORD)
     base_url = cfg.WP_BASE_URL

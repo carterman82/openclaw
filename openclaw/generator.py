@@ -12,37 +12,41 @@ from .constants import ALLOWED_CATEGORIES
 MODEL: Final[str] = "claude-sonnet-4-6"
 MAX_TOKENS: Final[int] = 4096
 
-_TOOL_SCHEMA: Final[dict] = {
-    "name": "submit_article",
-    "description": "Submit the generated article to be published.",
-    "input_schema": {
-        "type": "object",
-        "additionalProperties": False,
-        "properties": {
-            "title": {"type": "string"},
-            "body_html": {"type": "string"},
-            "category": {"type": "string", "enum": list(ALLOWED_CATEGORIES)},
-            "tags": {"type": "array", "items": {"type": "string"}},
-        },
-        "required": ["title", "body_html", "category", "tags"],
-    },
-}
 
-_SYSTEM_PROMPT: Final[str] = (
-    "You are a careful nonfiction explainer writing for a small evergreen blog. "
-    "Every article you produce MUST:\n"
-    "- be 700-1200 words of body content (not counting the title)\n"
-    "- be EVERGREEN: never use phrases like 'this week', 'yesterday', "
-    "'currently', 'recently', 'now', or 'today'; never reference current events, "
-    "specific years close to the present, or anything that will age out. The post "
-    "must read just as well a year or five years from now.\n"
-    "- return the body as HTML in `body_html`: use <p>, <h2>, <h3>, <ul>, <ol>, "
-    "<li>, <strong>, <em>. Do not use Markdown.\n"
-    "- assign exactly one category from this closed list: "
-    "Science, History, How Things Work, Concepts. Never invent new categories.\n"
-    "- supply 3 to 5 short tags: lowercase, single-word or hyphenated.\n\n"
-    "Submit the article by calling the submit_article tool."
-)
+def _build_tool_schema(categories: tuple[str, ...]) -> dict:
+    return {
+        "name": "submit_article",
+        "description": "Submit the generated article to be published.",
+        "input_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "title": {"type": "string"},
+                "body_html": {"type": "string"},
+                "category": {"type": "string", "enum": list(categories)},
+                "tags": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": ["title", "body_html", "category", "tags"],
+        },
+    }
+
+
+def _build_system_prompt(categories: tuple[str, ...]) -> str:
+    return (
+        "You are a careful nonfiction explainer writing for a small evergreen blog. "
+        "Every article you produce MUST:\n"
+        "- be 700-1200 words of body content (not counting the title)\n"
+        "- be EVERGREEN: never use phrases like 'this week', 'yesterday', "
+        "'currently', 'recently', 'now', or 'today'; never reference current events, "
+        "specific years close to the present, or anything that will age out. The post "
+        "must read just as well a year or five years from now.\n"
+        "- return the body as HTML in `body_html`: use <p>, <h2>, <h3>, <ul>, <ol>, "
+        "<li>, <strong>, <em>. Do not use Markdown.\n"
+        f"- assign exactly one category from this closed list: "
+        f"{', '.join(categories)}. Never invent new categories.\n"
+        "- supply 3 to 5 short tags: lowercase, single-word or hyphenated.\n\n"
+        "Submit the article by calling the submit_article tool."
+    )
 
 
 def _build_user_message(topic: str | None, category: str | None) -> str:
@@ -55,10 +59,6 @@ def _build_user_message(topic: str | None, category: str | None) -> str:
             "and not time-sensitive."
         )
     if category:
-        if category not in ALLOWED_CATEGORIES:
-            raise ValueError(
-                f"category must be one of {ALLOWED_CATEGORIES}, got {category!r}"
-            )
         parts.append(f"Assign category exactly: {category}.")
     else:
         parts.append("Choose the best-fitting category from the allowed list.")
@@ -80,17 +80,25 @@ def generate_article(
     topic: str | None = None,
     category: str | None = None,
     recent_titles: list[str] | None = None,
+    categories: tuple[str, ...] | None = None,
 ) -> dict:
     """Generate one evergreen article via Claude (sonnet 4.6).
 
     Returns a dict with keys: title, body_html, category, tags.
+    `categories` overrides ALLOWED_CATEGORIES if provided (used when the
+    target WP site has a different category set than the default).
     """
+    effective_categories = categories or ALLOWED_CATEGORIES
+    if category and category not in effective_categories:
+        raise ValueError(
+            f"category must be one of {effective_categories}, got {category!r}"
+        )
     cfg = Config.load()
     client = anthropic.Anthropic(api_key=cfg.ANTHROPIC_API_KEY)
     response = client.messages.create(
         model=MODEL,
         max_tokens=MAX_TOKENS,
-        system=_SYSTEM_PROMPT,
+        system=_build_system_prompt(effective_categories),
         messages=[
             {
                 "role": "user",
@@ -100,7 +108,7 @@ def generate_article(
                 ),
             }
         ],
-        tools=[_TOOL_SCHEMA],
+        tools=[_build_tool_schema(effective_categories)],
         tool_choice={"type": "tool", "name": "submit_article"},
     )
 
@@ -114,10 +122,10 @@ def generate_article(
             f"Claude did not return a submit_article tool call. "
             f"stop_reason={response.stop_reason!r}"
         )
-    if article["category"] not in ALLOWED_CATEGORIES:
+    if article["category"] not in effective_categories:
         raise ValueError(
             f"Model returned disallowed category {article['category']!r}; "
-            f"allowed: {ALLOWED_CATEGORIES}"
+            f"allowed: {effective_categories}"
         )
     return article
 
