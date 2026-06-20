@@ -12,6 +12,9 @@ from .config import Config
 
 logger = logging.getLogger(__name__)
 
+_ALLOWED_UPLOAD_MIME = frozenset({"image/jpeg", "image/png", "image/webp", "image/gif"})
+_MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+
 _category_cache: dict[str, int] | None = None
 _tag_cache: dict[str, int] = {}
 
@@ -96,6 +99,7 @@ def publish_post(
     slug: str | None = None,
     focus_keyphrase: str | None = None,
     seo_plugin: str | None = None,
+    featured_media: int | None = None,
 ) -> dict:
     """POST an article to WordPress and return the created post JSON."""
     cfg = Config.load()
@@ -123,6 +127,8 @@ def publish_post(
         payload["slug"] = slug
     if focus_keyphrase and seo_plugin in _SEO_META_KEY:
         payload["meta"] = {_SEO_META_KEY[seo_plugin]: focus_keyphrase}
+    if featured_media:
+        payload["featured_media"] = featured_media
 
     resp = requests.post(
         f"{base_url}/wp-json/wp/v2/posts",
@@ -132,6 +138,58 @@ def publish_post(
     )
     _raise_for_status(resp)
     return resp.json()
+
+
+def upload_media(
+    image_bytes: bytes,
+    filename: str,
+    mime_type: str,
+    alt_text: str,
+    caption: str | None = None,
+) -> int:
+    """Upload an image to the WP Media Library and return the attachment ID.
+
+    Two-step:
+      1. POST raw bytes to /wp/v2/media (binary upload via Content-Disposition).
+      2. POST JSON to /wp/v2/media/{id} to set alt_text and caption.
+    """
+    if mime_type not in _ALLOWED_UPLOAD_MIME:
+        raise ValueError(
+            f"upload_media refuses MIME {mime_type!r}; allowed: {sorted(_ALLOWED_UPLOAD_MIME)}"
+        )
+    if len(image_bytes) > _MAX_UPLOAD_BYTES:
+        raise ValueError(
+            f"upload_media refuses {len(image_bytes)} bytes (cap {_MAX_UPLOAD_BYTES})"
+        )
+    cfg = Config.load()
+    auth = (cfg.WP_USERNAME, cfg.WP_APP_PASSWORD)
+    base_url = cfg.WP_BASE_URL
+
+    upload = requests.post(
+        f"{base_url}/wp-json/wp/v2/media",
+        data=image_bytes,
+        headers={
+            "Content-Type": mime_type,
+            "Content-Disposition": f'attachment; filename="{filename}"',
+        },
+        auth=auth,
+        timeout=120,
+    )
+    _raise_for_status(upload)
+    attachment_id = upload.json()["id"]
+
+    metadata: dict = {"alt_text": alt_text}
+    if caption:
+        metadata["caption"] = caption
+    update = requests.post(
+        f"{base_url}/wp-json/wp/v2/media/{attachment_id}",
+        json=metadata,
+        auth=auth,
+        timeout=30,
+    )
+    _raise_for_status(update)
+    logger.debug("Uploaded media id=%d filename=%r mime=%r", attachment_id, filename, mime_type)
+    return attachment_id
 
 
 _SEO_META_KEY: dict[str, str] = {
@@ -160,6 +218,39 @@ def get_site_name() -> str:
     resp = requests.get(f"{cfg.WP_BASE_URL}/wp-json/", timeout=15)
     _raise_for_status(resp)
     return resp.json().get("name", "").strip()
+
+
+def list_recent_posts_for_linking(limit: int = 30) -> list[dict]:
+    """Return recent PUBLISHED posts as link candidates: {title, link, excerpt}.
+
+    Uses the public endpoint (no auth) so drafts are excluded — we never want
+    to surface an unpublished URL as an internal link candidate.
+    """
+    cfg = Config.load()
+    per_page = max(1, min(limit, 100))
+    try:
+        resp = requests.get(
+            f"{cfg.WP_BASE_URL}/wp-json/wp/v2/posts",
+            params={"per_page": per_page, "orderby": "date", "order": "desc"},
+            timeout=30,
+        )
+    except requests.RequestException as exc:
+        logger.warning("list_recent_posts_for_linking failed: %s", exc)
+        return []
+    if not resp.ok:
+        logger.warning(
+            "list_recent_posts_for_linking returned %d: %s",
+            resp.status_code, resp.text[:200],
+        )
+        return []
+    out: list[dict] = []
+    for post in resp.json():
+        title = _plain_text(post.get("title", {}).get("rendered", ""))
+        link = (post.get("link") or "").strip()
+        excerpt = _plain_text(post.get("excerpt", {}).get("rendered", ""))
+        if title and link:
+            out.append({"title": title, "link": link, "excerpt": excerpt[:200]})
+    return out[:limit]
 
 
 def list_recent_post_titles(limit: int = 50) -> list[str]:
