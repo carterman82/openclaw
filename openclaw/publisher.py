@@ -98,6 +98,8 @@ def publish_post(
     excerpt: str | None = None,
     slug: str | None = None,
     focus_keyphrase: str | None = None,
+    meta_description: str | None = None,
+    seo_title: str | None = None,
     seo_plugin: str | None = None,
     featured_media: int | None = None,
 ) -> dict:
@@ -125,10 +127,24 @@ def publish_post(
         payload["excerpt"] = excerpt
     if slug:
         payload["slug"] = slug
-    if focus_keyphrase and seo_plugin in _SEO_META_KEY:
-        payload["meta"] = {_SEO_META_KEY[seo_plugin]: focus_keyphrase}
     if featured_media:
         payload["featured_media"] = featured_media
+
+    # Build SEO meta payload for the active plugin.
+    seo_keys = _SEO_META_KEYS.get(seo_plugin, {}) if seo_plugin else {}
+    if seo_keys:
+        seo_values = {
+            "focus_keyphrase": focus_keyphrase,
+            "meta_description": meta_description,
+            "seo_title":        seo_title,
+        }
+        meta_payload = {
+            seo_keys[field]: value
+            for field, value in seo_values.items()
+            if field in seo_keys and value
+        }
+        if meta_payload:
+            payload["meta"] = meta_payload
 
     resp = requests.post(
         f"{base_url}/wp-json/wp/v2/posts",
@@ -137,7 +153,52 @@ def publish_post(
         timeout=60,
     )
     _raise_for_status(resp)
-    return resp.json()
+    post = resp.json()
+
+    # Verify SEO meta round-trip so the caller gets early visibility into
+    # whether the plugin is installed and the meta actually persisted.
+    if seo_keys and meta_payload:
+        _verify_seo_meta_roundtrip(base_url, auth, post["id"], seo_keys, seo_values)
+
+    return post
+
+
+def _verify_seo_meta_roundtrip(
+    base_url: str,
+    auth: tuple[str, str],
+    post_id: int,
+    seo_keys: dict[str, str],
+    expected: dict[str, str | None],
+) -> None:
+    """GET the post back and warn for any SEO meta field that didn't persist."""
+    try:
+        r = requests.get(
+            f"{base_url}/wp-json/wp/v2/posts/{post_id}?context=edit",
+            auth=auth,
+            timeout=15,
+        )
+        if not r.ok:
+            logger.warning("SEO meta round-trip check: GET post/%d returned %d.", post_id, r.status_code)
+            return
+        meta = r.json().get("meta", {})
+        for field, wp_key in seo_keys.items():
+            sent = expected.get(field) or ""
+            got = meta.get(wp_key)
+            if got is None:
+                logger.warning(
+                    "SEO meta not persisted — key %r absent from REST response. "
+                    "Install the openclaw-seo-meta plugin (see demo/) to enable REST writes.",
+                    wp_key,
+                )
+            elif got != sent:
+                logger.warning(
+                    "SEO meta round-trip mismatch for %r: sent %r, got %r.",
+                    wp_key, sent, got,
+                )
+            else:
+                logger.debug("SEO meta round-trip OK: %r = %r", wp_key, got)
+    except requests.RequestException as exc:
+        logger.warning("SEO meta round-trip check failed: %s", exc)
 
 
 def upload_media(
@@ -192,9 +253,17 @@ def upload_media(
     return attachment_id
 
 
-_SEO_META_KEY: dict[str, str] = {
-    "yoast": "_yoast_wpseo_focuskw",
-    "rankmath": "rank_math_focus_keyword",
+_SEO_META_KEYS: dict[str, dict[str, str]] = {
+    "yoast": {
+        "focus_keyphrase": "_yoast_wpseo_focuskw",
+        "meta_description": "_yoast_wpseo_metadesc",
+        "seo_title":        "_yoast_wpseo_title",
+    },
+    "rankmath": {
+        "focus_keyphrase": "rank_math_focus_keyword",
+        "meta_description": "rank_math_description",
+        "seo_title":        "rank_math_title",
+    },
 }
 
 

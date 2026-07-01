@@ -23,6 +23,7 @@ from .publisher import (
     publish_post,
     upload_media,
 )
+from .trends import gather_trending_signals
 
 logger = logging.getLogger(__name__)
 
@@ -233,7 +234,8 @@ def _fetch_and_attach_image(article: dict) -> tuple[dict | None, int | None, str
     image = None
 
     prompt = article.get("image_prompt")
-    alt_hint = article.get("focus_keyphrase") or article["title"]
+    # Prefer the generator's keyphrase-inclusive alt text; fall back gracefully.
+    alt_hint = article.get("image_alt_text") or article.get("focus_keyphrase") or article["title"]
     if prompt:
         logger.info("Generating OpenAI image (prompt=%r).", prompt[:120])
         image = generate_openai_image(prompt, alt_hint)
@@ -257,7 +259,7 @@ def _fetch_and_attach_image(article: dict) -> tuple[dict | None, int | None, str
     ext = _MIME_TO_EXT.get(image["mime_type"], "jpg")
     slug = article.get("slug") or "featured"
     filename = f"{slug}-featured.{ext}"
-    alt = image["alt_text"] or article["title"]
+    alt = article.get("image_alt_text") or image["alt_text"] or article["title"]
     try:
         attachment_id = upload_media(
             image["image_bytes"], filename, image["mime_type"], alt, caption=caption,
@@ -335,6 +337,7 @@ def main(argv: list[str] | None = None) -> int:
             link_candidates = list_recent_posts_for_linking()
             if link_candidates:
                 logger.info("Loaded %d internal-link candidates.", len(link_candidates))
+            trending_signals = None if args.topic else gather_trending_signals()
             logger.info(
                 "Calling Claude (topic=%r, category=%r).",
                 args.topic,
@@ -347,6 +350,7 @@ def main(argv: list[str] | None = None) -> int:
                 categories=wp_categories,
                 site_name=site_name or None,
                 internal_link_candidates=link_candidates,
+                trending_signals=trending_signals,
             )
             word_count = len(_strip_html(article["body_html"]).split())
             logger.info(
@@ -357,6 +361,32 @@ def main(argv: list[str] | None = None) -> int:
                 article.get("slug"),
                 article.get("focus_keyphrase"),
             )
+            logger.info(
+                "Angle justification: %s",
+                article.get("unique_angle_justification") or "<missing>",
+            )
+
+            keyphrase = article.get("focus_keyphrase") or ""
+            if keyphrase:
+                first_p_m = re.search(r"<p[^>]*>(.*?)</p>", article["body_html"], re.IGNORECASE | re.DOTALL)
+                if first_p_m:
+                    first_p_text = re.sub(r"<[^>]+>", " ", first_p_m.group(1))
+                    first_sentence = re.split(r"[.!?]", first_p_text)[0]
+                    if keyphrase.lower() not in first_sentence.lower():
+                        logger.warning(
+                            "Y2: focus_keyphrase %r not found in first sentence of first <p>. "
+                            "Publishing anyway.",
+                            keyphrase,
+                        )
+
+            image_alt = article.get("image_alt_text") or ""
+            if keyphrase and image_alt and keyphrase.lower() not in image_alt.lower():
+                logger.warning(
+                    "Y6: focus_keyphrase %r not found in image_alt_text %r. "
+                    "Publishing anyway.",
+                    keyphrase,
+                    image_alt,
+                )
 
             internal_used = article.get("internal_links_used") or []
             external_used = article.get("external_links_used") or []
@@ -408,6 +438,8 @@ def main(argv: list[str] | None = None) -> int:
                 excerpt=article.get("excerpt"),
                 slug=article.get("slug"),
                 focus_keyphrase=article.get("focus_keyphrase"),
+                meta_description=article.get("meta_description"),
+                seo_title=article.get("seo_title"),
                 seo_plugin=seo_plugin,
                 featured_media=featured_media_id,
             )

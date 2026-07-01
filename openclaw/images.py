@@ -1,6 +1,6 @@
 """Featured-image sources for openclaw articles.
 
-Active path: OpenAI gpt-image-1-mini (see `generate_openai_image`). The Unsplash
+Active path: OpenAI gpt-image-2 (see `generate_openai_image`). The Unsplash
 search/download/attribution helpers below are kept as a flippable fallback.
 """
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 UNSPLASH_API: Final[str] = "https://api.unsplash.com"
 UTM_PARAMS: Final[str] = "utm_source=openclaw&utm_medium=referral"
-OPENAI_IMAGE_MODEL: Final[str] = "gpt-image-1-mini"
+OPENAI_IMAGE_MODEL: Final[str] = "gpt-image-2"
 OPENAI_IMAGE_SIZE: Final[str] = "1536x1024"
 OPENAI_IMAGE_QUALITY: Final[str] = "medium"
 
@@ -60,7 +60,7 @@ def _safe_http_url(url: str, default: str) -> str:
 
 
 def generate_openai_image(prompt: str, alt_text: str) -> dict | None:
-    """Generate one image via OpenAI gpt-image-1-mini.
+    """Generate one image via OpenAI gpt-image-2.
 
     Returns the same dict shape as `find_unsplash_image` so main.py is source-
     agnostic. `attribution` is None for AI-generated images (no credit needed).
