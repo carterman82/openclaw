@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import os
 import re
 import sys
 from html import escape as html_escape
 from html.parser import HTMLParser
+from pathlib import Path
 from urllib.parse import urlparse
 
 from .config import Config
@@ -26,6 +28,75 @@ from .publisher import (
 from .trends import gather_trending_signals
 
 logger = logging.getLogger(__name__)
+
+
+_SITE_PREFIXED_KEYS: tuple[str, ...] = (
+    "WP_BASE_URL",
+    "WP_USERNAME",
+    "WP_APP_PASSWORD",
+)
+
+
+def _activate_site(slug: str | None) -> None:
+    """Copy prefixed env vars (e.g. CATFANCAST_WP_BASE_URL) into their bare positions.
+
+    Called before Config.load() so downstream code reads bare WP_* env vars
+    without knowing about per-site prefixes. Cross-site keys (ANTHROPIC_API_KEY,
+    OPENAI_API_KEY, UNSPLASH_ACCESS_KEY) are never prefixed and never touched.
+    """
+    from dotenv import load_dotenv
+    load_dotenv()  # ensure .env is read before we inspect os.environ
+
+    if not slug:
+        return
+
+    prefix = slug.upper() + "_"
+    missing: list[str] = []
+    for key in _SITE_PREFIXED_KEYS:
+        prefixed = prefix + key
+        value = os.environ.get(prefixed)
+        if value is None or value == "":
+            missing.append(prefixed)
+            continue
+        os.environ[key] = value
+    if missing:
+        raise RuntimeError(
+            f"--site {slug!r}: missing env vars {missing}. "
+            f"Add them to .env with the {prefix} prefix."
+        )
+    logger.info("Activated site %r → %s", slug, os.environ["WP_BASE_URL"])
+
+
+_WEBSITE_MEMORY_DIR: Path = Path(__file__).resolve().parent.parent / "website_memory"
+
+
+def _load_trends_config(site_host: str) -> tuple[list[str], list[str]]:
+    """Return (subreddits, seeds) from website_memory/{site_host}.trends.json.
+
+    Returns ([], []) when the file is absent — no hardcoded fallback so no
+    signals from one site bleed into another. Logs a warning when the file
+    is missing so operators know to create it.
+    """
+    path = _WEBSITE_MEMORY_DIR / f"{site_host}.trends.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        subreddits = [str(s) for s in data.get("reddit_subreddits", [])]
+        seeds = [str(s) for s in data.get("google_suggest_seeds", [])]
+        logger.debug(
+            "Loaded trends config for %r: %d subreddits, %d seeds.",
+            site_host, len(subreddits), len(seeds),
+        )
+        return subreddits, seeds
+    except FileNotFoundError:
+        logger.warning(
+            "No trends config at %s — skipping Reddit/Suggest signals. "
+            "Create it to enable trending topic discovery.",
+            path,
+        )
+        return [], []
+    except (json.JSONDecodeError, TypeError) as exc:
+        logger.warning("Trends config at %s is invalid JSON: %s — skipping.", path, exc)
+        return [], []
 
 
 def _strip_html(html: str) -> str:
@@ -282,6 +353,14 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sub = parser.add_subparsers(dest="command", required=True)
     post = sub.add_parser("post", help="Generate and publish one article.")
+    post.add_argument(
+        "--site",
+        metavar="SLUG",
+        help=(
+            "Select which site's prefixed env vars (SLUG_WP_BASE_URL etc.) and "
+            "website_memory/{host}.md file to use. Omit to use bare WP_* env vars."
+        ),
+    )
     post.add_argument("--topic", help="Article topic (Claude picks if omitted).")
     post.add_argument(
         "--category",
@@ -313,8 +392,14 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "post":
         try:
-            Config.load()
+            _activate_site(args.site)
+            cfg = Config.load()
             logger.info("Config loaded.")
+            site_host = urlparse(cfg.WP_BASE_URL).hostname or ""
+            if not site_host:
+                raise RuntimeError(
+                    f"Could not parse hostname from WP_BASE_URL {cfg.WP_BASE_URL!r}."
+                )
             site_name = get_site_name()
             logger.info("Site name: %r", site_name)
             seo_plugin = get_seo_plugin()
@@ -337,7 +422,14 @@ def main(argv: list[str] | None = None) -> int:
             link_candidates = list_recent_posts_for_linking()
             if link_candidates:
                 logger.info("Loaded %d internal-link candidates.", len(link_candidates))
-            trending_signals = None if args.topic else gather_trending_signals()
+            if args.topic:
+                trending_signals = None
+            else:
+                site_subreddits, site_seeds = _load_trends_config(site_host)
+                trending_signals = gather_trending_signals(
+                    subreddits=site_subreddits,
+                    seeds=site_seeds,
+                )
             logger.info(
                 "Calling Claude (topic=%r, category=%r).",
                 args.topic,
@@ -349,6 +441,7 @@ def main(argv: list[str] | None = None) -> int:
                 recent_titles=recent_titles,
                 categories=wp_categories,
                 site_name=site_name or None,
+                site_host=site_host,
                 internal_link_candidates=link_candidates,
                 trending_signals=trending_signals,
             )

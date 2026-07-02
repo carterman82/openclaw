@@ -31,6 +31,7 @@ boxes) and append any new decisions to §4.
 - **WP auth:** Application Password for the `openclaw-agent` user, stored in `.env` (never committed).
 - **Anthropic SDK:** use `claude-sonnet-4-6` via the `anthropic` Python package; structured replies use tool-use (`tools=[...]` + `tool_choice={"type":"tool", "name":"submit_article"}`). The GPT-4o code path is preserved as a commented block in `openclaw/generator.py` for easy revert.
 - **Target WP site is portable:** point the agent at any WP site by editing `.env` only — `WP_BASE_URL` + a valid Application Password for an Author-or-higher user. Categories and SEO plugin are discovered at runtime; no code changes needed. See PLAN.md §7b.
+- **Multi-site (Phase 3.6):** `.env` supports per-site prefixes (`CATFANCAST_WP_BASE_URL`, `CATFANCAST_WP_USERNAME`, `CATFANCAST_WP_APP_PASSWORD`). Select the active site with `--site catfancast` on `python -m openclaw post`; `main._activate_site()` copies the prefixed vars into their bare positions before anything else loads. Bare `WP_*` vars are still honored when `--site` is omitted. Each site's persona lives in `website_memory/{hostname}.md` (hostname is parsed from `WP_BASE_URL`); missing file is a hard error.
 
 ## Common commands
 
@@ -56,8 +57,11 @@ python -m openclaw post --topic "history of jazz" --category History   # overrid
 python -m openclaw post --draft                                         # publish as draft
 python -m openclaw post --help
 
+# Multi-site: select a per-site prefix block from .env
+python -m openclaw post --site catfancast --draft
+
 # Generation-only smoke test: calls Claude, uses recent-title de-duplication, does NOT publish
-python -c "from openclaw.generator import generate_article; from openclaw.publisher import list_recent_post_titles; article = generate_article(recent_titles=list_recent_post_titles()); print(article['title']); print(article['category'])"
+python scripts/smoke-trends.py
 ```
 
 There are no automated tests. Verification steps are manual (see PLAN.md §7).
@@ -68,14 +72,14 @@ There are no automated tests. Verification steps are manual (see PLAN.md §7).
 openclaw/
 ├── config.py      # Config.load() → frozen dataclass from .env; called by generator, publisher, images
 ├── constants.py   # shared category constants (offline fallback only)
-├── generator.py   # generate_article(...) — Claude tool-use; loads Instructions/*.md at runtime
+├── generator.py   # generate_article(...) — Claude tool-use; loads Instructions/*.md + website_memory/{host}.md at runtime
 ├── publisher.py   # publish_post + upload_media + list_recent_post_titles + list_recent_posts_for_linking
 ├── images.py      # find_unsplash_image / generate_openai_image / attribution_html / track_download
 ├── main.py        # `python -m openclaw post` CLI entry; wires generation → links → image → publish
 └── __main__.py    # module runner for `python -m openclaw`
 ```
 
-Data flow: `main.py` parses args → fetches `get_site_name()`, `get_seo_plugin()`, `get_category_names()`, `list_recent_post_titles()` (for de-dup, when no `--topic`), and `list_recent_posts_for_linking()` (internal-link candidates) from WP → `generate_article()` (Claude API with the live category list, site name, avoidance titles, and link candidates threaded in) → main validates internal links against candidates (strips invented URLs) and enforces external-link safety attrs (`rel="noopener" target="_blank"`) → `_fetch_and_attach_image()` (Unsplash search + `upload_media` + `attribution_html` append to body) → `publish_post()` with `featured_media` → optional `track_download()` → prints post URL.
+Data flow: `main.py` parses args → `_activate_site(args.site)` copies prefixed env vars into bare positions (no-op when `--site` omitted) → `Config.load()` and hostname derived from `WP_BASE_URL` for the per-site persona lookup → fetches `get_site_name()`, `get_seo_plugin()`, `get_category_names()`, `list_recent_post_titles()` (for de-dup, when no `--topic`), and `list_recent_posts_for_linking()` (internal-link candidates) from WP → `generate_article()` (Claude API with the live category list, site name, `site_host` for `website_memory/{host}.md` lookup, avoidance titles, and link candidates threaded in) → main validates internal links against candidates (strips invented URLs) and enforces external-link safety attrs (`rel="noopener" target="_blank"`) → `_fetch_and_attach_image()` (Unsplash search + `upload_media` + `attribution_html` append to body) → `publish_post()` with `featured_media` → optional `track_download()` → prints post URL.
 
 **Structured output:** `generator.py` uses Claude tool-use with `tool_choice={"type":"tool","name":"submit_article"}`. The tool's `input_schema` requires: `title`, `body_html`, `category` (runtime enum), `tags`, SEO fields (`excerpt`, `slug`, `focus_keyphrase`, `seo_title`, `meta_description`, `image_alt_text`, `image_prompt`, `unsplash_query`), and link reports (`internal_links_used`, `external_links_used`).
 
@@ -87,12 +91,12 @@ Data flow: `main.py` parses args → fetches `get_site_name()`, `get_seo_plugin(
 
 **Linking policy (Phase 3):** Internal links — `list_recent_posts_for_linking()` returns up to 30 published posts as `{title, link, excerpt}`; Claude is told to use 1–3 EXACT URLs when relevant; `main._strip_invented_internal_links` removes any `<a>` not in the candidate set. External links — Claude must include 1–2 authoritative outbound links with `rel="noopener" target="_blank"`; `main._enforce_external_link_attrs` injects missing safety attrs by comparing href host to `Config.WP_BASE_URL`.
 
-**Instructions folder:** three editable markdown files in `Instructions/` are loaded by `generator.py` and injected into the Claude system prompt (in this order: description → style → image guide). Path constants are defined together in `generator.py` via `_INSTRUCTIONS_DIR`. Editing any file takes effect on the next run.
+**Instructions folder + website_memory:** three cross-site editable markdown files in `Instructions/` plus one per-site persona file in `website_memory/` are loaded by `generator.py` and injected into the Claude system prompt (in this order: description → style → topic guide → image guide). Path constants live together in `generator.py` under `_INSTRUCTIONS_DIR` and `_WEBSITE_MEMORY_DIR`. Editing any file takes effect on the next run.
 
-- `Instructions/DESCRIPTION.md` — loaded by `generator._load_description()`. Defines what the site is, target audience, tone, what to write, what to avoid, entity checklist. Edit to redirect the agent toward the site's content needs.
-- `Instructions/STYLE.md` — loaded by `generator._load_style_guide()`. Voice/tone and copy-level conventions. Structural rules (length, evergreen, HTML, linking, schema) stay in `generator.py`.
-- `Instructions/IMAGE_GENERATOR.md` — loaded by `generator._load_image_guide()`. Rules + formula the agent follows when writing the per-article `image_prompt` (composition, mood, lighting, palette, scale, environmental storytelling, the "movie poster test"). Hard constraints (landscape, no in-image text/logos/copyrighted characters) are duplicated in `generator.py` so they survive even if the file is missing.
-- `Instructions/TOPIC.md` — loaded by `generator._load_topic_guide()`. Topic selection rules for Cat Fancast: domain-anchored model (breed, behavior, biology question, medical condition, care concern, or named real cat) with five parallel anchor inventories in §3, a heavy ~92/8 Evergreen/Trending bias, proven angle templates per anchor type, and a hard ban on copyrighted fictional cat characters as topics. Only consulted when Claude is picking the topic itself (no `--topic` flag).
+- `website_memory/{hostname}.md` — loaded by `generator._load_description(site_host)` where `site_host` is `urlparse(WP_BASE_URL).hostname`. Defines what the site is, target audience, tone, what to write, what to avoid, entity checklist. One file per site. Missing file is a **hard error** (fail-fast, since publishing without a persona would produce off-brand content silently). See `website_memory/README.md`.
+- `Instructions/STYLE.md` — loaded by `generator._load_style_guide()`. Voice/tone and copy-level conventions. Cross-site. Structural rules (length, evergreen, HTML, linking, schema) stay in `generator.py`.
+- `Instructions/IMAGE_GENERATOR.md` — loaded by `generator._load_image_guide()`. Rules + formula the agent follows when writing the per-article `image_prompt` (composition, mood, lighting, palette, scale, environmental storytelling, the "movie poster test"). Cross-site. Hard constraints (landscape, no in-image text/logos/copyrighted characters) are duplicated in `generator.py` so they survive even if the file is missing.
+- `Instructions/TOPIC.md` — loaded by `generator._load_topic_guide()`. Topic selection rules for Cat Fancast: domain-anchored model (breed, behavior, biology question, medical condition, care concern, or named real cat) with five parallel anchor inventories in §3, a heavy ~92/8 Evergreen/Trending bias, proven angle templates per anchor type, and a hard ban on copyrighted fictional cat characters as topics. Currently cat-domain-specific; treat as cross-site until a second site needs a different framework. Only consulted when Claude is picking the topic itself (no `--topic` flag).
 
 **mu-plugin caveat:** WP core disables Application Passwords on plain HTTP. The tracked file `wp-content/mu-plugins/allow-app-passwords-on-localhost.php` is bind-mounted into the WordPress container and forces it on for this loopback-only dev site.
 

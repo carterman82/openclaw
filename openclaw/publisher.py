@@ -39,10 +39,10 @@ def _load_categories(base_url: str, auth: tuple[str, str]) -> dict[str, int]:
         f"{base_url}/wp-json/wp/v2/categories",
         params={"per_page": 100},
         auth=auth,
-        timeout=30,
+        timeout=60,
     )
     _raise_for_status(resp)
-    _category_cache = {cat["name"]: cat["id"] for cat in resp.json()}
+    _category_cache = {html.unescape(cat["name"]): cat["id"] for cat in resp.json()}
     logger.debug("Loaded %d categories from WP.", len(_category_cache))
     return _category_cache
 
@@ -340,12 +340,20 @@ def list_recent_post_titles(limit: int = 50) -> list[str]:
         use_auth = auth if status == "any" else None
         if status == "any":
             params["status"] = "any"
-        resp = requests.get(
-            f"{cfg.WP_BASE_URL}/wp-json/wp/v2/posts",
-            params=params,
-            auth=use_auth,
-            timeout=30,
-        )
+        try:
+            resp = requests.get(
+                f"{cfg.WP_BASE_URL}/wp-json/wp/v2/posts",
+                params=params,
+                auth=use_auth,
+                timeout=90,
+            )
+        except requests.exceptions.Timeout:
+            if status == "any":
+                logger.warning(
+                    "Authenticated recent-titles fetch timed out; falling back to public endpoint (drafts will be excluded)."
+                )
+                continue
+            raise
         if not resp.ok:
             if status == "any":
                 continue  # auth failed — fall through to public fetch

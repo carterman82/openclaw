@@ -1,0 +1,11 @@
+{
+  "reddit_subreddits": ["cats", "CatAdvice", "AskVet", "Catloaf"],
+  "google_suggest_seeds": [
+    "why does my cat",
+    "cat breed that",
+    "how to cat",
+    "is it normal for cats to",
+    "my cat keeps",
+    "what does it mean when my cat"
+  ]
+}

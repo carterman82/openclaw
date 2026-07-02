@@ -45,6 +45,48 @@ Edit `.env` and fill in:
 
 > **Never commit `.env`** — it is gitignored.
 
+## Multi-site setup (Phase 3.6)
+
+You can keep credentials for multiple WordPress sites in one `.env` and pick
+the active site at the CLI. The site's persona (what to write about, tone,
+green/red-light topics) lives in a per-site file under `website_memory/`.
+
+**1. Add a prefixed block to `.env`** — repeat the three `WP_*` vars with a
+site slug prefix (uppercase, underscore-separated):
+
+```env
+# Cross-site keys (unchanged)
+ANTHROPIC_API_KEY=sk-ant-…
+UNSPLASH_ACCESS_KEY=…
+OPENAI_API_KEY=sk-…
+
+# Per-site: catfancast.com
+CATFANCAST_WP_BASE_URL=https://catfancast.com
+CATFANCAST_WP_USERNAME=openclaw-agent
+CATFANCAST_WP_APP_PASSWORD=…
+
+# Per-site: another
+OTHERSITE_WP_BASE_URL=https://othersite.com
+OTHERSITE_WP_USERNAME=openclaw-agent
+OTHERSITE_WP_APP_PASSWORD=…
+```
+
+**2. Add the site's persona file** at `website_memory/{hostname}.md`, where
+`{hostname}` matches the host of the site's `WP_BASE_URL` exactly (no www
+stripping, no aliasing). E.g. `WP_BASE_URL=https://catfancast.com` →
+`website_memory/catfancast.com.md`. See `website_memory/README.md` for the
+naming rule and a template.
+
+**3. Run with `--site`**:
+
+```powershell
+python -m openclaw post --site catfancast --draft
+python -m openclaw post --site othersite --draft
+```
+
+If `--site` is omitted, the agent falls back to the bare `WP_*` env vars, so
+existing single-site setups keep working with no change.
+
 ## Usage
 
 ```powershell
@@ -131,25 +173,28 @@ This calls Claude with the recent-title avoidance list and prints the proposed
 title/category, but does not publish anything to WordPress:
 
 ```powershell
-python -c "from openclaw.generator import generate_article; from openclaw.publisher import list_recent_post_titles; article = generate_article(recent_titles=list_recent_post_titles()); print(article['title']); print(article['category'])"
+python scripts/smoke-trends.py
 ```
 
 ## Instructions for the generator
 
-Three editable markdown files in `Instructions/` are loaded by
-`openclaw/generator.py` at runtime and appended to the Claude system prompt.
-Edit any of them freely to retune the agent; changes take effect on the next
-run with no code change.
+Cross-site editable markdown files in `Instructions/` plus one per-site
+persona file in `website_memory/` are loaded by `openclaw/generator.py` at
+runtime and appended to the Claude system prompt. Edit any of them freely to
+retune the agent; changes take effect on the next run with no code change.
 
-- `Instructions/DESCRIPTION.md` — what the site is, target audience, tone,
-  what to write, what to avoid.
-- `Instructions/STYLE.md` — voice/tone and copy-level conventions.
+- `website_memory/{hostname}.md` — what THIS site is, target audience, tone,
+  what to write, what to avoid. One file per site; picked at runtime from
+  the hostname of `WP_BASE_URL`. See `website_memory/README.md`.
+- `Instructions/STYLE.md` — voice/tone and copy-level conventions. Cross-site.
+- `Instructions/TOPIC.md` — topic-selection framework. Cross-site (currently
+  cat-domain-specific).
 - `Instructions/IMAGE_GENERATOR.md` — rules and formula the agent follows
-  when writing the per-article `image_prompt`.
+  when writing the per-article `image_prompt`. Cross-site.
 
 Hard structural rules (article length, evergreen requirement, HTML format,
 linking policy, tool schema) stay in `generator.py` and are not overridable
-from the Instructions files.
+from these files.
 
 ## Switching to the GPT-4o backend
 

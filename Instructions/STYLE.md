@@ -175,7 +175,7 @@ Include the primary keyword naturally in:
 - the URL slug
 - the conclusion, when it fits naturally
 
-Use semantic variations naturally. Write for topics, not keyword density. Search engines and AI Overviews parse meaning, not keyword counts. Do not repeat the exact keyword phrase mechanically.
+Use semantic variations naturally, but hit a **minimum of 5 verbatim occurrences** of the focus keyphrase across the body — Yoast's density check fails below that floor. In a 700–1200-word article this is roughly 0.4–0.7% density, which is well below keyword-stuffing territory. Above the floor, prefer semantic variants over further repetition — search engines and AI Overviews parse meaning, not counts.
 
 ### Required metadata for every article
 
@@ -198,6 +198,15 @@ Generating the title tag, meta description, and slug as text is not sufficient �
 - **Slug**: must contain the focus keyphrase.
 - **Keyphrase reuse**: don't reuse a focus keyphrase already used on another published post on the site; use a more specific variant if the broad term is taken.
 - **At least one image per article, mandatory**: every article needs a minimum of one image with alt text that naturally includes the keyphrase or a close synonym. An article with zero images will always fail both the Images check and the Keyphrase-in-alt-attributes check, independent of how good the body copy is.
+
+### Yoast v25 additions
+
+Recent Yoast releases enforce four checks the base rules above don't fully cover. Each is a hard requirement, not a preference:
+
+- **Keyphrase density (≥5)**: the exact focus keyphrase must appear at least 5 times in the body — not counting the title, meta description, alt text, or slug. Spread the occurrences across the intro, at least one H2/H3, at least two body paragraphs, and the conclusion. Never cluster them.
+- **Keyphrase in meta description (verbatim)**: the meta description must contain the focus keyphrase **verbatim**, not a paraphrase, synonym, or reordering. Yoast does exact-string matching. Write the meta description around the keyphrase, not the other way round.
+- **Keyphrase in a subheading (verbatim)**: at least one `<h2>` or `<h3>` must contain the focus keyphrase verbatim. A close synonym is not enough — Yoast v25 does not credit synonyms for this check. Place it on a subheading that genuinely earns the keyphrase (not a forced "What is X?" heading).
+- **SEO title width — cap at 55 characters**: the `seo_title` field must be **≤55 characters** (down from the previous 60). Yoast measures pixel width, and titles with uppercase letters or wide characters (W, M, capital letters, punctuation) can overflow at 60. 55 is a safe universal ceiling. Keyphrase still goes as close to the start as possible.
 
 ---
 

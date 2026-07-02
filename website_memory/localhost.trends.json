@@ -1,0 +1,11 @@
+{
+  "reddit_subreddits": ["SaaS", "Entrepreneur", "smallbusiness", "productivity"],
+  "google_suggest_seeds": [
+    "best SaaS tools for",
+    "how to automate",
+    "AI tool for",
+    "how to grow a",
+    "best software for freelance",
+    "how to use AI to"
+  ]
+}

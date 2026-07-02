@@ -22,6 +22,9 @@ Future:
 
 Recently completed:
 - Phase 3: featured images and contextual links (2026-06-19).
+- Phase 3.5: SEO hardening (2026-06-29).
+- Phase 3.6: multi-site modularity (2026-07-01) — per-site persona files under
+  `website_memory/{hostname}.md` + prefixed `.env` credentials + `--site` flag.
 
 Content rules:
 - Evergreen informational articles.
@@ -772,6 +775,133 @@ Phase 3.5 exit criteria:
   ideal post.
 - Routing diagnosis (Step 3.5.1 outcome) recorded in §12.
 
+## 9.5 Phase 3.6 Plan - Multi-Site Modularity
+
+Status: **COMPLETE** (2026-07-01).
+
+Goal: make the agent plug-and-play across multiple WordPress sites from one
+`.env` and one working directory. The persona/description file becomes
+per-site; site-specific env vars sit alongside a bare-var fallback; a new
+`--site <slug>` CLI flag picks the active site.
+
+Design decisions (see §12 for the log):
+- Only `DESCRIPTION.md` moves per-site → `website_memory/{hostname}.md`.
+  `STYLE.md`, `TOPIC.md`, `IMAGE_GENERATOR.md` stay global in `Instructions/`.
+- Persona file is selected from `urlparse(WP_BASE_URL).hostname` — no
+  separate env var or flag needed for the file lookup.
+- `.env` supports per-site prefixed vars (`CATFANCAST_WP_BASE_URL`, etc.).
+  `--site catfancast` copies the prefixed values into their bare positions
+  before `Config.load()` runs, so downstream code stays unaware of prefixes.
+- Missing persona file is a **hard error** (fail-fast), because publishing
+  without a persona would produce off-brand content silently.
+
+### Step 3.6.1 - Move DESCRIPTION.md and add naming convention
+
+Status: **COMPLETE** (2026-07-01).
+
+- Created `website_memory/` folder.
+- `git mv Instructions/DESCRIPTION.md website_memory/catfancast.com.md`
+  (registered as a rename in git).
+- Added `website_memory/README.md` documenting the `{hostname}.md` rule and
+  how to add a new site.
+
+### Step 3.6.2 - Per-site loader in generator.py
+
+Status: **COMPLETE** (2026-07-01).
+
+- Deleted `DESCRIPTION_PATH` constant. Added `_WEBSITE_MEMORY_DIR`.
+- `_load_description(site_host: str)` now reads
+  `website_memory/{site_host}.md`; `FileNotFoundError` becomes a
+  `RuntimeError` naming the expected path (fail-fast).
+- `_build_system_prompt(categories, site_host)` and `generate_article(…,
+  site_host: str | None = None)` thread the host through. `generate_article`
+  raises `ValueError` when `site_host` is missing — required at the callsite.
+- `scripts/smoke-trends.py` updated to pass `site_host=urlparse(Config.load()
+  .WP_BASE_URL).hostname`.
+
+### Step 3.6.3 - --site flag and _activate_site in main.py
+
+Status: **COMPLETE** (2026-07-01).
+
+- Added `--site SLUG` to the `post` subparser (before `--topic`).
+- Added `_activate_site(slug)` helper: `load_dotenv()`, then when `slug` is
+  given, copy `{SLUG_UPPER}_WP_BASE_URL`, `{SLUG_UPPER}_WP_USERNAME`,
+  `{SLUG_UPPER}_WP_APP_PASSWORD` into their bare `WP_*` positions in
+  `os.environ`. Missing prefixed vars → `RuntimeError` listing them.
+  `slug=None` is a no-op (bare-var fallback for the single-site case).
+- Cross-site keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+  `UNSPLASH_ACCESS_KEY`) are never prefixed and never touched.
+- `main()` calls `_activate_site(args.site)` BEFORE `Config.load()`.
+- After `Config.load()`, `site_host = urlparse(cfg.WP_BASE_URL).hostname`
+  is passed into `generate_article(site_host=…)`.
+- Log line on activation: `Activated site 'catfancast' → https://catfancast.com`.
+
+### Step 3.6.4 - Docs
+
+Status: **COMPLETE** (2026-07-01).
+
+- `.env.example` restructured with three commented sections: cross-site keys,
+  per-site prefixed pattern (with catfancast + othersite worked examples),
+  and the bare-var single-site fallback.
+- `README.md`: new "Multi-site setup (Phase 3.6)" section with `.env` example
+  and `--site` invocations. Instructions section rewritten to distinguish
+  `website_memory/{host}.md` (per-site) from the three cross-site files.
+  Smoke test replaced with `python scripts/smoke-trends.py`.
+- `CLAUDE.md`: new "Multi-site" bullet under Key facts. Data-flow line and
+  Instructions-folder paragraph updated for `_activate_site`, `site_host`,
+  and `website_memory/{host}.md`. Directory tree comment for `generator.py`
+  now mentions `website_memory/`.
+
+### Step 3.6.5 - Verification
+
+Status: **CODE-LEVEL COMPLETE** (2026-07-01). Full end-to-end publishing
+against a real site is user-run (see the sequence below).
+
+Automated checks that ran:
+- `python -m compileall openclaw scripts` → all files compile.
+- `python -m openclaw post --help` → `--site SLUG` visible in help output.
+
+End-to-end sequence for the user to run:
+
+```powershell
+# 1. Backward compat — bare WP_* vars, no --site.
+python -m openclaw post --draft --verbose
+# Expect: no `Activated site` log; publish succeeds; log line
+# `Loaded website_memory/catfancast.com.md (N chars).`
+
+# 2. Prefixed setup — set CATFANCAST_WP_BASE_URL etc. in .env, use --site.
+python -m openclaw post --site catfancast --draft --verbose
+# Expect: `Activated site 'catfancast' → https://catfancast.com`; publish OK.
+
+# 3. Missing memory file — rename website_memory/catfancast.com.md aside.
+python -m openclaw post --draft
+# Expect: RuntimeError naming website_memory/catfancast.com.md; exit 1.
+# Revert rename.
+
+# 4. Prefix mismatch — --site with no matching prefixed vars in .env.
+python -m openclaw post --site doesnotexist --draft
+# Expect: `RuntimeError: --site 'doesnotexist': missing env vars [...]`.
+
+# 5. Two-site smoke — add OTHERSITE_WP_BASE_URL=... and
+# website_memory/{that-host}.md. Run with --site othersite; publish succeeds
+# with the correct persona in the Claude prompt.
+```
+
+### Step 3.6.6 - PLAN.md + decision log
+
+Status: **COMPLETE** (2026-07-01).
+
+- This §9.5 section inserted between §9 (Phase 3.5) and §10 (Phase 4).
+- §1 "Recently completed" updated.
+- §12 entry added dated 2026-07-01 capturing the three design choices.
+
+Phase 3.6 exit criteria:
+- Publish succeeds identically with `--site catfancast` and with bare env vars
+  (single-site fallback still works).
+- A second site's prefix block + `website_memory/{host}.md` are enough to
+  target it without any code change.
+- Missing persona file fails loudly with the expected path.
+
 ## 10. Phase 4 Plan - Scheduling
 
 Status: not started.
@@ -1036,6 +1166,7 @@ Phase 5 exit criteria:
 - 2026-06-29: Phase 3.5 verification approach: `scripts/verify-seo.py` reimplements every Yoast SEO + Readability condition the agent can affect (Y1-Y12), reads each post + featured-media via REST, prints PASS/FAIL/WARN/SKIP per check, exits non-zero on any FAIL. Used by every Step 3.5.2+ verification block. Yoast's actual sidebar verdict still requires one manual WP Admin spot-check in Step 3.5.5 to catch any drift between the script's reimplementation and Yoast's live scoring (e.g. transition-word list differences).
 - 2026-06-29 Step 3.5.1 outcome: Yoast meta keys (`_yoast_wpseo_focuskw`, `_yoast_wpseo_metadesc`, `_yoast_wpseo_title`) are absent from the REST meta block — they are NOT registered with `show_in_rest=true` on animefancast.com. A test write returns HTTP 200 but the value is silently discarded. Resolution chosen: mu-plugin (`wp-content/mu-plugins/openclaw-register-seo-meta.php`) that calls `register_post_meta` with `show_in_rest=true` and `auth_callback` requiring `edit_posts`. Auto-deployed on local Docker via bind mount; deployed to animefancast.com by the user via FTP/hosting panel or as an installable plugin ZIP.
 - 2026-06-29 verify-seo.py no-plugin adaptations (Steps 3.5.2-3.5.4): On sites without the openclaw-seo-meta plugin, the Yoast meta keys are absent from REST. The verifier was updated to: (1) Routing absent → WARN instead of FAIL (unavoidable limitation, not a code bug); (2) Y1/Y3/Y7/Y8 → SKIP when plugin absent (can't verify keyphrase/seo_title/meta_description without REST access); (3) Y4 → WARN when plugin absent and post title >60 chars (actual seo_title is a separate shorter field); (4) slug-to-keyphrase inference improved: instead of using full slug as keyphrase, find the longest 2-4 word prefix of the slug that appears verbatim in the body text (corrects false FAILs on Y2/Y6/Y10 when slug has extra trailing words).
+- 2026-07-01: Inserted Phase 3.6 (Multi-Site Modularity) between Phase 3.5 and Phase 4. Three design choices: (a) only DESCRIPTION.md moves per-site into `website_memory/{hostname}.md`; STYLE.md, TOPIC.md, IMAGE_GENERATOR.md stay global (TOPIC/IMAGE are cat-domain-specific today but not yet worth splitting until a second site demands it); (b) the persona file is picked from `urlparse(WP_BASE_URL).hostname` — no extra selector; changing WP_BASE_URL is already the site-swap lever; (c) `.env` supports per-site prefixed vars (e.g. `CATFANCAST_WP_BASE_URL`) and a new `--site <slug>` CLI flag; `main._activate_site()` copies prefixed vars into their bare positions before `Config.load()`, so downstream code stays unaware of prefixes. Missing persona file is a hard error (fail-fast), because silent generic content would be worse than a clear stop.
 - 2026-06-29: Swapped site persona from AnimeFancast.com to catfancast.com to escape anime IP/character-copyright risk and lean fully into copyright-free evergreen content. Code unchanged — the agent is already site-agnostic (categories, site name, link candidates, and SEO plugin are all discovered from `/wp-json/` at runtime). All `Instructions/*.md` content rules updated: DESCRIPTION.md rewritten for real cats only; TOPIC.md restructured from anime title-anchors to five parallel domain-anchor inventories (breeds, behaviors, biology, health & care, history & culture) with a heavier ~92/8 evergreen bias; IMAGE_GENERATOR.md worked example replaced (Maine Coon piece) and the Agent Workflow §5 inverted from "copyrighted characters preferred" to a hard ban on copyrighted fictional cats with real-cat-only depictions; STYLE.md banned-phrase example tweaked; CLAUDE.md SEO routing example + TOPIC.md description line updated. Historical references to animefancast.com (verified post URLs, completed Phase 3 records, prior decision-log entries) intentionally preserved as audit trail. `.env` to be repointed by user when catfancast.com is live; first run against the new site picks up the new categories/site-name automatically. The `openclaw-seo-meta` mu-plugin / installable plugin at `demo/openclaw-seo-meta/` should be installed on catfancast.com when ready, otherwise Routing + Y1/Y3/Y7/Y8 will SKIP/WARN as documented in §9.
 
 ## 13. Open Questions
