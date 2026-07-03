@@ -902,6 +902,110 @@ Phase 3.6 exit criteria:
   target it without any code change.
 - Missing persona file fails loudly with the expected path.
 
+## 9.6 Phase 3.7 Plan - Editorial Rewrite of STYLE.md
+
+Status: complete (2026-07-02).
+
+Goal: articles that read like modern popular nonfiction (reference: Robert
+Putnam - concrete opening story, research woven into narrative, casual but
+substantive voice, a "why this matters" payoff) instead of structureless
+SEO-block output. Full restructure of `Instructions/STYLE.md`; SEO/Yoast/
+readability rules preserved but reorganized.
+
+### Problem audit - every identified problem and its solution
+
+Structure problems:
+
+| # | Problem | Solution |
+|---|---------|----------|
+| P1 | **No article architecture.** STYLE.md never defines an article's shape - it is a pile of constraints (bans, caps, checklists) with no blueprint, so the model defaults to interchangeable SEO-block sections. This is the root of the "no structure" feel. | New **Article Architecture** section as the spine of the rewritten doc: mandatory four-part shape - (1) Hook, (2) Thesis/direct answer, (3) Body arc, (4) Conclusion payoff - with rules for each part. |
+| P2 | **Accretion & duplication.** "Reader Engagement & Voice" (old lines 622-707) duplicates and partly contradicts "Human Writing Style" (49-97); two separate banned-phrase lists; "Conclusion Strategy" and "End with momentum" overlap. Duplicated guidance dilutes all of it. | Merge into one **Voice & Tone** section and one consolidated **Banned words & patterns** appendix. Every rule appears exactly once. |
+| P3 | **Internal contradiction on openings.** "Reader Experience" bans scene-setting (answer within 100-150 words) while "Start with the interesting part" demands opening with a relatable situation. The model can't satisfy both, so openings come out flat. | Unified **Hook Craft** rule: a concrete scene, stat, or anecdote IS allowed - capped at ~100 words and required to land on the thesis sentence. Scene-setting that *delays* the answer stays banned. (Putnam's own move: bowling-league anecdote, then thesis, in one page.) |
+| P4 | **No body-arc guidance.** Sections are treated as parallel SEO silos; nothing says they should build on each other. | Body-arc rules in Article Architecture: each H2 advances the argument (question, evidence, meaning), sections escalate toward the conclusion. |
+
+Voice/tone problems:
+
+| # | Problem | Solution |
+|---|---------|----------|
+| P5 | **Negative-space voice.** Tone guidance is ~80% bans. Prose that merely avoids AI-tells comes out sanitized but flat - nothing pulls it toward *entertaining*. | Positive **Voice & Tone** spec: casual register, mandatory contractions, second person, one wry observation per major section, before/after example pairs (textbook voice vs. coffee voice). |
+| P6 | **Voice anchor is an empty placeholder.** The single highest-leverage section is literally a bracketed maintainer note. | Write a real voice anchor: 2-3 exemplar paragraphs in the target register that the model matches drafts against. |
+| P7 | **No research-in-prose model.** E-E-A-T says "name the source" but nothing about *how* research enters the prose, so citations sit like bricks. | New **Research as Story** section: the weave pattern - claim, named evidence, what it means for the reader - with good/bad example pairs. Absorbs the E-E-A-T + Fact-Verification content. |
+
+Depth problems:
+
+| # | Problem | Solution |
+|---|---------|----------|
+| P8 | **700-1200 word budget starves depth.** A hook + narrative arc + woven research + payoff doesn't fit; the interesting parts always get cut. | Raise to **1500-2500 words** (also the ideal SEO range). Code change in `openclaw/generator.py`: base_rules word range and `MAX_TOKENS` 4096 -> 12000. |
+| P9 | **No "so what" requirement.** Conclusions answer the query and just stop. | Conclusion rules: must connect the topic to a bigger idea the reader carries away. "Significance test" added to the pre-submit checklist. |
+
+Consistency problems:
+
+| # | Problem | Solution |
+|---|---------|----------|
+| P10 | **Readability self-audits calibrated to old length** (worked examples assume ~1000 words / ~60 sentences). | Recalculate every worked example for ~2000 words (~120 sentences). Percent caps unchanged. |
+| P11 | **Keyphrase-density floor breaks at new length.** The ">=5 verbatim occurrences" rule was sized for 700-1200 words; Yoast's minimum scales with length. | Proportional rule: **at least 1 verbatim occurrence per 200 words of body** (~8-12 in a 1500-2500-word article), spread across intro / a subheading / body paragraphs / conclusion. |
+| P12 | **Mixed-vertical examples** (Pokemon GO + cats) can pattern-match the wrong domain on a SaaS site. | Keep the file cross-site but make example sets domain-diverse and mark them illustrative. |
+
+### Verification
+
+- [x] STYLE.md rewritten to the 15-section outline; generator.py updated.
+- [x] 3 published posts on localhost (`python -m openclaw post --site localhost`), varied topics.
+      Five iterations published: 1386 (Notion vs spreadsheets), 1388 (Zapier vs Make),
+      1390 (PLG vs SLG), 1392 (pricing page psychology), 1394 (cold email reply rate).
+      Each iteration's failures fed a prompt or code fix before the next run.
+- [x] Each post: hook lands on thesis within ~100 words; body sections build; conclusion has a payoff, not a summary; casual voice passes the Coffee Test; 1500-2500 words.
+- [x] Each post: `python scripts/verify-seo.py <id>` exits 0; Yoast sidebar green for density, keyphrase-in-meta-description, keyphrase-in-subheading, SEO title width.
+      Posts 1392 and 1394 exit 0 on all 14 checks (1394 after a one-word list-item
+      edit; STYLE.md now warns that Yoast counts `<li>` items as sentences).
+- [x] Yoast Readability tab green at the longer length (passive %, sentence length, openers).
+
+### Findings during verification (2026-07-02)
+
+- **Em dashes could not be prompt-suppressed.** The model emitted 12-23 em dashes
+  per article across 5 consecutive generations despite a STYLE.md ban AND a
+  generator.py hard constraint. Confirmed via `?context=edit` that the raw stored
+  content contains them (not wptexturize). Fix: deterministic sanitizer
+  `_strip_em_dashes()` in `openclaw/main.py` replaces em dashes with commas in
+  body_html, title, excerpt, meta_description, seo_title, and image_alt_text
+  before publish. Post 1394: 12 replaced at publish, 0 in stored content.
+- **Keyphrase must be treated as a literal string.** "Zapier vs. Make" (added
+  period) and "Zapier and Make" both break Yoast exact-match checks. Rules added
+  to generator.py + STYLE.md; post 1392 onward passes Y2/Y3/Y8.
+- **Title formulas repeat without rotation pressure.** Three consecutive
+  "X vs. Y" titles until STYLE.md told the model to infer used formulas from the
+  recent-titles list and rotate.
+- **Numbered sequence lists trip Y11** ("Email 2: / Email 3: / Email 4:").
+  Yoast counts `<li>` items as sentences; STYLE.md now requires varying the
+  lead-in on every third sequence item.
+- **User style-review round (2026-07-02):** two gaps in the first five posts —
+  no acknowledgment of weaknesses/exceptions, and no original ideas (pure
+  synthesis of known advice). Added two mandatory STYLE.md sections: **Honest
+  Limits** (every major prescription gets a boundary condition; one dedicated
+  exception passage per article; limits sharpen with specifics, hedges banned)
+  and **The Original Contribution** (>=1 named tactic, test, threshold, or
+  reframe per article that top-ranking pieces don't have, echoed in the payoff).
+  Proving post 1399 (closed-lost CRM data) delivered both: a "source leak test"
+  heuristic (>20% of pipeline volume but <10% of closed-won revenue = pipeline
+  inflation, cut the source) and a limits section with concrete thresholds
+  (<20 closed deals/quarter = noise; rep-collected loss reasons are biased,
+  use a third party). verify-seo.py: 14 PASS / 0 FAIL.
+- **User style-review round 2 (2026-07-02): titles + hooks.** Added to STYLE.md:
+  "Attention mechanics" under Title Craft (answer "what's in it for me", create
+  an honest information gap — claim + missing why, spend words like they cost
+  money, value power words max one per title, hype words banned: insane/
+  shocking/unbelievable/jaw-dropping/mind-blowing/game-changing) and expanded
+  Hook Craft from four to six hook types (surprising fact, intriguing anecdote,
+  bold stance, "yeah but…", in medias res, reader's own moment) with a
+  first-sentence information-gap requirement. Proving post 1402 ("AI Writing
+  Tools Sound Like AI Because You're Using Them Backward") delivered a bold-
+  stance hook and a gap-driven title; 14 PASS / 0 FAIL after opener fixes.
+- **Anaphora trips Y11.** The model uses deliberate parallel repetition
+  ("It opens… It uses… It ends…") — good rhetoric, but Yoast counts it as
+  consecutive same-start sentences. STYLE.md now caps anaphora at two beats
+  (third beat changes shape: "So do your arguments."). Note: verify-seo.py's
+  splitter does not split sentences ending in `."` (quote after period), so
+  runs can span what look like separate sentences.
+
 ## 10. Phase 4 Plan - Scheduling
 
 Status: not started.
@@ -1167,6 +1271,17 @@ Phase 5 exit criteria:
 - 2026-06-29 Step 3.5.1 outcome: Yoast meta keys (`_yoast_wpseo_focuskw`, `_yoast_wpseo_metadesc`, `_yoast_wpseo_title`) are absent from the REST meta block — they are NOT registered with `show_in_rest=true` on animefancast.com. A test write returns HTTP 200 but the value is silently discarded. Resolution chosen: mu-plugin (`wp-content/mu-plugins/openclaw-register-seo-meta.php`) that calls `register_post_meta` with `show_in_rest=true` and `auth_callback` requiring `edit_posts`. Auto-deployed on local Docker via bind mount; deployed to animefancast.com by the user via FTP/hosting panel or as an installable plugin ZIP.
 - 2026-06-29 verify-seo.py no-plugin adaptations (Steps 3.5.2-3.5.4): On sites without the openclaw-seo-meta plugin, the Yoast meta keys are absent from REST. The verifier was updated to: (1) Routing absent → WARN instead of FAIL (unavoidable limitation, not a code bug); (2) Y1/Y3/Y7/Y8 → SKIP when plugin absent (can't verify keyphrase/seo_title/meta_description without REST access); (3) Y4 → WARN when plugin absent and post title >60 chars (actual seo_title is a separate shorter field); (4) slug-to-keyphrase inference improved: instead of using full slug as keyphrase, find the longest 2-4 word prefix of the slug that appears verbatim in the body text (corrects false FAILs on Y2/Y6/Y10 when slug has extra trailing words).
 - 2026-07-01: Inserted Phase 3.6 (Multi-Site Modularity) between Phase 3.5 and Phase 4. Three design choices: (a) only DESCRIPTION.md moves per-site into `website_memory/{hostname}.md`; STYLE.md, TOPIC.md, IMAGE_GENERATOR.md stay global (TOPIC/IMAGE are cat-domain-specific today but not yet worth splitting until a second site demands it); (b) the persona file is picked from `urlparse(WP_BASE_URL).hostname` — no extra selector; changing WP_BASE_URL is already the site-swap lever; (c) `.env` supports per-site prefixed vars (e.g. `CATFANCAST_WP_BASE_URL`) and a new `--site <slug>` CLI flag; `main._activate_site()` copies prefixed vars into their bare positions before `Config.load()`, so downstream code stays unaware of prefixes. Missing persona file is a hard error (fail-fast), because silent generic content would be worse than a clear stop.
+- 2026-07-02: Inserted Phase 3.7 (Editorial Rewrite of STYLE.md) as §9.6. User verdict on generated output: "no structure, made by AI." Full restructure of STYLE.md around a mandatory article architecture (hook -> thesis -> body arc -> conclusion payoff), casual Putnam-style voice with a real voice anchor, research-woven-into-narrative rules, and consolidated banned-lists. Article length raised 700-1200 -> 1500-2500 words (ideal SEO range); `generator.py` MAX_TOKENS 4096 -> 12000. Keyphrase-density floor made proportional (1 per 200 words) so the Yoast v25 check still passes at the longer length. Proof: 3 published posts on localhost, each gated on style review + verify-seo.py.
+- 2026-07-02: Em-dash elimination moved from prompt to code. Five consecutive generations ignored both the STYLE.md ban and a generator.py hard constraint (verified against raw stored content via `?context=edit`, ruling out wptexturize). Added `main._strip_em_dashes()`: deterministic post-processor that replaces em dashes with commas across body_html, title, excerpt, meta_description, seo_title, and image_alt_text before publish, logging a WARNING with the count. Lesson recorded: negative stylistic constraints the model reliably violates belong in deterministic post-processing, not in more prompt emphasis.
+- 2026-07-02: Reddit RSS 429s hardened in `openclaw/trends.py`. Anonymous RSS
+  rate limiting meant a fixed 2-3s gap between subreddit requests routinely
+  429'd all 3 subs in a row. Widened the inter-request delay to 6-9s and added
+  `_get_reddit_rss()`, which retries a 429 up to 3 times with backoff (honors
+  `Retry-After` when present, else 10s/21s/31s + jitter) before giving up on
+  that subreddit. Verified live: with the fix, all 3 configured subreddits
+  (Entrepreneur, smallbusiness, productivity) returned posts in one run,
+  where previously all 3 hit the 429 WARNING path. `fetch_reddit_trends` still
+  never raises; a subreddit that exhausts retries just contributes no posts.
 - 2026-06-29: Swapped site persona from AnimeFancast.com to catfancast.com to escape anime IP/character-copyright risk and lean fully into copyright-free evergreen content. Code unchanged — the agent is already site-agnostic (categories, site name, link candidates, and SEO plugin are all discovered from `/wp-json/` at runtime). All `Instructions/*.md` content rules updated: DESCRIPTION.md rewritten for real cats only; TOPIC.md restructured from anime title-anchors to five parallel domain-anchor inventories (breeds, behaviors, biology, health & care, history & culture) with a heavier ~92/8 evergreen bias; IMAGE_GENERATOR.md worked example replaced (Maine Coon piece) and the Agent Workflow §5 inverted from "copyrighted characters preferred" to a hard ban on copyrighted fictional cats with real-cat-only depictions; STYLE.md banned-phrase example tweaked; CLAUDE.md SEO routing example + TOPIC.md description line updated. Historical references to animefancast.com (verified post URLs, completed Phase 3 records, prior decision-log entries) intentionally preserved as audit trail. `.env` to be repointed by user when catfancast.com is live; first run against the new site picks up the new categories/site-name automatically. The `openclaw-seo-meta` mu-plugin / installable plugin at `demo/openclaw-seo-meta/` should be installed on catfancast.com when ready, otherwise Routing + Y1/Y3/Y7/Y8 will SKIP/WARN as documented in §9.
 
 ## 13. Open Questions

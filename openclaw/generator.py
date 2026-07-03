@@ -14,7 +14,7 @@ from .constants import ALLOWED_CATEGORIES
 logger = logging.getLogger(__name__)
 
 MODEL: Final[str] = "claude-sonnet-4-6"
-MAX_TOKENS: Final[int] = 4096
+MAX_TOKENS: Final[int] = 12000
 _PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 _INSTRUCTIONS_DIR: Final[Path] = _PROJECT_ROOT / "Instructions"
 _WEBSITE_MEMORY_DIR: Final[Path] = _PROJECT_ROOT / "website_memory"
@@ -102,7 +102,7 @@ def _build_system_prompt(categories: tuple[str, ...], site_host: str) -> str:
     base_rules = (
         "You are a careful nonfiction explainer writing for a small evergreen blog. "
         "Every article you produce MUST:\n"
-        "- be 700-1200 words of body content (not counting the title)\n"
+        "- be 1500-2500 words of body content (not counting the title)\n"
         "- decide whether the article is EVERGREEN or TRENDING using the "
         "Topic selection guide below. If EVERGREEN: never use phrases like "
         "'this week', 'yesterday', 'currently', 'recently', 'now', or "
@@ -117,14 +117,27 @@ def _build_system_prompt(categories: tuple[str, ...], site_host: str) -> str:
         "Default to EVERGREEN when uncertain.\n"
         "- return the body as HTML in `body_html`: use <p>, <h2>, <h3>, <ul>, <ol>, "
         "<li>, <strong>, <em>, <a>. Do not use Markdown.\n"
+        "- contain ZERO em-dash characters (—) in body_html, title, or any other "
+        "field. This is a hard constraint, not a style preference. Where you would "
+        "reach for an em dash, use a comma (mild aside), parentheses (true "
+        "parenthetical), a colon (to introduce a named thing), or a period and a "
+        "new sentence. Before submitting, scan your draft for — and rewrite "
+        "every instance.\n"
         f"- assign exactly one category from this closed list: "
         f"{', '.join(categories)}. Never invent new categories.\n"
         "- supply 3 to 5 short tags: lowercase, single-word or hyphenated.\n"
         "- choose a `focus_keyphrase`: 2-4 words a reader would type into Google "
         "to find this article. Must appear naturally in the title and body. "
         "It MUST appear verbatim in the FIRST SENTENCE of the first <p> of body_html.\n"
+        "- treat the focus_keyphrase as a LITERAL STRING everywhere it is required: "
+        "character-for-character, same words, same order, no substitutions and no "
+        "punctuation inserted inside it. If the keyphrase is 'zapier vs make', then "
+        "'Zapier vs. Make' (added period) and 'Zapier and Make' (word swap) both "
+        "FAIL the check. Required verbatim locations: first sentence of body_html, "
+        "seo_title, meta_description, at least one <h2> or <h3>, and the slug "
+        "(hyphenated).\n"
         "- write a `seo_title`: the browser/search-result title. MUST start with the "
-        "focus keyphrase. Maximum 60 characters total. Can be the same as `title` if "
+        "focus keyphrase. Maximum 55 characters total. Can be the same as `title` if "
         "it fits, or a tighter rewrite of it.\n"
         "- write a `meta_description`: 120-156 characters. Must contain the focus "
         "keyphrase naturally. Must read like ad copy — state the benefit or angle "

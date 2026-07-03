@@ -38,9 +38,50 @@ logger = logging.getLogger(__name__)
 # feed at /r/{sub}/top/.rss?t=week is the only no-auth path that still works
 # reliably. RSS strips upvote counts, so per-post `score` becomes None and
 # items are surfaced in Reddit's own top-sort order.
+#
+# Anonymous RSS is rate-limited tightly enough that 3 requests a few seconds
+# apart routinely 429 on all of them. A 2-3s gap wasn't enough breathing room;
+# widen the inter-request delay and retry 429s with backoff (honoring
+# Retry-After when Reddit sends one) instead of giving up on the first hit.
 REDDIT_USER_AGENT: Final[str] = "openclaw/0.1 topic discovery"
 REDDIT_PER_SUB: Final[int] = 10
+REDDIT_INTER_REQUEST_DELAY: Final[tuple[float, float]] = (6.0, 9.0)
+REDDIT_429_MAX_RETRIES: Final[int] = 3
+REDDIT_429_BACKOFF_BASE: Final[float] = 10.0
 _ATOM_NS: Final[str] = "{http://www.w3.org/2005/Atom}"
+
+
+def _get_reddit_rss(sub: str, headers: dict[str, str]) -> "requests.Response | None":
+    """GET one subreddit's RSS feed, retrying on 429 with backoff.
+
+    Returns the response (which may still be a non-429 error) or None if
+    every attempt raised a network exception.
+    """
+    for attempt in range(REDDIT_429_MAX_RETRIES + 1):
+        try:
+            resp = requests.get(
+                f"https://www.reddit.com/r/{sub}/top/.rss",
+                params={"t": "week", "limit": REDDIT_PER_SUB},
+                headers=headers,
+                timeout=15,
+            )
+        except requests.RequestException as exc:
+            logger.warning("Reddit RSS fetch failed for r/%s: %s", sub, exc)
+            return None
+        if resp.status_code != 429 or attempt == REDDIT_429_MAX_RETRIES:
+            return resp
+        retry_after = resp.headers.get("Retry-After")
+        if retry_after and retry_after.strip().isdigit():
+            wait = float(retry_after)
+        else:
+            wait = REDDIT_429_BACKOFF_BASE * (attempt + 1) + random.uniform(0.0, 3.0)
+        logger.warning(
+            "Reddit RSS 429 for r/%s (attempt %d/%d), backing off %.1fs",
+            sub, attempt + 1, REDDIT_429_MAX_RETRIES, wait,
+        )
+        time.sleep(wait)
+    return None  # unreachable, but keeps type-checkers happy
+
 
 GOOGLE_SUGGEST_URL: Final[str] = "http://suggestqueries.google.com/complete/search"
 
@@ -61,16 +102,9 @@ def fetch_reddit_trends(subreddits: list[str], limit: int = 15) -> list[dict]:
     per_sub: dict[str, list[dict]] = {}
     for i, sub in enumerate(subreddits):
         if i:
-            time.sleep(random.uniform(2.0, 3.0))  # be polite to Reddit's anonymous RSS rate limit
-        try:
-            resp = requests.get(
-                f"https://www.reddit.com/r/{sub}/top/.rss",
-                params={"t": "week", "limit": REDDIT_PER_SUB},
-                headers=headers,
-                timeout=15,
-            )
-        except requests.RequestException as exc:
-            logger.warning("Reddit RSS fetch failed for r/%s: %s", sub, exc)
+            time.sleep(random.uniform(*REDDIT_INTER_REQUEST_DELAY))
+        resp = _get_reddit_rss(sub, headers)
+        if resp is None:
             continue
         if not resp.ok:
             logger.warning(

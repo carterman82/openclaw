@@ -218,6 +218,22 @@ def _sanitize_html(body_html: str) -> str:
     return "".join(parser.out)
 
 
+# The model keeps emitting em dashes despite hard prompt constraints (verified
+# across 4 consecutive generations), so we strip them mechanically before
+# publish. An em-dash aside reads naturally as a comma in nearly all cases.
+_EM_DASH_RE = re.compile(r"\s*—+\s*")
+
+
+def _strip_em_dashes(text: str) -> tuple[str, int]:
+    count = len(_EM_DASH_RE.findall(text))
+    if not count:
+        return text, 0
+    replaced = _EM_DASH_RE.sub(", ", text)
+    # An em dash right after punctuation ("said —" or ",—") would leave ", ,".
+    replaced = re.sub(r"([,:;])\s*,\s*", r"\1 ", replaced)
+    return replaced, count
+
+
 def _validate_anchors(
     body_html: str, candidate_urls: set[str], wp_host: str,
 ) -> tuple[str, int]:
@@ -491,6 +507,19 @@ def main(argv: list[str] | None = None) -> int:
                 )
 
             article["body_html"] = _sanitize_html(article["body_html"])
+
+            dash_total = 0
+            for field in ("body_html", "title", "excerpt", "meta_description", "seo_title", "image_alt_text"):
+                value = article.get(field)
+                if value:
+                    article[field], n = _strip_em_dashes(value)
+                    dash_total += n
+            if dash_total:
+                logger.warning(
+                    "Replaced %d em dash(es) with commas across article fields "
+                    "(model ignored the no-em-dash constraint).",
+                    dash_total,
+                )
 
             wp_host = _host_of(Config.load().WP_BASE_URL)
             candidate_urls = {c["link"] for c in link_candidates}
