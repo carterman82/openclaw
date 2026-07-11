@@ -167,6 +167,91 @@ python scripts/verify-seo.py --latest
 
 Exit code 0 = no FAIL (WARNs and SKIPs are acceptable). On sites without the plugin, Routing and Y1/Y3/Y7/Y8 are automatically SKIP/WARN — the remaining content-shape checks (Y2, Y4–Y6, Y10–Y12) are fully verifiable.
 
+## Scheduling (Phase 4)
+
+The daily unattended run is driven by `scripts/run-openclaw.ps1`. It reads
+`scheduled-sites.json` at the project root, iterates every entry with
+`enabled=true`, and publishes one article per site.
+
+**`scheduled-sites.json` schema** — an array of `{slug, enabled, notes}`
+objects. `slug` matches the prefix used in `.env` (e.g. `catfancast` →
+`CATFANCAST_WP_*`). Toggle a site off by setting `"enabled": false`; the
+wrapper skips it entirely (no retries burned).
+
+```json
+[
+  { "slug": "localhost",  "enabled": true,  "notes": "Local Docker dev site." },
+  { "slug": "catfancast", "enabled": false, "notes": "Prod; disable until live." }
+]
+```
+
+**Wrapper behavior:**
+- Per-site retry policy: 3 attempts total, waiting 60s after attempt 1 and
+  300s after attempt 2.
+- Per-attempt log: `logs/openclaw-YYYY-MM-DD-<slug>.log` (gitignored).
+- On final failure of any site, writes `logs/last-run-failed.flag` with the
+  failing site list + last 50 lines of the most recent failing log. On a
+  fully successful run, removes the flag if it exists.
+- Exit code = number of sites that ultimately failed (0 = all passed).
+
+**Manual invocations:**
+
+```powershell
+# One-shot smoke: override the sites list, publish as drafts.
+.\scripts\run-openclaw.ps1 -Sites localhost -Draft
+
+# Run against every enabled site in scheduled-sites.json.
+.\scripts\run-openclaw.ps1
+```
+
+**Register the Task Scheduler entry (once)** — run in an elevated PowerShell:
+
+```powershell
+$Action = New-ScheduledTaskAction `
+    -Execute 'powershell.exe' `
+    -Argument '-NoProfile -ExecutionPolicy Bypass -File "D:\Claude\Wordpress\scripts\run-openclaw.ps1"' `
+    -WorkingDirectory 'D:\Claude\Wordpress'
+
+# Task Scheduler triggers use the machine's local time. Adjust to hit
+# 07:00 America/Denver if the laptop is on a different zone.
+$Trigger = New-ScheduledTaskTrigger -Daily -At 07:00
+
+$Settings = New-ScheduledTaskSettingsSet `
+    -WakeToRun `
+    -StartWhenAvailable `
+    -DontStopIfGoingOnBatteries `
+    -AllowStartIfOnBatteries `
+    -ExecutionTimeLimit (New-TimeSpan -Hours 1)
+
+$Principal = New-ScheduledTaskPrincipal `
+    -UserId "$env:USERDOMAIN\$env:USERNAME" `
+    -LogonType Password `
+    -RunLevel Highest
+
+Register-ScheduledTask `
+    -TaskName 'Openclaw daily post' `
+    -Action $Action `
+    -Trigger $Trigger `
+    -Settings $Settings `
+    -Principal $Principal `
+    -Description 'Runs run-openclaw.ps1 daily; one article per enabled site.'
+```
+
+**Disable / re-enable:**
+
+```powershell
+Disable-ScheduledTask -TaskName 'Openclaw daily post'
+Enable-ScheduledTask  -TaskName 'Openclaw daily post'
+Unregister-ScheduledTask -TaskName 'Openclaw daily post' -Confirm:$false
+```
+
+**Check for silent failures** — the daily run does not push a notification;
+inspect the flag file after suspected misses:
+
+```powershell
+Get-Content .\logs\last-run-failed.flag
+```
+
 ## Smoke Test
 
 This calls Claude with the recent-title avoidance list and prints the proposed

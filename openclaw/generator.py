@@ -1,12 +1,21 @@
-"""Article generator powered by Claude (claude-sonnet-4-6) via tool-use."""
+"""Article generator: local model (LM Studio) primary with Claude fallback.
+
+Phase 3.8: `generate_article()` is a thin router that dispatches to
+`_generate_with_local` when `LOCAL_MODEL_ENABLED=true`, and falls back to
+`_generate_with_claude` on any failure in the trigger set. When the local
+model is disabled, the Claude path is byte-identical to pre-3.8 behavior.
+"""
 
 from __future__ import annotations
 
+import json
 import logging
 from pathlib import Path
 from typing import Final
 
 import anthropic
+import httpx
+import openai
 
 from .config import Config
 from .constants import ALLOWED_CATEGORIES
@@ -15,6 +24,14 @@ logger = logging.getLogger(__name__)
 
 MODEL: Final[str] = "claude-sonnet-4-6"
 MAX_TOKENS: Final[int] = 12000
+LOCAL_TIMEOUT_SECONDS: Final[float] = 600.0
+
+_REQUIRED_ARTICLE_FIELDS: Final[tuple[str, ...]] = (
+    "title", "body_html", "category", "tags", "excerpt", "slug",
+    "focus_keyphrase", "seo_title", "meta_description", "image_alt_text",
+    "image_prompt", "unsplash_query", "unique_angle_justification",
+    "internal_links_used", "external_links_used",
+)
 _PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 _INSTRUCTIONS_DIR: Final[Path] = _PROJECT_ROOT / "Instructions"
 _WEBSITE_MEMORY_DIR: Final[Path] = _PROJECT_ROOT / "website_memory"
@@ -346,56 +363,51 @@ def _build_trending_message(signals: dict | None) -> str:
     )
 
 
-def generate_article(
-    topic: str | None = None,
-    category: str | None = None,
-    recent_titles: list[str] | None = None,
-    categories: tuple[str, ...] | None = None,
-    site_name: str | None = None,
-    site_host: str | None = None,
-    internal_link_candidates: list[dict] | None = None,
-    trending_signals: dict | None = None,
-) -> dict:
-    """Generate one evergreen article via Claude (sonnet 4.6).
+class LocalProviderError(Exception):
+    """Raised when the local model provider produces an unusable result.
 
-    Returns a dict with keys: title, body_html, category, tags, excerpt, slug,
-    focus_keyphrase, seo_title, meta_description, image_alt_text,
-    unique_angle_justification, internal_links_used, external_links_used.
-    `categories` overrides ALLOWED_CATEGORIES if provided.
-    `site_name` steers topic selection toward the site's theme.
-    `internal_link_candidates` is a list of {title, link, excerpt} dicts the
-    LLM may link to from the body. Invented URLs are caller-validated.
-    `trending_signals` is the dict returned by `trends.gather_trending_signals`
-    — surfaces real Reddit/autocomplete activity to inform topic choice.
+    Caught by the router and treated as a fallback trigger. Never propagates
+    out of `generate_article`.
     """
-    effective_categories = categories or ALLOWED_CATEGORIES
-    if category and category not in effective_categories:
+
+
+def _validate_article_payload(payload: dict) -> None:
+    """Ensure every required article field is present and non-empty.
+
+    Raises `ValueError` naming the first offender. Both providers call this
+    before returning, so a downstream `KeyError` in `main.py` cannot come
+    from a malformed provider response.
+    """
+    if not isinstance(payload, dict):
         raise ValueError(
-            f"category must be one of {effective_categories}, got {category!r}"
+            f"article payload must be a dict, got {type(payload).__name__}"
         )
-    if not site_host:
-        raise ValueError("site_host is required (hostname of WP_BASE_URL).")
+    for field in _REQUIRED_ARTICLE_FIELDS:
+        if field not in payload:
+            raise ValueError(f"article payload missing required field: {field!r}")
+        value = payload[field]
+        if isinstance(value, str) and not value.strip():
+            raise ValueError(f"article payload field {field!r} is empty")
+        if isinstance(value, list) and field in ("tags",) and not value:
+            raise ValueError(f"article payload field {field!r} is empty list")
+
+
+def _generate_with_claude(
+    system_prompt: str,
+    user_message: str,
+    tool_schema: dict,
+) -> dict:
+    """Call Claude Sonnet 4.6 with tool-use. Returns parsed tool arguments."""
     cfg = Config.load()
     client = anthropic.Anthropic(api_key=cfg.ANTHROPIC_API_KEY)
     response = client.messages.create(
         model=MODEL,
         max_tokens=MAX_TOKENS,
-        system=_build_system_prompt(effective_categories, site_host),
-        messages=[
-            {
-                "role": "user",
-                "content": (
-                    _build_user_message(topic, category, site_name)
-                    + _build_avoidance_message(recent_titles)
-                    + _build_linking_candidates_message(internal_link_candidates)
-                    + _build_trending_message(trending_signals)
-                ),
-            }
-        ],
-        tools=[_build_tool_schema(effective_categories)],
+        system=system_prompt,
+        messages=[{"role": "user", "content": user_message}],
+        tools=[tool_schema],
         tool_choice={"type": "tool", "name": "submit_article"},
     )
-
     article = None
     for block in response.content:
         if getattr(block, "type", None) == "tool_use" and block.name == "submit_article":
@@ -406,12 +418,178 @@ def generate_article(
             f"Claude did not return a submit_article tool call. "
             f"stop_reason={response.stop_reason!r}"
         )
+    _validate_article_payload(article)
+    return article
+
+
+def _anthropic_to_openai_tool_schema(tool_schema: dict) -> dict:
+    """Convert Anthropic tool-use shape to the OpenAI function-tool shape.
+
+    Anthropic: {name, description, input_schema}
+    OpenAI:    {type: "function", function: {name, description, parameters}}
+    """
+    return {
+        "type": "function",
+        "function": {
+            "name": tool_schema["name"],
+            "description": tool_schema.get("description", ""),
+            "parameters": tool_schema["input_schema"],
+        },
+    }
+
+
+def _generate_with_local(
+    system_prompt: str,
+    user_message: str,
+    tool_schema: dict,
+    base_url: str,
+    model_name: str,
+) -> dict:
+    """Call an OpenAI-compatible local server (LM Studio) with tool-use.
+
+    Raises `LocalProviderError` on any provider-side failure (empty tool call,
+    malformed JSON in arguments, HTTP/network error, timeout). The router
+    catches this and falls back to Claude.
+    """
+    client = openai.OpenAI(
+        base_url=base_url,
+        api_key="lm-studio",  # LM Studio ignores it; SDK requires non-empty
+        timeout=LOCAL_TIMEOUT_SECONDS,
+        max_retries=0,
+    )
+    tool_name = tool_schema["name"]
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+            tools=[_anthropic_to_openai_tool_schema(tool_schema)],
+            tool_choice={"type": "function", "function": {"name": tool_name}},
+            max_tokens=MAX_TOKENS,
+        )
+    except (openai.APIError, openai.APIConnectionError, openai.APITimeoutError,
+            httpx.HTTPError) as exc:
+        raise LocalProviderError(f"HTTP/API error: {type(exc).__name__}: {exc}") from exc
+
+    if not response.choices:
+        raise LocalProviderError("no choices in response")
+    message = response.choices[0].message
+    tool_calls = getattr(message, "tool_calls", None) or []
+    if not tool_calls:
+        raise LocalProviderError(
+            f"model returned no tool call (content preview: "
+            f"{(message.content or '')[:200]!r})"
+        )
+    call = tool_calls[0]
+    call_name = getattr(getattr(call, "function", None), "name", None)
+    if call_name != tool_name:
+        raise LocalProviderError(
+            f"expected tool call {tool_name!r}, got {call_name!r}"
+        )
+    raw_args = getattr(call.function, "arguments", "") or ""
+    try:
+        article = json.loads(raw_args)
+    except json.JSONDecodeError as exc:
+        raise LocalProviderError(
+            f"tool arguments were not valid JSON: {exc}. Preview: {raw_args[:200]!r}"
+        ) from exc
+    try:
+        _validate_article_payload(article)
+    except ValueError as exc:
+        raise LocalProviderError(f"payload validation failed: {exc}") from exc
+    return article
+
+
+def generate_article(
+    topic: str | None = None,
+    category: str | None = None,
+    recent_titles: list[str] | None = None,
+    categories: tuple[str, ...] | None = None,
+    site_name: str | None = None,
+    site_host: str | None = None,
+    internal_link_candidates: list[dict] | None = None,
+    trending_signals: dict | None = None,
+) -> dict:
+    """Generate one article. Routes to local model with Claude fallback.
+
+    Returns a dict with keys: title, body_html, category, tags, excerpt, slug,
+    focus_keyphrase, seo_title, meta_description, image_alt_text, image_prompt,
+    unsplash_query, unique_angle_justification, internal_links_used,
+    external_links_used.
+    `categories` overrides ALLOWED_CATEGORIES if provided.
+    `site_name` steers topic selection toward the site's theme.
+    `internal_link_candidates` is a list of {title, link, excerpt} dicts the
+    LLM may link to from the body. Invented URLs are caller-validated.
+    `trending_signals` is the dict returned by `trends.gather_trending_signals`.
+    """
+    effective_categories = categories or ALLOWED_CATEGORIES
+    if category and category not in effective_categories:
+        raise ValueError(
+            f"category must be one of {effective_categories}, got {category!r}"
+        )
+    if not site_host:
+        raise ValueError("site_host is required (hostname of WP_BASE_URL).")
+    cfg = Config.load()
+
+    system_prompt = _build_system_prompt(effective_categories, site_host)
+    user_message = (
+        _build_user_message(topic, category, site_name)
+        + _build_avoidance_message(recent_titles)
+        + _build_linking_candidates_message(internal_link_candidates)
+        + _build_trending_message(trending_signals)
+    )
+    tool_schema = _build_tool_schema(effective_categories)
+
+    article = _dispatch(cfg, system_prompt, user_message, tool_schema)
+
     if article["category"] not in effective_categories:
         raise ValueError(
             f"Model returned disallowed category {article['category']!r}; "
             f"allowed: {effective_categories}"
         )
     return article
+
+
+def _dispatch(
+    cfg: Config,
+    system_prompt: str,
+    user_message: str,
+    tool_schema: dict,
+) -> dict:
+    """Route: local -> Claude fallback if LOCAL_MODEL_ENABLED; else Claude direct."""
+    if not cfg.LOCAL_MODEL_ENABLED:
+        article = _generate_with_claude(system_prompt, user_message, tool_schema)
+        logger.info("provider=claude status=success")
+        return article
+
+    if not cfg.LOCAL_MODEL_BASE_URL or not cfg.LOCAL_MODEL_NAME:
+        logger.warning(
+            "provider=local status=fallback reason=misconfigured "
+            "(LOCAL_MODEL_ENABLED=true but LOCAL_MODEL_BASE_URL/LOCAL_MODEL_NAME missing)"
+        )
+        article = _generate_with_claude(system_prompt, user_message, tool_schema)
+        logger.info("provider=claude status=success")
+        return article
+
+    try:
+        article = _generate_with_local(
+            system_prompt, user_message, tool_schema,
+            cfg.LOCAL_MODEL_BASE_URL, cfg.LOCAL_MODEL_NAME,
+        )
+        logger.info(
+            "provider=local status=success model=%s", cfg.LOCAL_MODEL_NAME
+        )
+        return article
+    except LocalProviderError as exc:
+        logger.warning(
+            "provider=local status=fallback reason=%s: %s",
+            type(exc).__name__, exc,
+        )
+        article = _generate_with_claude(system_prompt, user_message, tool_schema)
+        logger.info("provider=claude status=success")
+        return article
 
 
 # ---------------------------------------------------------------------------

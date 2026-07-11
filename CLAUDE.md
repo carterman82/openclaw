@@ -6,8 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A WordPress prototype article site plus an **openclaw agent** — a Claude-powered
 Python script that writes and publishes one article on demand (Phase 2),
-later automated to run daily at 07:00 (Phase 3), and eventually analytics-aware
-(Phase 4). "Openclaw" = our name for the agent, not an external tool.
+augments with images and SEO fields (Phase 3), scheduled unattended daily at
+07:00 via Windows Task Scheduler (Phase 4), and eventually analytics-aware
+(Phase 5). "Openclaw" = our name for the agent, not an external tool.
 
 ## Read this first
 
@@ -32,6 +33,8 @@ boxes) and append any new decisions to §4.
 - **Anthropic SDK:** use `claude-sonnet-4-6` via the `anthropic` Python package; structured replies use tool-use (`tools=[...]` + `tool_choice={"type":"tool", "name":"submit_article"}`). The GPT-4o code path is preserved as a commented block in `openclaw/generator.py` for easy revert.
 - **Target WP site is portable:** point the agent at any WP site by editing `.env` only — `WP_BASE_URL` + a valid Application Password for an Author-or-higher user. Categories and SEO plugin are discovered at runtime; no code changes needed. See PLAN.md §7b.
 - **Multi-site (Phase 3.6):** `.env` supports per-site prefixes (`CATFANCAST_WP_BASE_URL`, `CATFANCAST_WP_USERNAME`, `CATFANCAST_WP_APP_PASSWORD`). Select the active site with `--site catfancast` on `python -m openclaw post`; `main._activate_site()` copies the prefixed vars into their bare positions before anything else loads. Bare `WP_*` vars are still honored when `--site` is omitted. Each site's persona lives in `website_memory/{hostname}.md` (hostname is parsed from `WP_BASE_URL`); missing file is a hard error.
+- **Local model + fallback (Phase 3.8):** `openclaw/generator.py`'s `generate_article()` is a router. When `LOCAL_MODEL_ENABLED=true` in `.env`, it tries `_generate_with_local` (LM Studio OpenAI-compatible endpoint at `LOCAL_MODEL_BASE_URL`, model id in `LOCAL_MODEL_NAME`) and falls back to `_generate_with_claude` on any `LocalProviderError` (connection failure, timeout, empty/wrong tool call, non-JSON args, missing/empty required field). When unset or false, routes directly to Claude — pre-3.8 behavior. Structured log lines: `provider=<local|claude> status=<success|fallback> [reason=...]`.
+- **Scheduling (Phase 4):** `scripts/run-openclaw.ps1` is the wrapper invoked by Windows Task Scheduler at 07:00 daily. Reads `scheduled-sites.json` at the project root (array of `{slug, enabled, notes}`), runs `python -m openclaw post --site <slug> --verbose` per enabled entry, retries N=2 (60s→300s), writes per-attempt logs to `logs/openclaw-YYYY-MM-DD-<slug>.log`, and drops `logs/last-run-failed.flag` on any final failure (removes it on all-pass). Log-flag-only notification — no email/toast/push. Uses `Start-Process` with `-RedirectStandardOutput/-RedirectStandardError` to sidestep PS 5.1's native-command stderr wrapping (which otherwise turns Python `logging` output into `NativeCommandError` records that trip `$ErrorActionPreference=Stop`).
 
 ## Common commands
 
@@ -62,6 +65,10 @@ python -m openclaw post --site catfancast --draft
 
 # Generation-only smoke test: calls Claude, uses recent-title de-duplication, does NOT publish
 python scripts/smoke-trends.py
+
+# Phase 4 wrapper: reads scheduled-sites.json and publishes one post per enabled site
+.\scripts\run-openclaw.ps1                          # scheduled path
+.\scripts\run-openclaw.ps1 -Sites localhost -Draft  # one-shot smoke
 ```
 
 There are no automated tests. Verification steps are manual (see PLAN.md §7).

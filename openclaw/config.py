@@ -33,6 +33,17 @@ def _validate_base_url(url: str) -> None:
         )
 
 
+_TRUE_STRINGS = frozenset({"true", "1", "yes", "on"})
+
+
+def _normalize_optional(value: str | None) -> str | None:
+    if not value:
+        return None
+    if value == "REPLACE_ME":
+        return None
+    return value
+
+
 @dataclass(frozen=True)
 class Config:
     ANTHROPIC_API_KEY: str
@@ -41,6 +52,9 @@ class Config:
     WP_APP_PASSWORD: str
     UNSPLASH_ACCESS_KEY: str | None = None
     OPENAI_API_KEY: str | None = None
+    LOCAL_MODEL_BASE_URL: str | None = None
+    LOCAL_MODEL_NAME: str | None = None
+    LOCAL_MODEL_ENABLED: bool = False
 
     @classmethod
     def load(cls) -> "Config":
@@ -59,14 +73,15 @@ class Config:
             )
         base_url = os.environ["WP_BASE_URL"].rstrip("/")
         _validate_base_url(base_url)
-        unsplash_key = os.getenv("UNSPLASH_ACCESS_KEY") or None
-        if unsplash_key == "REPLACE_ME":
-            unsplash_key = None
+        local_enabled_raw = (os.getenv("LOCAL_MODEL_ENABLED") or "").strip().lower()
         return cls(
             ANTHROPIC_API_KEY=os.environ["ANTHROPIC_API_KEY"],
             WP_BASE_URL=base_url,
             WP_USERNAME=os.environ["WP_USERNAME"],
             WP_APP_PASSWORD=os.environ["WP_APP_PASSWORD"],
-            UNSPLASH_ACCESS_KEY=unsplash_key,
-            OPENAI_API_KEY=os.getenv("OPENAI_API_KEY"),
+            UNSPLASH_ACCESS_KEY=_normalize_optional(os.getenv("UNSPLASH_ACCESS_KEY")),
+            OPENAI_API_KEY=_normalize_optional(os.getenv("OPENAI_API_KEY")),
+            LOCAL_MODEL_BASE_URL=_normalize_optional(os.getenv("LOCAL_MODEL_BASE_URL")),
+            LOCAL_MODEL_NAME=_normalize_optional(os.getenv("LOCAL_MODEL_NAME")),
+            LOCAL_MODEL_ENABLED=local_enabled_raw in _TRUE_STRINGS,
         )

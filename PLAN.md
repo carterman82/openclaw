@@ -14,9 +14,24 @@ Completed:
 - Phase 2: `python -m openclaw post` generates and publishes articles end to end.
 
 Current active work:
-- Phase 3.5: SEO hardening — fix Yoast red/orange scores before automation.
+- Phase 4: scheduling `python -m openclaw post` for unattended daily runs.
+  Code complete (wrapper + sites config + retry + failure flag + docs)
+  and end-to-end verified against localhost on 2026-07-10 (draft
+  post id 1424). Owed to user: (a) Task Scheduler registration
+  (`Register-ScheduledTask` block in README.md / PLAN.md §10 Step 4.3),
+  and (b) Step 4.5 multi-day E2E gate.
+
+Deferred (ready to resume):
+- Phase 3.8: local model primary (Qwen3.6 on LM Studio) with Claude fallback.
+  All code is landed (Steps 3.8.2–3.8.4) and behaves as pre-3.8 while
+  `LOCAL_MODEL_ENABLED` is unset/false — so Phase 4 automation is safe to
+  build on top of it. To resume: load the Qwen model into LM Studio's
+  memory, set the three `LOCAL_MODEL_*` env vars in `.env`, run
+  `scripts\smoke-local-toolcall.py` to close Step 3.8.1, then continue
+  with Steps 3.8.5–3.8.7 (quality gate, regression sweep, docs).
 
 Future:
+- Phase 3.8: switch primary LLM to a locally hosted Qwen3.6 (LM Studio on the LAN); keep Claude Sonnet 4.6 as automatic fallback.
 - Phase 4: schedule daily publishing at 07:00 America/Denver.
 - Phase 5: make the agent analytics-aware.
 
@@ -1006,130 +1021,549 @@ Consistency problems:
   splitter does not split sentences ending in `."` (quote after period), so
   runs can span what look like separate sentences.
 
-## 10. Phase 4 Plan - Scheduling
+## 9.7 Phase 3.8 Plan - Local Model Primary (Qwen3.6) with Claude Fallback
 
 Status: not started.
 
+Goal: cut per-article API cost to ~$0 by generating with a locally hosted
+Qwen3.6 model on the LAN, while preserving Claude Sonnet 4.6 as an automatic
+fallback for the days the local host is down, the model refuses, or the tool
+call fails validation. No user-visible behavior change: same tool schema, same
+downstream publish path, same SEO guarantees.
+
+Environment:
+- Local model: Qwen3.6 served by LM Studio on `http://192.168.0.200:1234/`.
+- Endpoint is OpenAI-compatible; expect `/v1/models`, `/v1/chat/completions`,
+  and OpenAI-style `tools=[…]` + `tool_choice={"type":"function","function":
+  {"name":"submit_article"}}` for structured output.
+- Reachable from the openclaw host (same LAN, no auth by default). Confirm
+  before Step 3.8.1.
+
+Design decisions to be recorded in §12 when the phase starts:
+- HTTP client: reuse the `openai` Python package pointed at the LM Studio base
+  URL (already a dependency for `images.generate_openai_image`), OR raw
+  `requests`. The `openai` package is preferred because LM Studio is
+  intentionally OpenAI-compatible and it keeps the tool-use JSON shape
+  identical to what the model expects.
+- Fallback trigger set: connection error, HTTP 5xx, timeout > N seconds,
+  empty tool call, malformed JSON in tool arguments, missing required field
+  in the parsed tool arguments, or explicit refusal. Everything else
+  (successful call with a well-formed article) is treated as success even
+  if quality is imperfect.
+- Fallback is single-hop: local -> Claude. Never Claude -> local.
+- Preserve today's Claude path verbatim as `_generate_with_claude()` so the
+  existing behavior is a git-visible identity function under the new router.
+
+### Step 3.8.1 - Endpoint reachability + tool-use capability
+
+Status: **IN PROGRESS** (2026-07-10). `/v1/models` returned HTTP 200 with the
+Qwen model id `qwen/qwen3.6-35b-a3b` (plus flux/gemma/nomic-embed).
+`scripts/smoke-local-toolcall.py` written and ready. `/v1/chat/completions`
+requests timed out at 5 minutes on every attempt — indicates no model was
+loaded into memory in LM Studio at the time. **User action required**:
+open LM Studio, load `qwen/qwen3.6-35b-a3b` into memory, then run
+`.venv\Scripts\python.exe scripts\smoke-local-toolcall.py` and confirm PASS.
+
+Prove Qwen3.6 on the LM Studio host can do everything the current Claude
+call needs BEFORE writing any adapter code. If tool-use round-trip doesn't
+work, the whole phase is invalid and the plan should pivot to prompt-then-
+parse instead of tool-use.
+
+Verification:
+
+```powershell
+# 1. Endpoint alive + model list.
+curl.exe -s http://192.168.0.200:1234/v1/models
+# Expect: JSON with a "data" array, at least one entry naming a Qwen-family
+# model. Record the exact model id string — it goes into LOCAL_MODEL_NAME.
+
+# 2. Plain chat completion.
+curl.exe -s http://192.168.0.200:1234/v1/chat/completions `
+  -H "Content-Type: application/json" `
+  -d '{\"model\":\"<model-id-from-step-1>\",\"messages\":[{\"role\":\"user\",\"content\":\"Reply with exactly OK.\"}]}'
+# Expect: HTTP 200, choices[0].message.content contains "OK".
+
+# 3. Tool-use round-trip with a minimal 2-field schema.
+.venv\Scripts\python.exe scripts\smoke-local-toolcall.py
+# scripts/smoke-local-toolcall.py to be added in this step. Sends a
+# single-tool `tool_choice="required"` request with a schema requiring
+# {"title":"string","body_html":"string"} and prints the parsed
+# arguments dict on success or the raw response on failure.
+```
+
+- [ ] `/v1/models` returns HTTP 200 with the Qwen model id recorded.
+- [ ] Plain chat completion returns "OK".
+- [ ] `scripts/smoke-local-toolcall.py` prints a parsed dict containing both
+      required fields (any content is fine — schema conformance is the win).
+- [ ] Round-trip latency for the toy call is under ~15s on the LAN (hard
+      minimum; anything slower means the full article call will time out
+      the Task Scheduler window in Phase 4).
+- [ ] Result recorded in §12: model id, latency, whether tool-use worked
+      on the first try or needed prompt/system tweaks.
+
+### Step 3.8.2 - Config plumbing
+
+Status: **COMPLETE** (2026-07-10). `openclaw/config.py` now exposes
+`LOCAL_MODEL_BASE_URL: str | None`, `LOCAL_MODEL_NAME: str | None`, and
+`LOCAL_MODEL_ENABLED: bool` on the frozen `Config`. `REPLACE_ME` normalization
+lifted into a shared `_normalize_optional()` helper (also used by
+UNSPLASH_ACCESS_KEY and OPENAI_API_KEY). `.env.example` documents the three
+new vars, commented out so a fresh clone defaults to Claude. Verified:
+`Config.load()` returns `None/None/False` when the vars are absent from `.env`.
+
+Add three env vars and thread them through `Config`. Zero behavior change
+yet — this step exists so Step 3.8.3 can consume typed config values
+instead of reading `os.environ` directly.
+
+New env vars in `.env.example`:
+- `LOCAL_MODEL_BASE_URL=http://192.168.0.200:1234/v1` (note the `/v1`
+  suffix — the `openai` SDK appends `/chat/completions`, not `/v1/...`).
+- `LOCAL_MODEL_NAME=<exact model id from Step 3.8.1>`.
+- `LOCAL_MODEL_ENABLED=true` (string "true"/"false"; `Config` parses to
+  bool). Defaults to `false` when unset so a fresh clone still uses Claude.
+
+`openclaw/config.py`:
+- Add three `Optional[str]` / `bool` fields to the frozen dataclass.
+- `LOCAL_MODEL_ENABLED` normalization: `"true"/"1"/"yes"` -> True, anything
+  else -> False.
+- `REPLACE_ME` on either string field normalizes to `None` (mirrors the
+  existing `UNSPLASH_ACCESS_KEY` pattern).
+
+Verification:
+
+```powershell
+# Loads without errors and reports the three new fields.
+.venv\Scripts\python.exe -c "from openclaw.config import Config; c = Config.load(); print(c.LOCAL_MODEL_BASE_URL, c.LOCAL_MODEL_NAME, c.LOCAL_MODEL_ENABLED)"
+```
+
+- [ ] `Config.load()` prints the values from local `.env` with no exception.
+- [ ] With `LOCAL_MODEL_ENABLED` unset, the field is `False` (not None,
+      not string "false").
+- [ ] `python -m compileall openclaw` still exits 0.
+- [ ] `python -m openclaw post --help` still works (no import regression).
+
+### Step 3.8.3 - Provider abstraction in generator.py
+
+Status: **COMPLETE** (2026-07-10). `openclaw/generator.py` refactored:
+- `_generate_with_claude(system_prompt, user_message, tool_schema) -> dict`
+  wraps the existing Anthropic Messages+tool-use path unchanged.
+- `_generate_with_local(system_prompt, user_message, tool_schema, base_url,
+  model_name) -> dict` uses `openai.OpenAI(base_url=..., api_key="lm-studio")`
+  with a Claude→OpenAI tool-schema converter
+  (`_anthropic_to_openai_tool_schema`). Raises `LocalProviderError` on
+  timeout, connection failure, empty tool call, wrong tool name, non-JSON
+  arguments, or payload validation failure.
+- `_validate_article_payload(payload)` shared validator raises `ValueError`
+  naming the first missing/empty required field. Both providers call it
+  before returning.
+- `_REQUIRED_ARTICLE_FIELDS` centralizes the required-field list.
+- The commented-out GPT-4o block is preserved intact.
+
+Refactor `generate_article()` so the Claude Messages+tool-use call becomes
+one of two interchangeable providers, without changing the callable's
+external signature. Nothing routes to local yet — that's Step 3.8.4.
+
+Refactor in `openclaw/generator.py`:
+- Extract today's Anthropic-SDK code into
+  `_generate_with_claude(system_prompt, user_message, tool_schema) -> dict`.
+  Return value is the parsed tool arguments dict (the article), NOT the
+  raw Anthropic response.
+- Add `_generate_with_local(system_prompt, user_message, tool_schema,
+  base_url, model_name) -> dict` using the `openai` SDK with
+  `base_url=base_url` and `api_key="lm-studio"` (LM Studio ignores the
+  key but the SDK requires a non-empty string). Convert the Claude-style
+  tool schema (top-level `name` + `input_schema`) into the OpenAI
+  `tools=[{"type":"function","function":{"name":..., "parameters":...}}]`
+  shape at the boundary.
+- Preserve the current commented-out GPT-4o block untouched (project
+  convention for reversible provider swaps).
+- Add a shared `_validate_article_payload(payload: dict) -> None` that
+  raises a `ValueError` naming any missing/empty required field. Both
+  provider functions call it before returning.
+
+Verification:
+
+```powershell
+# Directly invoke each provider with a tiny fixture, bypassing main.py.
+.venv\Scripts\python.exe scripts\smoke-providers.py
+# scripts/smoke-providers.py to be added in this step. Loads the real
+# system prompt for a 1-category site, sends the same user message to
+# _generate_with_claude and _generate_with_local, prints the two returned
+# titles, and asserts both dicts have the same set of keys.
+```
+
+- [ ] `_generate_with_claude` returns a dict with the same keys as before
+      the refactor (title, body_html, category, tags, excerpt, slug,
+      focus_keyphrase, seo_title, meta_description, image_alt_text,
+      image_prompt, unsplash_query, internal_links_used, external_links_used).
+- [ ] `_generate_with_local` returns a dict with the same key set.
+- [ ] `_validate_article_payload` raises a `ValueError` naming the field
+      when handed a dict with `body_html=""`.
+- [ ] `python -m openclaw post --draft --verbose` still succeeds against
+      the local Docker site with `LOCAL_MODEL_ENABLED=false` — proof the
+      refactor is a no-op for the existing Claude path.
+
+### Step 3.8.4 - Router + fallback logic
+
+Status: **COMPLETE** (2026-07-10). `generate_article()` is now a thin router
+that hands off to a private `_dispatch(cfg, system_prompt, user_message,
+tool_schema)`:
+- `LOCAL_MODEL_ENABLED=False` → straight to `_generate_with_claude`.
+- `LOCAL_MODEL_ENABLED=True` but `LOCAL_MODEL_BASE_URL/NAME` missing → WARN
+  `reason=misconfigured` and fall back to Claude.
+- `LOCAL_MODEL_ENABLED=True` and both set → try
+  `_generate_with_local`; on `LocalProviderError` log WARN
+  `provider=local status=fallback reason=<class>: <msg>` and call
+  `_generate_with_claude`.
+- Structured log lines on success:
+  `provider=local status=success model=<name>` or `provider=claude
+  status=success`.
+- Local call runs under `LOCAL_TIMEOUT_SECONDS=600.0` and `max_retries=0`
+  so provider errors surface immediately for the fallback path.
+- Non-fallback errors (Anthropic auth, network dead on Claude too) still
+  propagate as before.
+
+Wire the two providers together. `generate_article()` becomes a router.
+
+Router logic in `openclaw/generator.py`:
+- If `Config.LOCAL_MODEL_ENABLED` is False -> straight to Claude, done.
+- Otherwise:
+  1. Try `_generate_with_local()` with a hard timeout (e.g. 180s) around
+     the HTTP call.
+  2. On any of `{httpx.ConnectError, httpx.ReadTimeout, openai.APIError,
+     openai.APIStatusError with 5xx, ValueError from
+     _validate_article_payload, json.JSONDecodeError}`, log a WARNING
+     naming the failure class + reason and call `_generate_with_claude()`.
+  3. Emit a structured log line at INFO on each outcome:
+     `provider=local status=success`,
+     `provider=local status=fallback reason=<class>`,
+     `provider=claude status=success`.
+
+Non-fallback errors (auth failure on Claude, network dead on Claude too)
+propagate as before — publishing correctly fails hard.
+
+Verification:
+
+```powershell
+# 1. Happy path: local reachable, local succeeds.
+$env:LOCAL_MODEL_ENABLED = "true"
+python -m openclaw post --site localhost --draft --verbose 2>&1 | Tee-Object logs\3.8.4-happy.txt
+# Expect: `provider=local status=success` INFO line; article published.
+
+# 2. Local unreachable: point at a dead port.
+$env:LOCAL_MODEL_BASE_URL = "http://192.168.0.200:9999/v1"
+python -m openclaw post --site localhost --draft --verbose 2>&1 | Tee-Object logs\3.8.4-fallback-connrefused.txt
+# Expect: WARN `local ... ConnectError`, then `provider=claude status=success`.
+
+# 3. Local returns malformed tool call: swap the model id to a known
+# non-tool-supporting Qwen variant (or a bad id) to force the provider to
+# either return no tool call or garbage args.
+$env:LOCAL_MODEL_BASE_URL = "http://192.168.0.200:1234/v1"
+$env:LOCAL_MODEL_NAME = "definitely-not-a-real-model"
+python -m openclaw post --site localhost --draft --verbose 2>&1 | Tee-Object logs\3.8.4-fallback-badmodel.txt
+# Expect: WARN naming the failure, then Claude success.
+
+# 4. Restore .env and re-run happy path to confirm no state leak.
+Remove-Item Env:LOCAL_MODEL_BASE_URL, Env:LOCAL_MODEL_NAME, Env:LOCAL_MODEL_ENABLED
+python -m openclaw post --site localhost --draft --verbose
+# Expect: identical behavior to before Phase 3.8.
+```
+
+- [ ] Happy-path log line reads `provider=local status=success` and the
+      published post exists.
+- [ ] Unreachable-host test logs `provider=local status=fallback
+      reason=ConnectError` (or `ConnectTimeout`) then Claude success in
+      the same run.
+- [ ] Bad-model test logs `provider=local status=fallback
+      reason=<ValidationError|APIStatusError>` then Claude success.
+- [ ] LOCAL_MODEL_ENABLED=false is byte-for-byte the pre-3.8 Claude path
+      (spot-check with `git blame` on the router branch to confirm the
+      "disabled" branch calls `_generate_with_claude` with the same args).
+
+### Step 3.8.5 - Structured-output parity + quality gate
+
+Status: not started.
+
+The router works, but "works" only means "the fallback saves us." This step
+proves Qwen3.6 can carry the primary path unassisted often enough to be
+worth being primary.
+
+Verification — five consecutive `--site localhost --draft` runs with
+`LOCAL_MODEL_ENABLED=true` and the local host up:
+
+```powershell
+$env:LOCAL_MODEL_ENABLED = "true"
+$ids = 1..5 | ForEach-Object {
+    (python -m openclaw post --site localhost --draft --verbose 2>&1 |
+        Tee-Object -Append logs\3.8.5.txt |
+        Select-String 'Published: .*[?]p=(\d+)').Matches.Groups[1].Value
+}
+$ids | ForEach-Object { python scripts/verify-seo.py $_ }
+Select-String -Path logs\3.8.5.txt -Pattern 'provider=(local|claude) status=(success|fallback)' |
+    Select-Object -ExpandProperty Line
+```
+
+- [ ] At least 4 of 5 runs log `provider=local status=success` (fallback
+      rate <=20% is the primary-model bar; higher rate means either the
+      prompt needs tuning or Qwen3.6 stays as a secondary).
+- [ ] All 5 posts exit 0 on `verify-seo.py` (proves the local model
+      produces SEO-compliant articles, not just any articles).
+- [ ] Word count of each local-generated post is within 1500-2500 (STYLE.md
+      target from Phase 3.7).
+- [ ] Manual style-review of 2 randomly picked local-generated posts using
+      the Phase 3.7 hook + thesis + payoff rubric; both pass.
+- [ ] Cost check: local runs record $0 outbound; the 1 fallback run (if
+      any) shows the expected Claude usage. Recorded in §12.
+
+### Step 3.8.6 - Full end-to-end + Phase 3 regression check
+
+Status: not started.
+
+Confirm nothing upstream in the publish path (images, links, SEO meta
+routing) regressed. The generator is the only moving part in this phase,
+so the regression surface is small but the failure would be silent.
+
+Verification: reuse the Phase 3 exit-criteria checklist against the 5
+posts from Step 3.8.5 logs:
+
+- [ ] `Uploaded featured image (id=...)` present in each run.
+- [ ] `Internal links used` count > 0 in at least 2 of 5 runs.
+- [ ] `External links used` count > 0 in all 5.
+- [ ] No `Stripped N unauthorized` warnings from the sanitizer.
+- [ ] `_strip_em_dashes` (Phase 3.7 post-processor) runs cleanly on
+      local-generated body_html; count logged (may be higher than for
+      Claude — this is fine, it's exactly what the deterministic
+      sanitizer is there to catch).
+- [ ] SEO meta round-trip WARN behavior unchanged vs. pre-3.8 (this is
+      site-state, not model-state; a delta here means something else
+      moved).
+
+### Step 3.8.7 - Documentation
+
+Status: not started.
+
+Verification:
+
+```powershell
+Select-String -Path README.md -Pattern 'LOCAL_MODEL|Qwen|LM Studio'
+Select-String -Path CLAUDE.md -Pattern 'LOCAL_MODEL|Qwen|_generate_with_local'
+(Select-String -Path PLAN.md -Pattern '2026-\d\d-\d\d.*Phase 3\.8' | Measure-Object).Count
+```
+
+- [ ] README.md gains an "LLM providers" section: the local/Claude split,
+      the three new env vars, how to toggle back to Claude-only, expected
+      fallback log lines.
+- [ ] CLAUDE.md "Key facts" Anthropic-SDK bullet updated to name the
+      router and Qwen3.6 primary; architecture paragraph mentions
+      `_generate_with_local`, `_generate_with_claude`, and the fallback
+      trigger set.
+- [ ] `.env.example` shows the three new vars with realistic sample
+      values and the "defaults to Claude when unset" note.
+- [ ] §12 decision-log entries added for: (a) the LM Studio + OpenAI-SDK
+      transport choice, (b) the fallback trigger set, (c) the Step 3.8.5
+      quality/fallback-rate outcome, (d) the recorded per-article cost
+      delta.
+
+Phase 3.8 exit criteria:
+- 3 consecutive `--site localhost --draft` runs with LOCAL_MODEL_ENABLED=true
+  each publish successfully via the local model (`provider=local
+  status=success`) and each pass `scripts/verify-seo.py` with 0 FAIL.
+- One deliberate local-outage run (bad host or bad model id) fires the
+  Claude fallback in-run and still publishes a compliant post.
+- Toggling LOCAL_MODEL_ENABLED=false restores the pre-3.8 Claude-only
+  behavior with no observable change to output shape.
+- Documentation updated; decision-log entries recorded.
+
+## 10. Phase 4 Plan - Scheduling
+
+Status: in progress (2026-07-10). Wrapper + sites-config + retry landed;
+Task Scheduler entry to be created by user; multi-day E2E owed.
+
 Goal: `python -m openclaw post` runs unattended once per day at 07:00
-America/Denver. Transient failures retry; a hard failure notifies the user.
+America/Denver. Transient failures retry; hard failures leave a flag file
+the user checks manually.
+
+Multi-site: the daily run publishes ONE article per enabled site listed in
+`scheduled-sites.json` (project root), iterated sequentially. Each site has
+its own retry cycle; a failure on one site does not skip the others.
 
 ### Step 4.1 - Choose hosting target
 
-Status: not started.
-
-Decide between:
-- **Windows Task Scheduler on the user's laptop** - free; only runs when the
-  laptop is awake; requires the Wake-to-Run setting to fire reliably.
-- **Always-on cloud VM** (DigitalOcean/Linode/Hetzner, ~$4-6/mo) with cron.
-- **GitHub Actions scheduled workflow** - free for public repos; cold-start
-  measured in seconds; needs the WP site reachable from the public internet
-  (not the localhost-only mu-plugin setup).
-
-Verification:
-- [ ] Decision recorded in §12 with date, choice, and rationale.
-- [ ] Cost ceiling stated.
-- [ ] Known failure modes documented here (e.g. "laptop asleep at 07:00
-  skips that day unless Wake-to-Run is enabled").
+Status: **COMPLETE** (2026-07-10). Decision: **Windows Task Scheduler on
+the user's laptop**. Rationale: no infra cost, no cloud account, and the
+laptop is already the working environment; Phase 4 exists to prove
+automation, not to invest in hosting. Cost ceiling: $0/mo. Known failure
+modes:
+- Laptop off or asleep with Wake-to-Run misconfigured → the 07:00 trigger
+  is skipped that day (Task Scheduler does NOT catch up by default; the
+  "Run task as soon as possible after a scheduled start is missed" option
+  handles the case where the laptop wakes after 07:00 but is on that day).
+- Laptop unplugged with the default AC-power condition on the scheduled
+  task → the trigger silently skips. The Register-ScheduledTask example
+  in Step 4.3 disables this condition explicitly.
+- Docker Desktop not started at 07:00 → the localhost site publish path
+  will fail; retries will not help. Considered acceptable for the
+  prototype; the wrapper's failure flag surfaces it.
+- Cloud migration (VM + cron) remains the escape hatch when reliability
+  matters; the wrapper is Docker-agnostic and would move over as-is.
 
 ### Step 4.2 - Wrapper script
 
-Status: not started.
+Status: **COMPLETE** (2026-07-10). `scripts/run-openclaw.ps1` implements
+the full wrapper (retry + log flag are folded in here rather than split
+across 4.2/4.4, since the retry loop is trivial once the per-site
+invocation exists).
 
-Build a small entry script the scheduler invokes. Suggested name:
-`scripts/run-openclaw.ps1`. Responsibilities:
-- cd into the project root regardless of the scheduler's working directory.
-- Activate `.venv`.
-- Run `python -m openclaw post`.
-- Append stdout+stderr to `logs/openclaw-YYYY-MM-DD.log` (one file per day;
-  `logs/` is gitignored).
-- Exit with the Python process's exit code.
+Responsibilities:
+- `cd` into the project root using `Split-Path -Parent $PSScriptRoot` so
+  the scheduler's working directory does not matter.
+- Invoke `.venv\Scripts\python.exe` directly (skips the interactive
+  Activate.ps1 step Task Scheduler cannot run).
+- Read `scheduled-sites.json` at the project root, iterate the entries
+  with `enabled=true`, and run `python -m openclaw post --site <slug>
+  --verbose` for each. `-Sites <string[]>` parameter overrides the file;
+  `-Draft` appends `--draft`.
+- Append stdout+stderr to `logs/openclaw-YYYY-MM-DD-<slug>.log` (one file
+  per site per day).
+- `logs/` is in `.gitignore` (Phase 3.5 log files remain tracked as audit
+  trail; new files are ignored).
 
-Verification:
-- [ ] `scripts/run-openclaw.ps1` exists; `logs/` is in `.gitignore`.
+Retry policy: N=2 retries per site = 3 attempts total, waiting 60s after
+attempt 1 and 300s after attempt 2. Retries fire on any non-zero exit
+from `python -m openclaw post`.
+
+Failure flag: on final failure of one or more sites, writes
+`logs/last-run-failed.flag` with a summary (which sites failed, exit
+codes, log paths) + the last 50 lines of the most recent failing log.
+On a fully successful run, removes the flag if it exists. Exit code =
+number of sites that ultimately failed (0 = all passed).
+
+Verification (owed to user):
+- [x] `scripts/run-openclaw.ps1` exists; `logs/` in `.gitignore`.
 - [ ] Invoking the script from a fresh PowerShell session in an arbitrary
-  cwd produces a published post within ~60s.
+      cwd produces one published post per enabled site.
 - [ ] The log for that run contains the full pipeline output (config
-  loaded, Claude call, image upload, publish URL).
-- [ ] `$LASTEXITCODE` is 0 on success and non-zero on inner failure.
+      loaded, Claude call, image upload, publish URL) per site.
+- [ ] Exit code is 0 on all-pass and equals the failure count otherwise.
 
 ### Step 4.3 - Schedule configuration
 
-Status: not started.
+Status: not started (owed to user).
 
-Create the scheduler entry for the host chosen in 4.1.
+Create the Task Scheduler entry once. All the settings live in a
+Register-ScheduledTask incantation — safer than clicking through the GUI
+because the exact config is git-visible and reproducible.
 
-For Windows Task Scheduler specifically:
-- Trigger: daily at 07:00 America/Denver.
-- Action: run `scripts/run-openclaw.ps1`.
-- "Wake the computer to run this task" enabled.
-- "Run whether user is logged on or not" with stored credentials.
-- History enabled.
+```powershell
+# Run in an elevated PowerShell prompt on the user's laptop.
 
-Verification:
-- [ ] Task "Openclaw daily post" appears in Task Scheduler.
-- [ ] Right-click → Run produces a published post within ~60s.
-- [ ] Setting the trigger to "in 5 minutes" and walking away fires it
-  automatically and publishes a post.
-- [ ] The History tab shows "Task Started" → "Action Completed" with
-  exit code 0 for the run.
-- [ ] Sleeping the machine before a near-future test trigger confirms Wake-
-  to-Run fires the task within a few minutes (one-time check).
+$Action = New-ScheduledTaskAction `
+    -Execute 'powershell.exe' `
+    -Argument '-NoProfile -ExecutionPolicy Bypass -File "D:\Claude\Wordpress\scripts\run-openclaw.ps1"' `
+    -WorkingDirectory 'D:\Claude\Wordpress'
 
-### Step 4.4 - Retry + failure notification
+# 07:00 America/Denver. Windows Task Scheduler triggers use the machine's
+# local time zone, so if the laptop is not on Mountain Time set the hour
+# offset to match 07:00 Denver (e.g. 08:00 CT / 09:00 ET).
+$Trigger = New-ScheduledTaskTrigger -Daily -At 07:00
 
-Status: not started.
+$Settings = New-ScheduledTaskSettingsSet `
+    -WakeToRun `
+    -StartWhenAvailable `
+    -DontStopIfGoingOnBatteries `
+    -AllowStartIfOnBatteries `
+    -ExecutionTimeLimit (New-TimeSpan -Hours 1)
 
-Implementation:
-- Wrapper retries the Python command on non-zero exit up to **N=2** times,
-  waiting 60s then 300s between attempts.
-- After all retries fail, write the failing log path + last 50 lines to
-  `logs/last-run-failed.flag`.
-- On final failure, trigger a notification via exactly one channel:
-  Windows Toast (`BurntToast` PowerShell module), email (PowerShell SMTP),
-  or a push service (Pushover/Pushbullet HTTP POST). Record the choice in
-  §12.
+# Runs whether the user is logged on or not, with the current user's SID
+# and stored password. Requires the interactive password at registration.
+$Principal = New-ScheduledTaskPrincipal `
+    -UserId "$env:USERDOMAIN\$env:USERNAME" `
+    -LogonType Password `
+    -RunLevel Highest
 
-Verification:
+Register-ScheduledTask `
+    -TaskName 'Openclaw daily post' `
+    -Action $Action `
+    -Trigger $Trigger `
+    -Settings $Settings `
+    -Principal $Principal `
+    -Description 'Runs D:\Claude\Wordpress\scripts\run-openclaw.ps1 daily at 07:00 to generate and publish one article per enabled site in scheduled-sites.json.'
+```
+
+Verification (owed to user):
+- [ ] Task 'Openclaw daily post' appears in Task Scheduler.
+- [ ] Right-click → Run publishes one post per enabled site.
+- [ ] Setting the trigger to "in 5 minutes" (`Set-ScheduledTask` with a
+      new `New-ScheduledTaskTrigger -Once -At ((Get-Date).AddMinutes(5))`)
+      fires it automatically and publishes.
+- [ ] Task Scheduler History tab shows "Task Started" → "Action Completed"
+      with exit code 0.
+- [ ] Sleeping the machine before a near-future test trigger fires the task
+      within a few minutes (Wake-to-Run one-time check).
+
+### Step 4.4 - Retry + failure flag
+
+Status: **COMPLETE** (2026-07-10). Folded into `scripts/run-openclaw.ps1`
+(see Step 4.2). Log-flag-only notification per §12 decision — no email,
+toast, or push service. The user checks `logs/last-run-failed.flag` after
+suspected misses.
+
+Implementation (in the wrapper):
+- Retries the Python command per site on non-zero exit up to **N=2** times,
+  waiting 60s after attempt 1 and 300s after attempt 2.
+- After all retries for a site fail, adds it to a failure summary.
+- After all sites processed, if any failed, writes
+  `logs/last-run-failed.flag` containing: failed site slugs + exit codes +
+  log paths + the last 50 lines of the most recent failing log.
+- On a fully successful run, removes `logs/last-run-failed.flag` if
+  present. Wrapper exit code = number of sites that ultimately failed.
+
+Verification (owed to user):
 - [ ] Simulated transient failure (e.g. unset `ANTHROPIC_API_KEY` in `.env`
-  before invoking the wrapper) → wrapper logs 2 retries and then exactly
-  one notification.
-- [ ] Simulated transient-then-recover (delete the bad env var between
-  retries) → wrapper logs success and no notification fires.
+      before invoking the wrapper) → wrapper logs 2 retries and writes the
+      failure flag.
+- [ ] Simulated transient-then-recover (restore the env var between
+      retries) → wrapper logs success and does NOT write the flag; any
+      previous flag is removed.
 - [ ] After a subsequent successful run, `logs/last-run-failed.flag` is
-  removed or overwritten with success status.
-- [ ] Notification arrives within 30s of the final retry's failure.
+      removed.
 
 ### Step 4.5 - Multi-day end-to-end verification
 
-Status: not started.
+Status: not started (owed to user).
 
 Verification:
-- [ ] 3 consecutive scheduled days each produce 1 published article.
-- [ ] All 3 logs are present in `logs/` with timestamps inside the trigger
-  windows (07:00-07:02 America/Denver).
-- [ ] The 3 article topics are distinct (recent-title de-dup still works).
+- [ ] 3 consecutive scheduled days each produce ONE published article per
+      enabled site in `scheduled-sites.json`.
+- [ ] `logs/openclaw-YYYY-MM-DD-<slug>.log` files exist for each day × slug
+      with timestamps inside the trigger window (07:00-07:02 America/Denver).
+- [ ] The 3 article topics per site are distinct (recent-title de-dup still
+      works within each site).
 - [ ] Task Scheduler History shows 3 successful runs, 0 failed runs.
-- [ ] `logs/last-run-failed.flag` is absent or shows success status.
-- [ ] `logs/` disk usage after 3 days is under 10 MB (sanity check on
-  rotation).
+- [ ] `logs/last-run-failed.flag` is absent.
+- [ ] `logs/` disk usage after 3 days is under 10 MB per site.
 
 ### Step 4.6 - Documentation
 
-Status: not started.
+Status: **COMPLETE** (2026-07-10).
 
 Verification:
-- [ ] README.md gains a "Scheduling" section with the wrapper-script path,
-  the scheduler entry name, and how to disable/re-enable.
-- [ ] CLAUDE.md architecture section adds a line on the wrapper + scheduler
-  layer.
-- [ ] §12 decision log has entries for hosting target and notification
-  channel.
+- [x] README.md gains a "Scheduling (Phase 4)" section: schema,
+      wrapper path, `Register-ScheduledTask` command, disable/re-enable
+      cmdlets, and how to check the failure flag.
+- [x] CLAUDE.md gains a "Scheduling (Phase 4)" bullet under Key facts
+      and adds the wrapper invocations to Common commands. The top-of-file
+      project description was corrected (Phase 4 = scheduling, Phase 5 =
+      analytics; the old wording had them swapped).
+- [x] §12 decision-log entry for hosting target + notification channel
+      landed 2026-07-10 alongside Steps 4.1/4.2/4.4.
 
 Phase 4 exit criteria:
-- 7 consecutive scheduled days produce 7 distinct published articles with
-  no manual intervention.
-- At least one transient failure (real or simulated) has been recovered by
-  the retry logic.
+- 7 consecutive scheduled days produce one distinct published article per
+  enabled site with no manual intervention.
+- At least one transient failure (real or simulated) has been recovered
+  by the retry logic without human intervention beyond a subsequent
+  scheduled run.
 
 ## 11. Phase 5 Plan - Analytics-Aware Agent
 
@@ -1282,12 +1716,42 @@ Phase 5 exit criteria:
   (Entrepreneur, smallbusiness, productivity) returned posts in one run,
   where previously all 3 hit the 429 WARNING path. `fetch_reddit_trends` still
   never raises; a subreddit that exhausts retries just contributes no posts.
+- 2026-07-10: Phase 4 scheduling — hosting target = **Windows Task
+  Scheduler on the user's laptop**; failure channel = **log-flag only**
+  (no toast/email/push). Rationale: prototype-stage automation; zero
+  infra spend, zero third-party accounts, and the user is on this
+  laptop daily. Trade-off: a laptop asleep or off at 07:00 skips that
+  day (Wake-to-Run + StartWhenAvailable narrow but don't close the
+  window); silent failure surfaces via a file the user must
+  proactively check. Escape hatch is a cloud VM + cron; the wrapper
+  is Docker-agnostic and would port over unchanged. Multi-site was
+  layered in: `scheduled-sites.json` (root) lists sites the daily run
+  iterates. Retry policy per site: 3 attempts total, waits 60s / 300s.
+  Failure of one site does not skip others; wrapper exit code = number
+  of ultimately failing sites.
+- 2026-07-10: Phase 3.8 code landed (Steps 3.8.2–3.8.4). Decisions:
+  (a) HTTP client for the local provider is the `openai` Python SDK
+  pointed at LM Studio via `base_url`, not raw `requests` — LM Studio is
+  intentionally OpenAI-compatible so the tool-use JSON shape matches what
+  the model was trained on, and `openai` is already a project dependency
+  (used by `images.generate_openai_image`). (b) Fallback trigger set:
+  connection error, timeout, any `openai.APIError`, empty tool call, wrong
+  tool name, non-JSON arguments, or missing/empty required article field —
+  all funnel through `LocalProviderError`. (c) Fallback is single-hop
+  (local → Claude); Claude failures propagate. (d) Local timeout set to
+  600s so first-token latency on a cold 35B model doesn't spuriously
+  trigger fallback — fallback should mean "the local model can't do this
+  today," not "the local model needs another few seconds to think." (e)
+  When `LOCAL_MODEL_ENABLED=True` but the URL or name is missing,
+  fallback to Claude with `reason=misconfigured` rather than raising —
+  matches the "never block publishing on a provider issue" philosophy.
+  `qwen/qwen3.6-35b-a3b` confirmed present on `/v1/models`; latency check
+  and tool-use round-trip (`scripts/smoke-local-toolcall.py`) still owed
+  by the user once the model is loaded into LM Studio's memory.
 - 2026-06-29: Swapped site persona from AnimeFancast.com to catfancast.com to escape anime IP/character-copyright risk and lean fully into copyright-free evergreen content. Code unchanged — the agent is already site-agnostic (categories, site name, link candidates, and SEO plugin are all discovered from `/wp-json/` at runtime). All `Instructions/*.md` content rules updated: DESCRIPTION.md rewritten for real cats only; TOPIC.md restructured from anime title-anchors to five parallel domain-anchor inventories (breeds, behaviors, biology, health & care, history & culture) with a heavier ~92/8 evergreen bias; IMAGE_GENERATOR.md worked example replaced (Maine Coon piece) and the Agent Workflow §5 inverted from "copyrighted characters preferred" to a hard ban on copyrighted fictional cats with real-cat-only depictions; STYLE.md banned-phrase example tweaked; CLAUDE.md SEO routing example + TOPIC.md description line updated. Historical references to animefancast.com (verified post URLs, completed Phase 3 records, prior decision-log entries) intentionally preserved as audit trail. `.env` to be repointed by user when catfancast.com is live; first run against the new site picks up the new categories/site-name automatically. The `openclaw-seo-meta` mu-plugin / installable plugin at `demo/openclaw-seo-meta/` should be installed on catfancast.com when ready, otherwise Routing + Y1/Y3/Y7/Y8 will SKIP/WARN as documented in §9.
 
 ## 13. Open Questions
 
 - Theme: current default block theme is acceptable; revisit if visual polish matters.
-- Hosting target for Phase 4 - Windows Task Scheduler (laptop) vs cloud VM vs GitHub Actions. Decide in §10 Step 4.1.
-- Notification channel for Phase 4 - Windows Toast vs email vs push service. Decide in §10 Step 4.4.
 - Version control remote: local-only or GitHub?
 - Analytics source for Phase 5 - Jetpack Stats vs Google Analytics 4 vs Plausible vs the site's existing analytics. Decide in §11 Step 5.1.
