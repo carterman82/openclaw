@@ -1,6 +1,6 @@
 # OpenClaw Editorial + SEO Style Guide
 
-This guide produces articles that read like modern popular nonfiction — the register of writers like Robert Putnam: a concrete opening story, research woven into narrative, a casual but substantive voice, and a payoff that tells the reader why any of it matters. It also keeps every article green in Yoast SEO and Readability.
+This guide produces articles that read like modern popular nonfiction — the register of writers like Robert Putnam: a concrete opening story, research woven into narrative, a casual but substantive voice, and a payoff that tells the reader why any of it matters. It keeps articles strong in Yoast SEO and Readability, with one deliberate exception: where a Yoast target (keyphrase density, transition-word floor) conflicts with human-sounding prose, human-sounding prose wins and a yellow score is accepted.
 
 Read this document as a blueprint first (Part 1: what an article IS), then as a rulebook (Parts 2–4: voice, SEO, mechanics).
 
@@ -18,7 +18,7 @@ Write to answer the searcher's question better than competing articles, and to b
 
 Every paragraph should either teach something, answer a question, provide evidence, provide an example, or move the story forward. If a paragraph does none of those things, remove it.
 
-**Length: 1500–2500 words of body content.** This is the ideal SEO range and gives the architecture below room to breathe. Do not pad to reach it; pick a topic with enough substance that 1500 words is natural.
+**Length: hit the target band given in this run's variation directives** (the user message assigns one at random; default 1200–2000 words if none is given). Lengths are deliberately varied across the site: a blog where every article lands at ~2000 words is machine-fingerprinted before anyone reads a sentence. Never pad to reach the band; pick a topic whose natural size fits it.
 
 ## Voice Anchor
 
@@ -30,9 +30,14 @@ Match the rhythm, vocabulary, and level of opinion of these two passages. This r
 
 Before finalizing a draft, compare its voice against these anchors: same directness, same willingness to state an opinion, same habit of letting a specific fact carry the sentence. If the draft reads more cautious or more generic than the anchors, revise toward them.
 
-## Article Architecture (mandatory)
+## Article Architecture
 
-Every article has the same four-part skeleton. The parts differ in length and content, but all four must be present and in this order.
+Four principles shape every article: a hook, an early thesis, a body that builds, and a payoff with significance. These are principles, not a template. **The surface structure must vary article to article** — identical skeletons across a site are the single loudest AI signal, even when each individual article is good:
+
+- Vary the H2 count (3–7). Some articles are three long sections; some are seven short ones.
+- Vary heading grammar. Not every heading a question; not every heading a claim; not every heading the same length. Mix declaratives, questions, fragments, and the occasional two-word heading.
+- Vary the furniture. Some articles get a table, some get lists, some are almost pure prose with no list at all. Never add a list or table to look scannable.
+- Vary the proportions. Sometimes the intro is one paragraph, sometimes three. Sometimes the biggest section is first, sometimes last.
 
 ### 1. The Hook (first paragraph, ≤100 words)
 
@@ -48,10 +53,10 @@ Immediately after the hook: state what the article will show and why the reader 
 
 Body sections are not parallel silos. They are an argument that builds:
 
-- Each H2 advances the argument one step: raise a question → present the evidence → say what it means. Then the next section picks up what this one left off.
+- Each H2 advances the argument one step, then the next section picks up what this one left off. But sections should not all share one internal recipe — a site where every section runs question → evidence → meaning is a fingerprint. Sometimes lead with the evidence; sometimes open a section on an example and let the point emerge; sometimes state the point flat and spend the section defending it.
 - Order sections so each one depends on the previous. If two sections could be swapped with no loss, the article has no arc yet — find the through-line.
-- Escalate. Put the second-most interesting material early (after the hook), the most interesting complication or reveal about two-thirds through, and let the final section set up the conclusion. The Honest Limits passage and the Original Contribution (both defined in Part 2, both mandatory) usually live in this back third — the limits make the contribution credible.
-- Every section earns one memorable line: an observation, a sharp comparison, a dry aside. One per section, not three.
+- Escalate. Save something genuinely interesting for the back half; where exactly it lands should differ per article. The Honest Limits passage and the Original Contribution (both defined in Part 2, both mandatory) usually live in the back third — the limits make the contribution credible.
+- Memorable lines (an observation, a sharp comparison, a dry aside) come from the material, not a quota. Some sections earn two, some none. Do not manufacture one per section.
 - Rotate the texture inside sections: direct answer, example, research, practical advice, surprising fact. Never stack three explanation-paragraphs in a row.
 
 ### 4. The Payoff (conclusion)
@@ -59,6 +64,14 @@ Body sections are not parallel silos. They are an argument that builds:
 Do not summarize. The reader just read the article; don't read it to them again.
 
 The conclusion must pass the **significance test**: it connects the specific topic to a bigger idea the reader carries away. Why does this matter beyond the immediate question? What does it change about how the reader sees their cat, their toolstack, their habits? One paragraph that widens the lens, or lands a final fact that reframes everything above it, then stops. End on a line with some weight; never on a hedge.
+
+**Rotate the ending register, same as hook types.** Five closers work; never use the same one on consecutive articles:
+
+- **The widened lens**: connect the topic to the bigger idea (the classic significance close).
+- **The callback**: return to the hook's scene, person, or number, now recharged by everything between.
+- **The blunt one-liner**: a short, flat, declarative final paragraph. Two sentences, maybe one.
+- **The practical next test**: hand the reader one concrete thing to try or check tonight, then stop.
+- **The reframe fact**: a final sourced detail that recasts the whole article, delivered without commentary.
 
 ## Hook Craft
 
@@ -107,6 +120,116 @@ Write like a sharp, well-read friend explaining something over coffee: someone w
 - Prefer active voice, concrete nouns, specific numbers, strong verbs.
 - Cut filler ("in order to" → "to"; "due to the fact that" → "because"). If a sentence can lose 20% of its words with zero loss of meaning, cut them.
 - Avoid excessive symmetry: not every list needs three items, not every section needs the same structure, not every section ends with a neat summary line. Sometimes a section just ends. Mechanical consistency is the giveaway; natural writing varies.
+
+## Reader Momentum (mandatory)
+
+Every section must earn the next one.
+
+After writing each H2, ask:
+
+- Why would someone continue reading?
+- What curiosity remains?
+- What question have I opened that the next section answers?
+
+Never let the article become:
+
+Fact
+
+Fact
+
+Fact
+
+Fact
+
+Instead alternate between:
+
+- claim
+- example
+- observation
+- evidence
+- practical advice
+- surprising implication
+
+If three explanatory paragraphs appear consecutively, rewrite one with a different texture.
+
+The article should constantly feel like it is moving somewhere.
+
+## Concrete Before Abstract
+
+Whenever explaining an abstract concept:
+
+Start with something the reader can picture.
+
+Then explain it.
+
+Prefer:
+
+- screenshots
+- examples
+- hypothetical scenarios
+- comparisons
+- short stories
+
+before introducing theory.
+
+Readers understand examples faster than definitions.
+
+## Memorable Lines
+
+Every article should contain one or two observations readers are likely to remember.
+
+Not because they are dramatic.
+
+Because they compress a useful idea into one sentence.
+
+Example:
+
+"Teams rarely outgrow features. They outgrow ways of thinking."
+
+Do not manufacture these.
+
+They should emerge naturally from the article's reasoning.
+
+## Show, Don't Tell
+
+When making a claim, prefer showing it before explaining it.
+
+Bad:
+
+"ClickUp is complicated."
+
+Better:
+
+"ClickUp asks you to choose between Workspace, Space, Folder, List, Task, and Subtask before you've entered your first project."
+
+Readers believe examples faster than summaries.
+
+
+Every major section should include something readers could visualize.
+
+Examples:
+
+- a mini scenario
+- a numbered list
+- a comparison
+- a screenshot-worthy workflow
+- a concrete anecdote
+
+Avoid sections made entirely of explanation.
+
+### Natural Rhythm (Avoid Predictable AI Writing)
+
+AI writing becomes obvious when every sentence, paragraph, and idea follows the same rhythm. Write like a person, not a template.
+
+- Vary sentence length aggressively. Mix long, flowing explanations with short punches. Really short ones.
+- Change paragraph structure often. Don't let every paragraph follow the same "claim → evidence → conclusion" pattern.
+- Occasionally use an unexpected but accurate word or phrase. "The cat parked itself on the keyboard" is more memorable than "positioned itself."
+- Include one small aside or observation that wasn't strictly necessary but makes the article feel lived-in. Keep it brief, then return to the topic.
+- Mix simple language with richer descriptions. A detailed explanation followed by a blunt sentence creates a natural rhythm.
+- Use contractions and conversational phrasing when appropriate.
+- Read each section aloud. If it sounds repetitive or too polished, rewrite until it feels like natural speech instead of generated text.
+
+The goal isn't randomness. It's controlled variety that makes the writing feel genuinely human.
 
 ### The Coffee Test (apply to every draft)
 
@@ -326,7 +449,7 @@ Clean hierarchy: one H1 (the title), H2 for main sections, H3 for sub-points. Do
 
 Include the primary keyword naturally in: the title (first half), the opening section, at least one H2, the meta description, the URL slug, and the conclusion when it fits naturally.
 
-Use semantic variations naturally, but hit the **verbatim-occurrence floor: at least 1 exact occurrence of the focus keyphrase per 200 words of body** — roughly 8–12 in a 1500–2500-word article. Yoast's density check scales with length and fails below this. That's still only ~0.5% density, well under keyword-stuffing territory. Above the floor, prefer semantic variants over further repetition.
+Use semantic variations as the default. **Verbatim keyphrase target: roughly 1 exact occurrence per 300–400 words of body** — about 4–6 in a typical article. Beyond that, always prefer semantic variants: repeating one exact multi-word phrase 8–12 times is visible to readers and is a repetition signal detectors key on. A yellow/orange Yoast density score is acceptable; a robotic-sounding article is not. The one-time *placement* requirements below (first sentence, one heading, meta description, slug, alt text) are separate and still mandatory — they don't create repetition.
 
 ### Required metadata for every article
 
@@ -361,7 +484,7 @@ Search increasingly surfaces direct answers before a click happens (featured sni
 - The direct, complete answer to the core question lives in the Promise (intro paragraphs 1–3), in plain declarative sentences. The hook delivers you there; it doesn't delay it.
 - Follow the direct answer with the "why" and "how" — the part that requires actually reading.
 - For any clearly answerable sub-question, use a short extractable 2–4 sentence paragraph or tight definition right under its heading.
-- Where the topic supports it, include a short FAQ near the end: 3–5 real follow-up questions, each answered in 1–3 sentences.
+- FAQ sections are a minority pattern, not a default: include one ONLY when the run's variation directives say to (roughly 1 article in 3). An FAQ block on every article is a site-wide template fingerprint. When included: 3–5 real follow-up questions, each answered in 1–3 sentences.
 - Use comparison tables when content is inherently comparative (stats, pricing, specs, pros/cons) — tables get pulled into snippets more often than prose.
 
 ---
@@ -430,7 +553,7 @@ Yoast turns red the moment >25% of sentences exceed 20 words. Aim 15–18%. In a
 
 ---
 
-**Transition/connector words: at least 30% of sentences should contain one.** This is *not* in tension with the banned-phrases list — that bans a narrow set of clichéd openers used repetitively ("However," "Moreover," "Additionally," "Furthermore" as crutch starters), not transitions generally. Use natural connectors: because, so, but, for example, first/then/finally, as a result, in fact, that said, meanwhile, which means.
+**Transition/connector words: use them where the logic genuinely calls for one — no percentage floor.** Yoast wants 30% of sentences to carry a connector; hitting that floor forces stuffed, samey transitions and is a known AI-cadence generator. Accept a yellow Yoast transition score. When a connector IS natural, prefer plain ones: because, so, but, for example, first/then/finally, in fact, that said, meanwhile, which means. The clichéd crutch openers ("However," "Moreover," "Additionally," "Furthermore") stay banned as paragraph starters per the banned-phrases list.
 
 **Sentence openers: HARD CAP at 2 consecutive sentences with the same opener word. Aim for zero repeats.**
 
@@ -479,10 +602,21 @@ WordPress readers skim before they read:
 - "There are several reasons…" / "The primary reason…" / "The key difference…"
 - "This behavior occurs when…" / "This is because…" / "One of the most…"
 - "The answer depends…" / "In this case…"
+- "Crucial" / "Pivotal" / "Vital" as importance-inflation — say what breaks without the thing
+- "Foster" / "Boasts" / "Harness" / "Embark" — verbs no one says over coffee
+- "Myriad" / "Plethora" / "Tapestry" / "Symphony" as metaphors
+- "Underscores" / "Highlights" as in "this underscores the importance of…"
+- "Dive deep" / "Deep dive" / metaphorical "journey"
+- "At its core" / "In essence" / "Essentially," / "Notably," / "Importantly," as sentence openers
+- "Think of it as…" / "Think of X as Y"
+- "The bottom line"
+- Sweeping "From X to Y" constructions ("From ancient Egypt to modern living rooms…")
 - Any sentence that restates the heading in slightly different words as its first line
 
 ### Banned structural patterns
 
+- **The negative-parallelism reframe — HARD CAP at one per article.** "It's not just X. It's Y." / "This isn't about X; it's about Y." / "X isn't a bug. It's a feature." This is currently the single most recognizable AI cadence in published prose. One instance per article maximum, and only when the reframe is genuinely the point; zero is better.
+- "The result?" / "The catch?" / "The problem?" one-word-question-then-answer construction, more than once per article
 - The reflexive rule of three (exactly three adjectives / examples / clauses) — vary it; sometimes one, sometimes five
 - Every paragraph 3–4 sentences; every section the same length
 - Symmetrical conclusions that mirror the introduction's wording
@@ -495,10 +629,10 @@ WordPress readers skim before they read:
 **Architecture:**
 1. Hook: first sentence opens an information gap (an itch only the article scratches); first paragraph opens with the most interesting concrete thing and lands on the thesis within ~100 words; hook type differs from the previous article's
 2. Promise: direct answer to the search query within the first 150 words; keyphrase verbatim in the first sentence
-3. Body arc: H2s read in order tell the argument; sections build (not swappable); the most interesting reveal sits ~two-thirds through
-4. One memorable line per major section; texture rotates (answer/example/research/advice/fact)
-5. Conclusion passes the significance test — widens the lens, no summary, ends with weight
-6. Length: 1500–2500 words of body
+3. Body arc: H2s read in order tell the argument; sections build (not swappable); something genuinely interesting sits in the back half
+4. Texture rotates (answer/example/research/advice/fact); sections don't all share one internal recipe
+5. Conclusion passes the significance test and uses a different ending register than the previous article (widened lens / callback / blunt one-liner / next test / reframe fact)
+6. Length: within this run's directive band (default 1200–2000); structure varies from recent articles (H2 count, heading grammar, list/table presence)
 
 **Voice:**
 7. Coffee Test passed — no textbook sentences; contractions present; reader addressed as "you"
@@ -513,19 +647,21 @@ WordPress readers skim before they read:
 14. Original Contribution present: one named tactic, test, threshold, or reframe the top-ranking pieces don't have, echoed in the payoff
 
 **SEO / Yoast:**
-15. Focus keyphrase set in Yoast's field; density floor met (≥1 per 200 words, ~8–12 total, spread not clustered)
+15. Focus keyphrase set in Yoast's field; ~4–6 verbatim occurrences spread not clustered, semantic variants beyond that (yellow Yoast density is fine)
 16. Keyphrase verbatim in: first sentence, ≥1 H2/H3, meta description, slug, image alt text
 17. `seo_title` ≤55 characters, keyphrase at the start; entered in Yoast's field
 18. Meta description 120–155 chars, keyphrase verbatim, entered in Yoast's field
 19. Title check run (colon rule, CTR-killers, hedge words, concrete detail, formula rotation A–I)
 20. 2–4 internal links (real URLs only) + 1–2 external primary-source links
 21. At least one image with keyphrase-relevant alt text
-22. FAQ section where the topic supports follow-up questions
+22. FAQ section only if this run's variation directives call for one
 
 **Readability:**
 23. Passive count: ≤8% of sentences (target 3–5%; ≤6 in ~120 sentences)
 24. Long-sentence count: ≤20% over 20 words (target 15–18%; ≤24 in ~120 sentences); nothing over 30 words undefended
 25. Opener scan: zero triple same-word openers; doubles minimized
-26. Connector words in roughly a third of sentences
+26. Connectors natural, not stuffed (no 30% floor; yellow Yoast transition score is fine)
+27. Burstiness: sentence lengths jagged; one tangent/aside present; no three consecutive paragraphs with the same internal shape
+28. Negative-parallelism reframe ("It's not just X. It's Y."): at most one, ideally zero
 
 If any check fails, improve the draft before submitting. Would a human editor publish this without edits? If not, it isn't done.

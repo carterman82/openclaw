@@ -1748,6 +1748,40 @@ Phase 5 exit criteria:
   `qwen/qwen3.6-35b-a3b` confirmed present on `/v1/models`; latency check
   and tool-use round-trip (`scripts/smoke-local-toolcall.py`) still owed
   by the user once the model is loaded into LM Studio's memory.
+- 2026-07-11: Anti-AI-pattern work — randomness moved from prompt to code.
+  Published articles were flagged as AI (GPTZero, human readers) and both
+  sites clustered on the same categories/topics despite TOPIC.md rotation
+  rules; LLMs can't self-randomize, so prompt-only rotation demonstrably
+  failed. Changes: (a) `main.py` now rolls a random category up front
+  (`_pick_random_category`, excludes Uncategorized) when neither `--topic`
+  nor `--category` is given, and rolls per-run variation directives
+  (`_roll_variation_directives`: length band 900-1300/1300-1800/1800-2400,
+  FAQ ~1-in-3, one of six hook types) injected into the user message;
+  (b) `generator.py` gained a `variation_directives` param and the
+  base-rules length now defers to the directive; (c) STYLE.md loosened the
+  sameness-manufacturing rules (keyphrase density to ~1 per 300-400 words,
+  transition-word floor deleted, FAQ directive-gated, mandatory structural
+  variance, burstiness section, closer rotation, expanded banned-word list,
+  negative-parallelism hard cap); (d) TOPIC.md: category is pre-assigned,
+  §7 rotation biases hardened into hard bans. Accepted trade-off: yellow
+  Yoast scores where green forced robotic sameness.
+- 2026-07-11: Second-pass editor agent added (`generator.revise_article`).
+  User request: mimic real editorial review — a second agent audits every
+  draft for helpfulness, redundancy, style-guide compliance, and SEO-field
+  correctness before publish; doubled token cost accepted since generation
+  will be local-model-first. Design: the draft article JSON is wrapped in a
+  `reference_data type="draft_article"` block and sent through the same
+  `_dispatch` local-with-Claude-fallback router (log lines now carry
+  `stage=generate|revise`) under an editor system prompt that includes the
+  site persona + STYLE.md but skips TOPIC.md/IMAGE_GENERATOR.md (topic is
+  already fixed). Hard constraints: same topic/thesis/category (category is
+  code-guarded — restored with a WARNING if the editor changes it), no new
+  links and existing hrefs byte-identical, no invented facts, stay in the
+  directive length band. The revised article re-enters the existing
+  post-generation pipeline (sanitizer, em-dash strip, anchor validation,
+  external-link attrs), so nothing the editor emits is trusted more than
+  the writer's output. `--skip-review` on `python -m openclaw post`
+  bypasses the pass; main.py logs the word-count delta.
 - 2026-06-29: Swapped site persona from AnimeFancast.com to catfancast.com to escape anime IP/character-copyright risk and lean fully into copyright-free evergreen content. Code unchanged — the agent is already site-agnostic (categories, site name, link candidates, and SEO plugin are all discovered from `/wp-json/` at runtime). All `Instructions/*.md` content rules updated: DESCRIPTION.md rewritten for real cats only; TOPIC.md restructured from anime title-anchors to five parallel domain-anchor inventories (breeds, behaviors, biology, health & care, history & culture) with a heavier ~92/8 evergreen bias; IMAGE_GENERATOR.md worked example replaced (Maine Coon piece) and the Agent Workflow §5 inverted from "copyrighted characters preferred" to a hard ban on copyrighted fictional cats with real-cat-only depictions; STYLE.md banned-phrase example tweaked; CLAUDE.md SEO routing example + TOPIC.md description line updated. Historical references to animefancast.com (verified post URLs, completed Phase 3 records, prior decision-log entries) intentionally preserved as audit trail. `.env` to be repointed by user when catfancast.com is live; first run against the new site picks up the new categories/site-name automatically. The `openclaw-seo-meta` mu-plugin / installable plugin at `demo/openclaw-seo-meta/` should be installed on catfancast.com when ready, otherwise Routing + Y1/Y3/Y7/Y8 will SKIP/WARN as documented in §9.
 
 ## 13. Open Questions

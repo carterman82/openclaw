@@ -11,6 +11,22 @@ is intentionally evergreen-heavy, and within evergreen, intentionally
 actually mean by that" content is the core of the site. Breeds are a
 supporting inventory, not the default.
 
+## 0. The WP category is pre-assigned — pick a topic that fits it
+
+The user message assigns the article's WordPress category up front ("Assign
+category exactly: X"), rolled at random by the pipeline so the site doesn't
+cluster on the model's favorite picks. Topic selection must respect it:
+
+- Pick an anchor + angle that **genuinely belongs in the assigned category**.
+  Map the §3 inventories to whatever the category implies (a behavior/
+  personality category → §3b/§3f; a science/biology category → §3c; a
+  health category → §3d; a history category → §3e; a breed category → §3a).
+- Never force an anchor into a category it doesn't fit. If the assigned
+  category is History, pick a real historical cat or episode — don't dress a
+  behavior explainer in historical trim.
+- All other rules in this file (angle-types, credibility moat, duplicate
+  checks) still apply within the assigned category.
+
 ---
 
 ## 1. Core Principle
@@ -57,11 +73,12 @@ Fel d 1 allergen story. Before committing to `[Anchor] + [Angle]`, ask:
 would the answer be substantively different — or even contradictory — for a
 different anchor? If no, the angle is generic.
 
-**Rule: the topic must support a single defensible thesis answerable in
-700–1200 words.** Too narrow ("the exact shade of Smokey-Pearl in the 2003
-CFA Persian standard") starves the word count. Too broad ("everything about
-cats") blows past it. The right scope is one focused claim with room for
-evidence, counter-evidence, and a payoff.
+**Rule: the topic must support a single defensible thesis answerable within
+the article's assigned length band** (the user message's variation directives
+set a per-run target; see STYLE.md). Too narrow ("the exact shade of
+Smokey-Pearl in the 2003 CFA Persian standard") starves the word count. Too
+broad ("everything about cats") blows past it. The right scope is one focused
+claim with room for evidence, counter-evidence, and a payoff.
 
 **Rule: the article must take a defensible *position*, not just explain a
 topic.** Idea creation beats content creation. AI can produce polished
@@ -488,25 +505,35 @@ Before finalizing a topic, run these checks against the `recent_titles`
 list provided in the user message (this is the only published-history
 signal the agent receives at generation time):
 
-1. **Same [Anchor] + [Angle] check.** Scan recent titles for the same
-   anchor in combination with a similar angle (e.g. if a recent title is
-   "Why Cats Knead," then "Cat Kneading Explained" is a near-duplicate —
+These are HARD BANS, not biases. Soft "bias toward" phrasing demonstrably
+did not prevent anchor clustering; treat every check below as a rejection
+rule.
+
+1. **Same [Anchor] + [Angle] check — REJECT.** Scan recent titles for the
+   same anchor in combination with a similar angle (e.g. if a recent title
+   is "Why Cats Knead," then "Cat Kneading Explained" is a near-duplicate —
    reject). Re-paraphrased angles on the same anchor are the most common
    stealth-duplicate failure mode.
-2. **Single-anchor cluster check.** Count how many of the most recent
-   ~10 articles share the same exact anchor. If 2+, do not add a third
-   unless a real trending event justifies it.
-3. **Breed-stacking guard.** Count how many of the most recent ~10
-   articles came from §3a (Breeds). If breeds exceed ~20% of that
-   window, do not pick another breed topic — bias toward §3b or §3c
+2. **Anchor reuse — BANNED within the last 10.** If the anchor appears in
+   ANY of the most recent ~10 titles (same behavior, same breed, same
+   condition, same cat), it is excluded this pick. No exceptions short of
+   a real dated trending event per §4. Pick a different anchor from the
+   same inventory — the inventories each hold 15–35 anchors precisely so
+   this never forces a weak pick.
+3. **Breed-stacking guard — BANNED past the cap.** Count how many of the
+   most recent ~10 articles came from §3a (Breeds). If breeds exceed ~20%
+   of that window, another breed topic is excluded — pick from §3b or §3c
    instead, even if a breed idea seems strong.
-4. **Inventory rotation.** Avoid 2+ consecutive picks from §3a (breeds),
-   and avoid 3+ consecutive picks from any single inventory. If the last
-   pick was a breed, bias the next pick toward behavior or biology.
-5. **Recurring-angle fatigue.** Watch for the same angle template
-   recurring across different anchors ("What this behavior really means"
-   three articles running, even with different behaviors/anchors). Vary
-   the angle template even when the anchor varies.
+4. **Inventory over-weight — EXCLUDED past 4-in-10.** If any single
+   inventory accounts for 4+ of the most recent ~10 titles, that
+   inventory is excluded this pick (unless the pre-assigned WP category
+   only maps to that inventory — then satisfy the check by maximizing
+   anchor distance instead: different anchor family, different angle-type).
+5. **Recurring-angle fatigue — REJECT on the third repeat.** The same
+   angle template must not recur three picks running across different
+   anchors ("What this behavior really means" three articles in a row,
+   even with different behaviors). Infer the templates of the last few
+   titles and pick a different one.
 
 ---
 

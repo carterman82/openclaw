@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import os
+import random
 import re
 import sys
 from html import escape as html_escape
@@ -14,7 +15,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .config import Config
-from .generator import generate_article
+from .generator import generate_article, revise_article
 from .images import attribution_html, find_unsplash_image, generate_openai_image, track_download
 from .publisher import (
     get_category_names,
@@ -362,6 +363,47 @@ def _fetch_and_attach_image(article: dict) -> tuple[dict | None, int | None, str
     return image, attachment_id, final_body
 
 
+# --- Per-run variation ------------------------------------------------------
+# LLMs can't self-randomize: given the same prompt they gravitate to the same
+# high-probability picks (same category, same length, FAQ on every article).
+# Real randomness has to come from code, so we roll structural directives here
+# and inject them into the prompt.
+
+_LENGTH_BANDS: tuple[tuple[int, int], ...] = ((900, 1300), (1300, 1800), (1800, 2400))
+
+_HOOK_TYPES: tuple[str, ...] = (
+    "the surprising fact",
+    "the intriguing anecdote",
+    "the bold stance",
+    'the "yeah, but..."',
+    "in medias res",
+    "the reader's own moment",
+)
+
+_FAQ_PROBABILITY: float = 1 / 3
+
+
+def _roll_variation_directives() -> str:
+    """Roll random structural directives so articles vary in shape and length."""
+    low, high = random.choice(_LENGTH_BANDS)
+    hook = random.choice(_HOOK_TYPES)
+    if random.random() < _FAQ_PROBABILITY:
+        faq_line = "Include a short FAQ section near the end."
+    else:
+        faq_line = "Do NOT include an FAQ section in this article."
+    return (
+        "Variation directives for this article (assigned at random for this run; "
+        f"follow them): target {low}-{high} words of body content. {faq_line} "
+        f"Open with a hook of the {hook!r} type (see the style guide's Hook Craft "
+        "section)."
+    )
+
+
+def _pick_random_category(wp_categories: tuple[str, ...]) -> str:
+    selectable = [c for c in wp_categories if c.lower() != "uncategorized"]
+    return random.choice(selectable or list(wp_categories))
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m openclaw",
@@ -387,6 +429,11 @@ def _build_parser() -> argparse.ArgumentParser:
         "--draft",
         action="store_true",
         help="Publish as draft instead of a live post.",
+    )
+    post.add_argument(
+        "--skip-review",
+        action="store_true",
+        help="Skip the second-pass editor agent (publish the raw first draft).",
     )
     post.add_argument(
         "--verbose", "-v",
@@ -429,6 +476,17 @@ def main(argv: list[str] | None = None) -> int:
                     list(wp_categories),
                 )
                 return 1
+            category = args.category
+            if not args.topic and not category:
+                category = _pick_random_category(wp_categories)
+                logger.info(
+                    "Randomly selected category: %r (from %s)",
+                    category,
+                    list(wp_categories),
+                )
+            variation_directives = None if args.topic else _roll_variation_directives()
+            if variation_directives:
+                logger.info("Variation directives: %s", variation_directives)
             recent_titles = [] if args.topic else list_recent_post_titles()
             if recent_titles:
                 logger.info(
@@ -449,17 +507,18 @@ def main(argv: list[str] | None = None) -> int:
             logger.info(
                 "Calling Claude (topic=%r, category=%r).",
                 args.topic,
-                args.category,
+                category,
             )
             article = generate_article(
                 topic=args.topic,
-                category=args.category,
+                category=category,
                 recent_titles=recent_titles,
                 categories=wp_categories,
                 site_name=site_name or None,
                 site_host=site_host,
                 internal_link_candidates=link_candidates,
                 trending_signals=trending_signals,
+                variation_directives=variation_directives,
             )
             word_count = len(_strip_html(article["body_html"]).split())
             logger.info(
@@ -474,6 +533,26 @@ def main(argv: list[str] | None = None) -> int:
                 "Angle justification: %s",
                 article.get("unique_angle_justification") or "<missing>",
             )
+
+            if args.skip_review:
+                logger.info("Editor pass skipped (--skip-review).")
+            else:
+                logger.info("Running second-pass editor review.")
+                article = revise_article(
+                    article,
+                    categories=wp_categories,
+                    site_host=site_host,
+                    variation_directives=variation_directives,
+                )
+                revised_word_count = len(_strip_html(article["body_html"]).split())
+                logger.info(
+                    "Editor pass complete (title=%r, words ~%d -> ~%d, delta %+d).",
+                    article["title"],
+                    word_count,
+                    revised_word_count,
+                    revised_word_count - word_count,
+                )
+                word_count = revised_word_count
 
             keyphrase = article.get("focus_keyphrase") or ""
             if keyphrase:
