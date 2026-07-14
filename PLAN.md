@@ -20,6 +20,17 @@ Current active work:
   post id 1424). Owed to user: (a) Task Scheduler registration
   (`Register-ScheduledTask` block in README.md / PLAN.md §10 Step 4.3),
   and (b) Step 4.5 multi-day E2E gate.
+- Phase 5: multisite + static export + GitHub Pages. First-round pilot
+  (Steps 5.1–5.8) shipped 2026-07-13 with four subsites
+  (`gardening`/`dogs`/`boardgames`/`coffee`) — full pipeline verified
+  end-to-end. User rejected the niche picks and the default-WP look;
+  Steps 5.9–5.11 replan the rework: (5.9) rebuild the four pilots with
+  narrow-fandom niches and original brand names (proposed: Redstone
+  Register / Sprue & Codex / Slipstream Journal / Clack Report); (5.10)
+  add Tech Tool Guide as a dedicated `techtools.localhost` subsite;
+  (5.11) build an `openclaw-base` parent theme in the catfancast /
+  animefancast editorial-magazine style + five new child themes.
+  Awaiting user review of Steps 5.9–5.11 before executing.
 
 Deferred (ready to resume):
 - Phase 3.8: local model primary (Qwen3.6 on LM Studio) with Claude fallback.
@@ -1024,7 +1035,50 @@ Consistency problems:
 
 ## 9.7 Phase 3.8 Plan - Local Model Primary (Qwen3.6) with Claude Fallback
 
-Status: not started.
+Status: **IN PROGRESS** (2026-07-14). Steps 3.8.1-3.8.4 complete (config
+plumbing, provider abstraction, router+fallback, and live tool-use
+verification — see Step 3.8.1 for the `tool_choice` bug found and fixed
+along the way). Local `.env` has real values
+(`LOCAL_MODEL_ENABLED=true`, `LOCAL_MODEL_BASE_URL=http://192.168.0.200:1234/v1`,
+`LOCAL_MODEL_NAME=qwen/qwen3.6-35b-a3b`). Original README/CLAUDE.md
+documentation for the initial three env vars is done (now folded into
+Step 3.8.10, which will also cover the four new tuning knobs from
+Step 3.8.7). **Blocked**: a full `--site localhost` run on 2026-07-14
+fell back to Claude on all three local-model call sites —
+`subreddit_select` (content preview `''`, ~18s), `generate` (`'\n\n'`,
+~2m40s), `revise` (`''`, ~2m20s) — a 3-for-3 escalation of the "model
+returned no tool call" signature previously seen at 2/3 rates (see §12
+2026-07-14 continuation entry). New Steps 3.8.5-3.8.7 (reproduce the
+failure, persist raw responses on fallback, expose inference-tuning
+knobs) added to root-cause this before the formal quality gate — now
+Step 3.8.8 — can be measured. Previously-pending steps renumbered:
+quality gate → 3.8.8, regression check → 3.8.9, docs → 3.8.10.
+
+**2026-07-14 update — Steps 3.8.5-3.8.7 complete, root cause confirmed,
+quality gate (3.8.8) remains blocked.** Root cause: Qwen3.6's hybrid
+reasoning mode produces a highly non-deterministic `reasoning_content`
+trace (observed 600 to 52,687 chars across identical-shape calls) that
+routinely exhausts the completion-token budget before the model reaches
+its tool call — `finish_reason=length`, `reasoning_content` full,
+`content` empty, `tool_calls` empty. Of the two suppression mechanisms
+tested, `chat_template_kwargs.enable_thinking=False` is silently ignored
+by this LM Studio build, and `extra_body={"reasoning_effort":"none"}`
+does suppress reasoning but reliably breaks `tool_choice="required"`
+grammar enforcement (model answers in prose instead of calling the
+tool). Given no clean suppression exists, `LOCAL_MODEL_DISABLE_THINKING`
+now defaults to **false** (deviation from this step's original `true`
+default — see §12 for the full writeup) and the practical fix shipped is
+a generous, configurable `LOCAL_MODEL_MAX_TOKENS` (default 12000,
+threaded through both call sites, replacing a hardcoded 2048 in
+`trends.py` that guaranteed failure on its own). Step 3.8.6's fallback
+JSON sidecars are live in production and confirmed working. Net effect:
+the router and fallback chain are proven robust (every stage still
+publishes a compliant post via Claude), but Qwen3.6 could not be
+observed completing all three stages locally in one run during this
+investigation — Step 3.8.8's quality gate stays blocked pending either a
+future LM Studio/model build with real thinking-mode control, or
+accepting Qwen3.6 as advisory-only. See §12 2026-07-14 entry for full
+detail.
 
 Goal: cut per-article API cost to ~$0 by generating with a locally hosted
 Qwen3.6 model on the LAN, while preserving Claude Sonnet 4.6 as an automatic
@@ -1057,13 +1111,46 @@ Design decisions to be recorded in §12 when the phase starts:
 
 ### Step 3.8.1 - Endpoint reachability + tool-use capability
 
-Status: **IN PROGRESS** (2026-07-10). `/v1/models` returned HTTP 200 with the
+Status: **IN PROGRESS** (2026-07-13). `/v1/models` returned HTTP 200 with the
 Qwen model id `qwen/qwen3.6-35b-a3b` (plus flux/gemma/nomic-embed).
 `scripts/smoke-local-toolcall.py` written and ready. `/v1/chat/completions`
 requests timed out at 5 minutes on every attempt — indicates no model was
 loaded into memory in LM Studio at the time. **User action required**:
 open LM Studio, load `qwen/qwen3.6-35b-a3b` into memory, then run
 `.venv\Scripts\python.exe scripts\smoke-local-toolcall.py` and confirm PASS.
+
+**2026-07-13 incident**: while probing the companion Phase 3.9 Draw Things
+image endpoint (port 7860) on the same host, a single test `POST
+/sdapi/v1/txt2img` request left both port 7860 AND port 1234 (this LM
+Studio/Qwen endpoint) refusing new connections — the host kept answering
+ping, so this looks like the GPU/host got pinned rendering the test image
+rather than a network-level failure. This step's live verification
+(`smoke-local-toolcall.py` against a loaded model) is deferred until the
+user confirms the host is responsive again; nothing in Step 3.8.1 changed
+code-wise as a result.
+
+**2026-07-14 verification (COMPLETE)**: host confirmed responsive
+(`/v1/models` HTTP 200, listing `qwen/qwen3.6-35b-a3b` +
+`flux.2-klein-9b`). `smoke-local-toolcall.py` initially failed with HTTP
+400 (`Invalid tool_choice type: 'object'. Supported string values: none,
+auto, required`) — this LM Studio server version rejects the object-form
+`tool_choice` that both the smoke script and the real
+`_generate_with_local` in `generator.py` were using. Fixed both call sites
+to `tool_choice="required"` (safe with a single offered tool; the existing
+`call_name != tool_name` check still catches a wrong call). After the fix:
+PASS, 2.81s latency.
+
+- [x] `/v1/models` returns HTTP 200 with the Qwen model id recorded
+      (`qwen/qwen3.6-35b-a3b`).
+- [x] Plain chat completion / tool-use round trip confirmed via
+      `smoke-local-toolcall.py` (equivalent proof; separate plain-completion
+      curl not run since the tool-use path is the one that matters).
+- [x] `scripts/smoke-local-toolcall.py` prints a parsed dict containing both
+      required fields (`title`, `body_html`).
+- [x] Round-trip latency 2.81s — well under the 15s bar.
+- [x] Result recorded here and in §12: model id `qwen/qwen3.6-35b-a3b`,
+      2.81s latency, needed one code fix (`tool_choice` string form) to
+      pass on the first real attempt.
 
 Prove Qwen3.6 on the LM Studio host can do everything the current Claude
 call needs BEFORE writing any adapter code. If tool-use round-trip doesn't
@@ -1281,9 +1368,256 @@ python -m openclaw post --site localhost --draft --verbose
       (spot-check with `git blame` on the router branch to confirm the
       "disabled" branch calls `_generate_with_claude` with the same args).
 
-### Step 3.8.5 - Structured-output parity + quality gate
+### Step 3.8.5 - Reproduce the no-tool-call failure with production schemas
 
-Status: not started.
+Status: **COMPLETE** (2026-07-14).
+
+The 2026-07-14 `--site localhost` run fell back on all three local call
+sites (`subreddit_select` / `generate` / `revise`) with the same "model
+returned no tool call" signature, and non-trivial per-stage latencies
+(~18s / ~2m40s / ~2m20s) — Qwen is spending compute but never emitting a
+tool call. Step 3.8.1's `smoke-local-toolcall.py` passed the same day at
+2.81s using a trivial 2-field `{title, body_html}` schema, so the smoke
+test alone cannot see this. This step reproduces the failure outside a
+full publish run and captures what Qwen actually emits, so 3.8.7's tuning
+knobs can be aimed at a diagnosed root cause rather than a guess.
+
+Working hypothesis (to be falsified or confirmed here): Qwen3.6 has a
+hybrid reasoning mode. If LM Studio serves the model with thinking
+enabled, Qwen burns tokens on `<think>…</think>` before ever emitting a
+tool call, hits `MAX_TOKENS`, and returns `finish_reason=length` with
+empty or `\n\n` visible content and no `tool_calls`. Alternative causes
+to rule out: prompt-length pressure (STYLE.md is ~51k chars + TOPIC.md
+~37k + IMAGE_GENERATOR.md ~10k + website_memory ~8k), tool-schema
+complexity (`submit_article` has 15 required fields vs. smoke's 2), or
+LM Studio serving-side settings drift since 3.8.1.
+
+Approach — extend `scripts/smoke-local-toolcall.py` (or add a sibling
+`scripts/smoke-local-toolcall-stages.py`; pick whichever is less
+invasive) so it makes three back-to-back calls against the local model
+using the **real** production schemas + prompts:
+
+- `subreddit_select` — reuse `_SUBREDDIT_TOOL_SCHEMA` and
+  `_build_subreddit_select_message` from `openclaw/trends.py:125+`
+  verbatim, on a representative candidate list.
+- `generate` — reuse `_build_tool_schema()` from
+  `openclaw/generator.py` plus a full system prompt assembled the same
+  way `generator.generate_article()` does (STYLE + TOPIC +
+  IMAGE_GENERATOR + `website_memory/localhost.md`) and a stub topic +
+  category.
+- `revise` — reuse the revise tool schema + system prompt with a stub
+  draft article payload.
+
+For each call log to stdout **and** dump to
+`logs/qwen-smoke-<stage>.json`: HTTP status, wall-clock latency,
+`usage.prompt_tokens`, `usage.completion_tokens`, `finish_reason`,
+`message.tool_calls` presence, full `message.content`, and any
+`message.reasoning_content` field LM Studio exposes. Do NOT modify
+`_generate_with_local` or `_select_subreddits_local` in this step — the
+smoke script owns its own OpenAI SDK client so knobs can vary without
+touching production paths.
+
+```powershell
+.venv\Scripts\python.exe scripts\smoke-local-toolcall.py --stages all
+Get-ChildItem logs\qwen-smoke-*.json | ForEach-Object {
+    $j = Get-Content $_ -Raw | ConvertFrom-Json
+    "$($_.Name): finish=$($j.finish_reason) prompt=$($j.usage.prompt_tokens) completion=$($j.usage.completion_tokens) tool_calls=$($j.tool_calls_present)"
+}
+```
+
+- [x] Script exits with a per-stage PASS/FAIL summary — rewrote
+      `scripts/smoke-local-toolcall.py` with a `--stages` flag
+      (trivial/subreddit_select/generate/revise/all) reusing the real
+      production schemas and prompts from `openclaw.trends` and
+      `openclaw.generator`.
+- [x] At least one stage reproduces the "no tool call" signature —
+      `logs/qwen-smoke-generate.json` reproduced it directly:
+      `finish_reason=length`, `completion_tokens=11999`,
+      `content_len=0`, `tool_calls_present=False`. (`trivial`,
+      `subreddit_select`, and `revise` passed in isolation in this run,
+      confirming the failure is load/prompt-length-sensitive, not
+      universal — see below.)
+- [x] `logs/qwen-smoke-*.json` shows (b): `finish_reason=length` with
+      `completion_tokens` pinned at the 11999-12000 ceiling and a large
+      populated `message.reasoning_content` (600-52,687 chars observed
+      across smoke + production fallback dumps) alongside empty
+      `content` and `tool_calls` — budget exhausted mid-reasoning, exactly
+      the working hypothesis.
+- [x] Hypothesis confirmed: **thinking-mode token exhaustion**. Qwen3.6's
+      reasoning length is highly non-deterministic per call (600 to
+      ~52,700 `reasoning_content` chars observed for similarly-shaped
+      prompts) rather than scaling predictably with prompt length or
+      schema complexity — both alternative hypotheses were effectively
+      ruled out since `subreddit_select` (short prompt, small schema)
+      failed in production while `generate`/`revise` (long prompt, large
+      schema) sometimes passed in isolation. Recorded in §12
+      2026-07-14 entry.
+
+### Step 3.8.6 - Persist raw Qwen responses on production fallbacks
+
+Status: **COMPLETE** (2026-07-14).
+
+Once Phase 4's 07:00 daily runs are live, no-tool-call incidents will
+happen unattended and vanish into the log-flag-only signal. This step
+gives every fallback a permanent forensic trail so future incidents don't
+require live reproduction (which is what 3.8.5 has to do today because we
+threw away the raw response body).
+
+Approach — modify both local-provider call sites so that **before**
+raising the "no tool call" error, they persist the full raw response:
+
+- `openclaw/generator.py::_generate_with_local` (around lines 495-521,
+  the `tool_calls` parsing block).
+- `openclaw/trends.py::_select_subreddits_local` (around lines
+  193-217).
+
+Dump destination: `logs/qwen-fallback-YYYY-MM-DD-HHMMSS-<stage>.json`.
+Fields, at minimum: `stage`, `model`, `finish_reason`, `usage`,
+`message.content`, `message.reasoning_content` (if present),
+`message.tool_calls`. Keep the existing structured
+`provider=local status=fallback stage=…` log line unchanged — Phase 4's
+`scripts/run-openclaw.ps1` and any downstream grep still see the same
+signature; the JSON dump is a sidecar. No behavior change to the
+fallback itself — Claude still runs after the dump.
+
+```powershell
+.venv\Scripts\python.exe -m openclaw post --site localhost --draft
+Get-ChildItem logs\qwen-fallback-*.json | Select-Object -Last 5 |
+    ForEach-Object { Get-Content $_ | ConvertFrom-Json |
+        Select-Object stage, finish_reason, @{n='completion';e={$_.usage.completion_tokens}} }
+```
+
+- [x] Rerun `--site localhost --draft`; if any stage falls back, confirm
+      a matching `logs/qwen-fallback-*.json` appears with all required
+      fields populated (not just placeholders) — added
+      `openclaw/_local_diagnostics.py` (`dump_fallback_response`) called
+      from both `generator.py::_generate_with_local` and
+      `trends.py::_select_subreddits_local` before every raise. A live
+      `--site localhost --draft` run on 2026-07-14 fell back on all
+      three stages and produced
+      `logs/qwen-fallback-2026-07-14-230108-subreddit_select.json`,
+      `...-230542-generate.json`, `...-230941-revise.json`, each with
+      populated `stage`, `model`, `finish_reason=length`, `usage`
+      (prompt/completion/total tokens), `message.content` (empty),
+      `message.reasoning_content` (46-53k chars), and `message.tool_calls`
+      (empty).
+- [x] Confirm the structured log line still contains the 200-char
+      `content preview` so the existing Phase 4 log grep behavior is
+      unchanged — verified in `logs/_e2e-run-1.log`, e.g.
+      `provider=local status=fallback stage=generate reason=LocalProviderError: model returned no tool call...`.
+- [ ] After a week of scheduled runs (deferred), grep the accumulated
+      fallback JSONs to record whether the failure mode is consistent or
+      intermittent (recorded in §12 when the data exists). **Deferred —
+      Phase 4 scheduled runs haven't accumulated a week of data yet.**
+
+### Step 3.8.7 - Expose Qwen inference-tuning knobs
+
+Status: **COMPLETE with deviations** (2026-07-14) — see checklist below;
+`LOCAL_MODEL_DISABLE_THINKING` defaults to `false`, not the `true`
+originally specified, because the only mechanism that reliably suppresses
+thinking also reliably breaks tool-calling. Full rationale in §12.
+
+The three env vars from Step 3.8.2 (`LOCAL_MODEL_ENABLED`,
+`LOCAL_MODEL_BASE_URL`, `LOCAL_MODEL_NAME`) cover transport but not
+inference. All inference tuning (`max_tokens`, temperature, tool_choice)
+is hardcoded in `generator.py` / `trends.py`. If 3.8.5 confirms the
+thinking-mode hypothesis, we need a way to disable Qwen's internal
+reasoning per-call without redeploying — and once the knobs are there,
+temperature/max-tokens experimentation is essentially free.
+
+Approach — extend `openclaw/config.py::Config` with four new optional
+fields:
+
+- `LOCAL_MODEL_TEMPERATURE` — float, default 0.2 (structured tool use
+  benefits from low temperature; Qwen's LM Studio default may be too
+  creative).
+- `LOCAL_MODEL_TOP_P` — float, default 0.9.
+- `LOCAL_MODEL_MAX_TOKENS` — int, default 12000 (matches current
+  `MAX_TOKENS` constant in `generator.py:26`; expose so the smoke test
+  and future incidents can raise it without a code change).
+- `LOCAL_MODEL_DISABLE_THINKING` — bool, default true.
+
+Thread all four into both call sites (`_generate_with_local`,
+`_select_subreddits_local`). When `LOCAL_MODEL_DISABLE_THINKING=true`,
+pass `extra_body={"chat_template_kwargs": {"enable_thinking": False}}`
+on the `client.chat.completions.create(...)` call — this is the
+LM Studio + Qwen3 convention; **confirm the exact key against the
+LM Studio/Qwen3.6 model card during execution** and use whatever the
+served model's docs specify if it differs. Add all four vars to
+`.env.example` in the existing LOCAL_MODEL block, with a comment
+explaining that thinking-mode is disabled by default because Qwen3 will
+otherwise burn its output budget on `<think>` tokens before emitting a
+tool call.
+
+```powershell
+# With defaults (thinking disabled, temp 0.2) — expect all three stages to succeed.
+$env:LOCAL_MODEL_DISABLE_THINKING = "true"
+.venv\Scripts\python.exe scripts\smoke-local-toolcall.py --stages all
+
+# Toggle back to prove diagnosis, not accidental fix.
+$env:LOCAL_MODEL_DISABLE_THINKING = "false"
+.venv\Scripts\python.exe scripts\smoke-local-toolcall.py --stages all
+
+# End-to-end.
+.venv\Scripts\python.exe -m openclaw post --site localhost --draft --verbose
+```
+
+- [x] All four new fields present in `Config` and `.env.example`; unset
+      env vars produce the documented defaults —
+      `LOCAL_MODEL_TEMPERATURE=0.2`, `LOCAL_MODEL_TOP_P=0.9`,
+      `LOCAL_MODEL_MAX_TOKENS=12000`, `LOCAL_MODEL_DISABLE_THINKING=false`
+      (deviation, see Status line above), all wired through
+      `Config.load()` via new `_parse_float`/`_parse_int`/`_parse_bool`
+      helpers and threaded into both `_generate_with_local` and
+      `_select_subreddits_local`.
+- [x] **Deviation from plan**: the specified
+      `extra_body={"chat_template_kwargs": {"enable_thinking": False}}`
+      convention was tested first and found to be silently ignored by
+      this LM Studio build (identical results with the flag true/false).
+      The only mechanism that actually suppresses `reasoning_content`
+      is `extra_body={"reasoning_effort": "none"}`, but across repeated
+      trials it also reliably broke `tool_choice="required"` grammar
+      enforcement (0/4 trials produced a tool call when present — the
+      model answered in prose instead). A third option,
+      Qwen3's native `/no_think` inline suffix, partially suppressed
+      reasoning and preserved tool-calling but was unreliable (~40-60%
+      success across repeated trials) and was not adopted. Net: no
+      dependable suppression mechanism exists on this server/model
+      build, so thinking-mode suppression stays wired as an opt-in
+      escape hatch (`LOCAL_MODEL_DISABLE_THINKING=true` uses the
+      `reasoning_effort` mechanism) but is **not** the default.
+- [x] Practical fix shipped instead: `LOCAL_MODEL_MAX_TOKENS` (default
+      12000) threaded through both call sites. This also fixed a
+      pre-existing, previously-undocumented bug —
+      `trends.py::_SUBREDDIT_SELECT_MAX_TOKENS` was hardcoded to 2048,
+      well below the 600-52,700+ char reasoning traces observed, which
+      guaranteed failure on its own regardless of the thinking-mode
+      question.
+- [ ] `python -m openclaw post --site localhost --draft` logs
+      `provider=local status=success` on all three stages in the same
+      run — **NOT achieved.** The 2026-07-14 `logs/_e2e-run-1.log` run
+      fell back on all three stages (subreddit_select, generate, revise)
+      even with the Step 3.8.7 knobs in place; each fallback produced a
+      matching `logs/qwen-fallback-*.json` (Step 3.8.6) showing
+      `finish_reason=length` with `completion_tokens` pinned near the
+      12000 ceiling. Qwen3.6's reasoning-length nondeterminism was not
+      resolved by these knobs alone. The post still published
+      successfully via the Claude fallback chain, so the router/fallback
+      contract holds even though the "local as primary" goal remains
+      unmet.
+- [x] Which knob mattered (with before/after fallback rates) recorded in
+      §12 — see 2026-07-14 entry. Summary: `LOCAL_MODEL_MAX_TOKENS`
+      raised from a broken 2048 default to 12000 is necessary but not
+      sufficient; no thinking-suppression knob is both effective and
+      safe on this server/model build, so fallback rate remained
+      effectively 100% in the one full end-to-end run captured here (n=1
+      run, not the 5-run sample Step 3.8.8 requires — see that step's
+      blocked status).
+
+### Step 3.8.8 - Structured-output parity + quality gate
+
+Status: not started. **Blocked by Steps 3.8.5-3.8.7** — this gate cannot
+be measured while all local calls fall back to Claude.
 
 The router works, but "works" only means "the fallback saves us." This step
 proves Qwen3.6 can carry the primary path unassisted often enough to be
@@ -1316,16 +1650,16 @@ Select-String -Path logs\3.8.5.txt -Pattern 'provider=(local|claude) status=(suc
 - [ ] Cost check: local runs record $0 outbound; the 1 fallback run (if
       any) shows the expected Claude usage. Recorded in §12.
 
-### Step 3.8.6 - Full end-to-end + Phase 3 regression check
+### Step 3.8.9 - Full end-to-end + Phase 3 regression check
 
-Status: not started.
+Status: not started. Runs against the five posts published in Step 3.8.8.
 
 Confirm nothing upstream in the publish path (images, links, SEO meta
 routing) regressed. The generator is the only moving part in this phase,
 so the regression surface is small but the failure would be silent.
 
 Verification: reuse the Phase 3 exit-criteria checklist against the 5
-posts from Step 3.8.5 logs:
+posts from Step 3.8.8 logs:
 
 - [ ] `Uploaded featured image (id=...)` present in each run.
 - [ ] `Internal links used` count > 0 in at least 2 of 5 runs.
@@ -1339,33 +1673,46 @@ posts from Step 3.8.5 logs:
       site-state, not model-state; a delta here means something else
       moved).
 
-### Step 3.8.7 - Documentation
+### Step 3.8.10 - Documentation
 
-Status: not started.
+Status: partial (original three-env-var wording landed with Step 3.8.4;
+this step re-opens to cover the four new tuning knobs from Step 3.8.7
+and the diagnostic tooling from Steps 3.8.5-3.8.6).
 
 Verification:
 
 ```powershell
-Select-String -Path README.md -Pattern 'LOCAL_MODEL|Qwen|LM Studio'
-Select-String -Path CLAUDE.md -Pattern 'LOCAL_MODEL|Qwen|_generate_with_local'
+Select-String -Path README.md -Pattern 'LOCAL_MODEL|Qwen|LM Studio|DISABLE_THINKING'
+Select-String -Path CLAUDE.md -Pattern 'LOCAL_MODEL|Qwen|_generate_with_local|chat_template_kwargs'
 (Select-String -Path PLAN.md -Pattern '2026-\d\d-\d\d.*Phase 3\.8' | Measure-Object).Count
 ```
 
-- [ ] README.md gains an "LLM providers" section: the local/Claude split,
-      the three new env vars, how to toggle back to Claude-only, expected
-      fallback log lines.
+- [ ] README.md's "LLM providers" section covers the local/Claude split,
+      the three transport env vars **plus** the four new tuning knobs
+      (`LOCAL_MODEL_TEMPERATURE`, `LOCAL_MODEL_TOP_P`,
+      `LOCAL_MODEL_MAX_TOKENS`, `LOCAL_MODEL_DISABLE_THINKING`), how to
+      toggle back to Claude-only, and expected fallback log lines. Also
+      documents the `logs/qwen-fallback-*.json` sidecars from Step 3.8.6
+      and how to read them.
 - [ ] CLAUDE.md "Key facts" Anthropic-SDK bullet updated to name the
       router and Qwen3.6 primary; architecture paragraph mentions
-      `_generate_with_local`, `_generate_with_claude`, and the fallback
-      trigger set.
-- [ ] `.env.example` shows the three new vars with realistic sample
-      values and the "defaults to Claude when unset" note.
+      `_generate_with_local`, `_generate_with_claude`, the fallback
+      trigger set, and the `extra_body={"chat_template_kwargs":
+      {"enable_thinking": …}}` convention used to disable Qwen's
+      reasoning mode.
+- [ ] `.env.example` shows the three original LOCAL_MODEL_* vars plus
+      the four new tuning knobs with realistic sample values and the
+      "defaults to Claude when unset" note.
 - [ ] §12 decision-log entries added for: (a) the LM Studio + OpenAI-SDK
-      transport choice, (b) the fallback trigger set, (c) the Step 3.8.5
+      transport choice, (b) the fallback trigger set, (c) the Step 3.8.8
       quality/fallback-rate outcome, (d) the recorded per-article cost
-      delta.
+      delta, (e) the Step 3.8.5-3.8.7 root cause + fix.
 
 Phase 3.8 exit criteria:
+- Steps 3.8.5-3.8.7 complete and the "model returned no tool call"
+  failure root-caused + fixed (or, if unfixable, `LOCAL_MODEL_ENABLED`
+  documented as advisory-only and the primary path reverted to Claude
+  with a §12 note explaining why).
 - 3 consecutive `--site localhost --draft` runs with LOCAL_MODEL_ENABLED=true
   each publish successfully via the local model (`provider=local
   status=success`) and each pass `scripts/verify-seo.py` with 0 FAIL.
@@ -1374,6 +1721,146 @@ Phase 3.8 exit criteria:
 - Toggling LOCAL_MODEL_ENABLED=false restores the pre-3.8 Claude-only
   behavior with no observable change to output shape.
 - Documentation updated; decision-log entries recorded.
+
+## 9.8 Phase 3.9 Plan - Local Image Generation (Flux / Draw Things)
+
+Status: **IN PROGRESS** (2026-07-13). All code, config, and doc changes
+below are complete. Live verification is blocked pending user confirmation
+that `192.168.0.200` is responsive again (see the incident note in §9.7
+Step 3.8.1 — a test request against this same Draw Things endpoint appears
+to have pinned the host).
+
+Goal: same local-first, graceful-fallback philosophy as Phase 3.8, applied
+to featured-image generation. When a local Flux model (served by the
+Draw Things app's HTTP API) is available, use it for $0-cost, unlimited
+images; fall back to the existing OpenAI `gpt-image-2` -> Unsplash chain on
+any failure. No user-visible behavior change when disabled.
+
+Environment:
+- Local image model: Flux (`flux.2-klein-9b`) served by Draw Things on
+  `http://192.168.0.200:7860`.
+- API is Automatic1111-compatible: `POST /sdapi/v1/txt2img` with a JSON
+  body (`prompt`, `negative_prompt`, `width`, `height`, ...) and a JSON
+  response `{"images": ["<base64 PNG>", ...], ...}`. `GET /` returns the
+  currently-loaded model's default generation parameters, not a generation
+  call — confirmed via live probing before any adapter code was written.
+
+### Step 3.9.1 - Config plumbing
+
+Status: **COMPLETE** (2026-07-13). `openclaw/config.py` gained
+`LOCAL_IMAGE_ENABLED: bool = False` and `LOCAL_IMAGE_BASE_URL: str | None =
+None` on the frozen `Config`, following the exact `LOCAL_MODEL_*` pattern
+(including `_normalize_optional` for `REPLACE_ME`/empty handling and
+`_TRUE_STRINGS` for the bool parse). `.env.example` documents both vars,
+commented out. Verified via a one-off script that `Config.load()` returns
+both `True`/`http://192.168.0.200:7860` from local `.env`.
+
+### Step 3.9.2 - `generate_local_image()` in images.py
+
+Status: **COMPLETE** (2026-07-13). Added to `openclaw/images.py`, mirroring
+`generate_openai_image`'s signature and never-raises contract:
+- New constants: `LOCAL_IMAGE_TIMEOUT_SECONDS = 300.0`,
+  `LOCAL_IMAGE_WIDTH = 1024`, `LOCAL_IMAGE_HEIGHT = 576` (16:9 landscape —
+  matches the hard landscape-orientation rule already in `generator.py`'s
+  system prompt), and `LOCAL_IMAGE_NEGATIVE_PROMPT` reinforcing "no text,
+  watermark, logo, signature" (Draw Things' API, unlike OpenAI's, actually
+  supports a negative prompt).
+- Returns `None` + a WARNING log on: `LOCAL_IMAGE_ENABLED` false/unset,
+  request exception, non-2xx status, non-JSON response, empty `images`
+  list, or a base64-decode failure.
+- On success, decodes `images[0]`, validates with the existing
+  `_validate_image()`, and returns the same
+  `{image_bytes, mime_type, alt_text, attribution}` shape as
+  `generate_openai_image` (`attribution=None` — no credit needed for
+  AI-generated images).
+
+### Step 3.9.3 - Wire into the fallback chain in main.py
+
+Status: **COMPLETE** (2026-07-13). `main._fetch_and_attach_image()`
+rewritten as a 3-tier chain: local Flux (if `LOCAL_IMAGE_ENABLED`) ->
+OpenAI `gpt-image-2` -> Unsplash. Each tier's success is tracked in a local
+`source` variable set at the point of success (`"Local (Draw Things)"` /
+`"OpenAI"` / `f"Unsplash ({photographer})"`) rather than re-derived from
+`attribution` after the fact, so the final
+`Uploaded featured image (id=..., source=..., alt=...)` log line always
+names the actual provider that produced the image. When
+`LOCAL_IMAGE_ENABLED` is unset/false, this tier is skipped entirely — the
+function falls straight to OpenAI, byte-identical to pre-3.9 behavior.
+
+### Step 3.9.4 - Smoke test script
+
+Status: **COMPLETE** (2026-07-13). `scripts/smoke-local-image.py` added,
+mirroring `scripts/smoke-local-toolcall.py`'s shape: calls
+`images.generate_local_image` directly with a fixed test prompt (a cat on a
+windowsill), writes the resulting PNG to `logs/smoke-local-image.png`, and
+prints PASS/FAIL + latency. Not yet run against a live host (see status
+note above).
+
+### Step 3.9.5 - Live verification
+
+Status: **COMPLETE** (2026-07-14). Host confirmed responsive; all checks
+below ran successfully. One real bug was found and fixed along the way (see
+decision log): `_generate_with_local`'s `tool_choice={"type":"function",
+"function":{"name":...}}` was rejected with HTTP 400 by this LM Studio
+server version ("Supported string values: none, auto, required"). Changed
+to `tool_choice="required"` in both `generator.py` and
+`smoke-local-toolcall.py` — safe since only one tool is ever offered, and
+the existing `call_name != tool_name` check still guards correctness.
+
+Results:
+- `smoke-local-toolcall.py`: PASS, 2.81s latency, well under the 15s bar.
+- `smoke-local-image.py`: PASS, 109.39s latency, 909KB PNG — landscape,
+  on-topic (orange tabby on a windowsill), no visible text/watermark.
+- Happy-path full run (`--site localhost --draft --verbose`, both flags
+  on): `generate` stage fell back to Claude (`LocalProviderError: model
+  returned no tool call, content preview: ''`); `revise` stage succeeded
+  locally; image succeeded locally (`source=Local (Draw Things)`,
+  ~106s). Published post 1443 passed `verify-seo.py` 14/14 (0 FAIL).
+  `_thumbnail_id` confirmed via wp-cli to match the uploaded local image.
+- Dead-port test (`LOCAL_IMAGE_BASE_URL` pointed at :9999), attempt 1:
+  `generate` succeeded locally, `revise` fell back to Claude, but the
+  Claude HTTP request stalled ~9.5 hours before a `ConnectionResetError` —
+  consistent with the host machine sleeping mid-request, not a code
+  defect. Retried once the machine was confirmed awake: `generate` AND
+  `revise` both succeeded locally this time, `generate_local_image` logged
+  a clean connection-refused WARNING, and the run fell through to OpenAI
+  (`source=OpenAI`) and published normally.
+- Both-disabled run: `provider=claude status=success` for both stages,
+  `source=OpenAI` for the image — confirms byte-identical-in-shape
+  pre-3.8/3.9 behavior.
+- Net across the 3 full pipeline runs in this session: local `generate`
+  succeeded 2/3 times, local `revise` succeeded 2/3 times. The one
+  `generate`-stage miss and one `revise`-stage miss both had the identical
+  signature (`model returned no tool call`, empty or near-empty content
+  preview) — consistent with Qwen3.6's reasoning/thinking tokens
+  occasionally consuming the `MAX_TOKENS=12000` budget before emitting the
+  tool call on the larger article-generation and revision prompts (the
+  tiny 2-field smoke-test schema never hit this). Not yet root-caused or
+  fixed; flagged for Step 3.8.8's formal 5-run gate rather than patched
+  ad hoc here, since the fallback safety net is working exactly as
+  designed in the meantime.
+
+- [x] `smoke-local-image.py` PASSes with a landscape, on-topic, uncorrupted
+      PNG.
+- [x] Dead-port test logs a WARNING from `generate_local_image` and still
+      publishes, sourced from OpenAI.
+- [x] Full-pipeline run logs `source=Local (Draw Things)` and the WP draft
+      has a visible featured image (post 1443, `_thumbnail_id=1442`).
+- [x] Both-disabled run is unchanged in shape from pre-3.8/3.9 output.
+- [ ] Re-run the Phase 3.8 Step 3.8.8 5-run quality gate with
+      `LOCAL_IMAGE_ENABLED=true` too, to catch any cross-provider
+      regression (e.g. combined local-text + local-image runtime) — still
+      owed; this session's 3 runs are informative but not the formal gate.
+- [x] §12 decision-log entry recorded with the incident resolution and
+      observed local image latency.
+
+Phase 3.9 exit criteria: **met**.
+- A `--site localhost --draft` run with `LOCAL_IMAGE_ENABLED=true` and the
+  host up publishes with a local-sourced featured image. ✓ (post 1443)
+- A dead-endpoint run still publishes, falling through to OpenAI then
+  Unsplash as needed. ✓
+- `LOCAL_IMAGE_ENABLED=false` restores pre-3.9 behavior exactly. ✓
+- Documentation updated; decision-log entry recorded. ✓
 
 ## 10. Phase 4 Plan - Scheduling
 
@@ -1842,7 +2329,7 @@ actual shipped state; README.md gained a "Multisite + static export
 (Phase 5)" section; CLAUDE.md gained a Phase 5 bullet under Key facts
 and the data-flow paragraph now includes Staatic + git push.
 
-Phase 5 exit criteria:
+Phase 5 (initial pilot) exit criteria:
 - [x] All four pilot subsites run end-to-end: 1 published draft AND
       static export AND GitHub main-branch commit AND GH Pages build in
       a single `python -m openclaw post --site <slug>` invocation.
@@ -1850,6 +2337,258 @@ Phase 5 exit criteria:
       **owed to user** — matches how Phase 4's exit was closed out.
 - [ ] Deliberate failure recovery at each stage **not yet exercised**;
       the code is graceful-fail by design but this hasn't been chaos-tested.
+
+### Post-pilot rework (Steps 5.9 – 5.11)
+
+Status: **not started** — Steps 5.9 – 5.11 supersede the first-round
+pilot's niche and theming decisions. User feedback (2026-07-13): the
+first-round niches were too broad for the "fancast" family, `dogfancast.com`
+already exists (name collision), and the subsites still look like default
+WordPress. This section replans the pilot into narrow-fandom subsites with
+original branding, adds Tech Tool Guide as a dedicated subsite, and lands
+a proper editorial-magazine base theme.
+
+### Step 5.9 - Rebuild pilot subsites with focused-fandom niches and original branding
+
+Status: not started.
+
+**Context:** the first-round pilot shipped four subsites named
+`gardening`, `dogs`, `boardgames`, `coffee`. The niches were too broad
+(the "fancast"-family sites work better around a single-fandom hobby than
+a generic category), one name collided with an existing production site
+(`dogfancast.com` is live), and none of the four had distinctive
+branding. This step deletes those pilots and replaces them with four
+narrow-fandom sites using original brand names — **not** the `X-fancast`
+pattern.
+
+**Proposed niches + brand names** (domain availability probed at planning
+time via HTTP+DNS; final selection pending user approval during review):
+
+| slug            | niche               | brand name          | proposed domain           | why                                                                                                        |
+|-----------------|---------------------|---------------------|---------------------------|------------------------------------------------------------------------------------------------------------|
+| redstone        | Minecraft           | Redstone Register   | `redstoneregister.com`    | User's own example. Massive audience; redstone/mods/versions/biomes are endlessly AI-writable and factual. |
+| sprueandcodex   | Warhammer 40K       | Sprue & Codex       | `sprueandcodex.com`       | Deep hobby (painting + rules + lore + army lists). "Sprue" = plastic frame minis come on; "codex" = army rulebook. |
+| slipstream      | Formula 1           | Slipstream Journal  | `slipstreamjournal.com`   | Global fandom. Tech + drama + drivers + circuits + history. Original name evokes the racing draft mechanic. |
+| clack           | Mechanical keyboards| Clack Report        | `clackreport.com`         | Dedicated enthusiast community; switches/keycaps/layouts/builds = evergreen AI-writable content.           |
+
+Domain probes (2026-07-13):
+`redstoneregister.com` no HTTP response + 1 DNS record (likely available or parked),
+`sprueandcodex.com` same, `slipstreamjournal.com` same, `clackreport.com`
+same. Live sites already ruled out for `formationlap.com`, `paddockpost.com`,
+`chequeredflag.com`, `apexline.com`, `racingline.com`. No domain has been
+registered yet — GH Pages URLs use the free
+`carterman82.github.io/openclaw-<slug>/` pattern per Step 5.5's decision,
+so buying the branded domain and pointing it at the GH Pages repo can
+happen later without redoing this step.
+
+Work:
+- `wp site delete <blog_id>` for blogs 2–5 (Hello World + smoke drafts
+  only, no content loss).
+- `wp site create --slug=<slug>` for the four new slugs at
+  `<slug>.localhost:8088`.
+- Write `website_memory/<slug>.localhost.md` for each new site — mirror
+  the catfancast persona template, with fandom-specific green-light /
+  red-light lists and entity checklists (redstone components, W40K
+  chapters/factions, F1 drivers/circuits/teams, keyboard switch families
+  / layouts).
+- Write `website_memory/<slug>.localhost.trends.json` per fandom
+  (subreddits + Google Suggest seeds).
+- 6–10 evergreen categories per subsite via `wp term create category ...`.
+- Delete the old prefixed env-var blocks from `.env` / `.env.example`;
+  add new ones: `REDSTONE_WP_*`, `SPRUE_WP_*`, `SLIPSTREAM_WP_*`,
+  `CLACK_WP_*`.
+- `scheduled-sites.json`: delete old pilot entries; add four new ones
+  with `enabled=false`.
+- Update `openclaw/deploy.py::DEPLOYABLE_SLUGS` to the new slug set.
+- Update `docker-compose.yml` `extra_hosts` for the new subdomains
+  (remove old, add new).
+- Delete/archive old GH repos (`openclaw-{gardening,dogs,boardgames,coffee}`);
+  create new ones (`openclaw-redstone`, `openclaw-sprueandcodex`,
+  `openclaw-slipstream`, `openclaw-clack`) via `gh repo create ... --public`.
+- Configure Staatic per new subsite (`staatic_deployment_method`,
+  `staatic_filesystem_target_directory`, `staatic_destination_url`).
+- Purge and recreate `staatic-exports/` subdirs.
+
+Verification:
+- [ ] Four new subsites exist at their `.localhost` URLs, each with the
+      Step-5.11 child theme activated, persona loaded, categories present.
+- [ ] `python -m openclaw post --site <slug> --draft --skip-review`
+      produces an on-brand draft per subsite whose entities land on the
+      specific fandom (redstone components for Minecraft, chapters/
+      factions for W40K, drivers/circuits for F1, switches/keycaps for
+      keyboards).
+- [ ] End-to-end deploy per subsite → GH Pages 200 OK at
+      `carterman82.github.io/openclaw-<slug>/`.
+- [ ] Regression: `python -m openclaw post --site catfancast --draft`
+      still publishes correctly (unchanged remote site).
+
+### Step 5.10 - Add Tech Tool Guide as a dedicated `techtools.localhost` subsite
+
+Status: not started.
+
+**Context:** the localhost primary site (blog_id 1) currently holds the
+"Software Tool Guide" persona in `website_memory/localhost.md`. User
+decision (2026-07-13): migrate the persona into a dedicated subsite so
+Tech Tool Guide flows through the same Staatic → GH Pages pipeline as
+the four hobby pilots, leaving the localhost primary role as the
+network's admin/hub (no scheduled publishing against it directly).
+
+Work:
+- `wp site create --slug=techtools --title="Tech Tool Guide"` at
+  `techtools.localhost:8088`.
+- Move + rename `website_memory/localhost.md` →
+  `website_memory/techtools.localhost.md`. Rebrand the persona from
+  "Software Tool Guide" to "Tech Tool Guide" (user's preferred name);
+  update the "What this site is" and voice-anchor sections accordingly.
+- Move + rename `website_memory/localhost.trends.json` →
+  `website_memory/techtools.localhost.trends.json`.
+- Add `techtools.localhost` to `extra_hosts` on the wordpress compose
+  service (Apache's `ServerAlias *.localhost` already covers the vhost
+  side).
+- Add `TECHTOOLS_WP_*` block to `.env` and `.env.example`.
+- Add `techtools` to `openclaw/deploy.DEPLOYABLE_SLUGS` (five deployable
+  slugs total after this step).
+- Add `scheduled-sites.json` entry (`enabled=false` initially).
+- `gh repo create carterman82/openclaw-techtools --public` + init
+  (README + `.nojekyll`) + enable Pages.
+- Configure Staatic per new subsite.
+- **Content migration decision (open for user):** if there are already
+  Tech-Tool-Guide-branded posts on the localhost primary site that
+  should carry over, export via `wp export --url=http://localhost:8088`
+  and re-import into `techtools.localhost` via `wp import`. If localhost
+  primary is treated as a scratch/network hub, skip the migration.
+- Decide localhost primary's new role:
+  - Option A: leave in `scheduled-sites.json enabled=true` for
+    regression coverage of the openclaw pipeline against the primary.
+  - Option B: flip to `enabled=false` so Tech Tool Guide is the only
+    "tech tool" publisher and localhost becomes admin-only.
+  - Recommended: Option B — matches the "dedicated subsite" answer.
+
+Verification:
+- [ ] `http://techtools.localhost:8088/` reachable; Tech Tool Guide
+      persona loaded; categories intact (migrated from primary or
+      freshly created 6–10 categories mirroring the current localhost
+      set: AI Tools, Automation & Workflows, Best Of / Comparisons,
+      Business, Design, Marketing, Freelance, Productivity Tools, SaaS,
+      Uncategorized).
+- [ ] `python -m openclaw post --site techtools --draft` produces a
+      Tech Tool Guide draft; deploy pushes to `openclaw-techtools`;
+      GH Pages URL returns 200 OK.
+- [ ] Localhost primary is either a network hub or `enabled=false`;
+      no duplicate deploys.
+
+### Step 5.11 - Build `openclaw-base` parent theme + editorial-magazine child themes
+
+Status: not started.
+
+**Context:** the first-round pilot used Twenty Twenty-Five as the parent
+theme with per-subsite `theme.json` overrides for palette and font
+stacks. This shipped, but the subsites still LOOK like default WordPress
+— Twenty Twenty-Five's block templates are generic and there's no shared
+editorial identity across the network. Reference sites (catfancast.com,
+animefancast.com) share a magazine-editorial layout that reads as a real
+publication: sticky nav + wordmark, full-width hero, card grid, optional
+sidebar, footer with brand + social + copyright.
+
+**Design brief** (from WebFetch analysis of catfancast + animefancast,
+2026-07-13):
+
+- **Layout — magazine grid.**
+  - Sticky top bar: wordmark left, primary category nav center (≤ 6
+    top-level categories), social + optional subscribe/login right.
+  - Full-width hero at top of home: latest featured article, prominent
+    image, bold headline, dek/lede, byline + date.
+  - Article grid below: cards with ~240×160 thumbnails, headline + tags
+    + date, 3-col desktop / 2-col tablet / 1-col mobile.
+  - Optional sidebar (child-theme opt-in): about blurb, category list,
+    newsletter opt-in, social follow.
+  - Footer: brand + tagline + link columns + social + copyright.
+  - Article page: max-width ~720px reading column; full-bleed hero
+    image; optional drop-cap; author card at the bottom.
+- **Typography.** Sans-serif dominant per reference sites, with an
+  optional serif for wordmark and dek. Suggested pairings per child
+  theme (child-overridable):
+  - Editorial-warm: Inter (body) + Fraunces Wide (display).
+  - Modern-tech: Inter Tight (body) + Space Grotesk (display).
+  - Softer editorial: Source Sans 3 (body) + Playfair Display (display).
+- **Color system.** Parent defines six semantic slots as CSS variables —
+  `background`, `surface`, `text`, `muted`, `primary`, `accent`. Every
+  child overrides all six in `theme.json`; parent's block CSS never
+  hard-codes hex.
+- **Spacing scale.** 4 / 8 / 12 / 16 / 24 / 32 / 48 / 64 px. Grid gutter 24 px.
+
+Work:
+- Scaffold `wp-content/themes/openclaw-base/` on the host, bind-mounted
+  like the child themes.
+  - `style.css` — Theme URI, Author, `Text Domain: openclaw-base`, version.
+  - `theme.json` — six semantic color slots (CSS vars), font-family
+    presets, spacing scale, font-size scale, image size registrations
+    (`hero-1600`, `card-480x320`, `card-240x160`).
+  - `functions.php` — enqueue Google Fonts (or self-hosted); register
+    image sizes; register block patterns; expose the sidebar toggle as
+    a child-theme filter.
+  - Block templates: `templates/index.html` (hero + grid),
+    `templates/single.html`, `templates/archive.html`, `templates/page.html`.
+  - Template parts: `parts/header.html`, `parts/footer.html`,
+    `parts/hero.html`, `parts/card.html`, `parts/sidebar.html`,
+    `parts/newsletter.html`, `parts/author-card.html`.
+  - Block patterns: hero pattern, card-grid pattern, newsletter block,
+    category chip strip.
+- Retire the current `openclaw-{gardening,dogs,boardgames,coffee}` child
+  themes. Create five new child themes (one per new subsite from 5.9 +
+  techtools from 5.10):
+  - `openclaw-redstone` — Minecraft. Moody dark background with a
+    restrained editorial vibe; accent redstone-red. Font pair: Inter
+    Tight + Space Grotesk.
+  - `openclaw-sprueandcodex` — Warhammer 40K. Grimdark: near-black
+    background, oxblood primary, brass accent. Font pair: Fraunces Wide
+    (display) + Inter (body) — serif-heavy to evoke a gothic manuscript.
+  - `openclaw-slipstream` — Formula 1. High-contrast bright: racing red
+    primary, carbon black, safety-yellow accent. Font pair: Inter Tight
+    + Space Grotesk (mechanical / technical).
+  - `openclaw-clack` — Mechanical keyboards. Warm neutrals: muted almond
+    background, walnut primary, teal accent (keycap-color inspired).
+    Font pair: Inter body + JetBrains Mono for pull-quotes / specs.
+  - `openclaw-techtools` — Tech Tool Guide. Clean modern SaaS: white
+    background, indigo primary, cyan accent. Font pair: Inter Tight +
+    Space Grotesk.
+- Update `docker-compose.yml` volumes (both `wordpress` and `wpcli`):
+  bind-mount the parent theme dir + the five new child theme dirs;
+  remove the four retired child-theme mounts.
+- Network-enable the parent + each child theme via wp-cli. Activate the
+  appropriate child theme on each subsite.
+
+**Design-skill note:** no dedicated WordPress-design skill exists in
+this Claude Code environment (verified 2026-07-11; only `review` is
+registered). Theme JSON, block templates, template parts, and block
+patterns will be authored via normal Edit/Write. Claude can generate
+all of the above but visual QA requires the user opening the subsites
+in a browser after 5.11 lands.
+
+Verification:
+- [ ] Each subsite home renders a proper hero + card grid (not the
+      Twenty Twenty-Five default layout).
+- [ ] Each child theme has a visibly distinct palette, font pair, and
+      wordmark treatment while sharing the parent's structural layout.
+- [ ] Staatic re-export of each subsite reproduces the styled layout on
+      GH Pages (no missing assets, no broken block styles).
+- [ ] Regression: `python -m openclaw post --site catfancast --draft`
+      still works (catfancast is a remote site; the openclaw-base
+      changes don't affect it).
+
+### Phase 5 revised exit criteria (supersedes prior)
+
+- [x] Original four-subsite pipeline landed end-to-end (Steps 5.1–5.8).
+- [ ] Four rebuilt pilot subsites (Step 5.9) + Tech Tool Guide subsite
+      (Step 5.10) all publish end-to-end: WP publish → Staatic export
+      → GH commit + push → GH Pages 200 OK.
+- [ ] Each of the five subsites renders on GH Pages with the parent
+      theme's magazine-editorial layout and its own child theme's
+      identity — visibly a real publication, not a stock WP install.
+- [ ] Multi-day passive verification (7 consecutive scheduled days) —
+      **owed to user**.
+- [ ] Deliberate failure recovery testing (Staatic error / git push
+      error / GH Pages misconfig) — **owed to user**.
 
 ## 11.5 Phase 6 Plan - Analytics-Aware Agent
 
@@ -2073,11 +2812,16 @@ Phase 6 exit criteria:
   bypasses the pass; main.py logs the word-count delta.
 - 2026-06-29: Swapped site persona from AnimeFancast.com to catfancast.com to escape anime IP/character-copyright risk and lean fully into copyright-free evergreen content. Code unchanged — the agent is already site-agnostic (categories, site name, link candidates, and SEO plugin are all discovered from `/wp-json/` at runtime). All `Instructions/*.md` content rules updated: DESCRIPTION.md rewritten for real cats only; TOPIC.md restructured from anime title-anchors to five parallel domain-anchor inventories (breeds, behaviors, biology, health & care, history & culture) with a heavier ~92/8 evergreen bias; IMAGE_GENERATOR.md worked example replaced (Maine Coon piece) and the Agent Workflow §5 inverted from "copyrighted characters preferred" to a hard ban on copyrighted fictional cats with real-cat-only depictions; STYLE.md banned-phrase example tweaked; CLAUDE.md SEO routing example + TOPIC.md description line updated. Historical references to animefancast.com (verified post URLs, completed Phase 3 records, prior decision-log entries) intentionally preserved as audit trail. `.env` to be repointed by user when catfancast.com is live; first run against the new site picks up the new categories/site-name automatically. The `openclaw-seo-meta` mu-plugin / installable plugin at `demo/openclaw-seo-meta/` should be installed on catfancast.com when ready, otherwise Routing + Y1/Y3/Y7/Y8 will SKIP/WARN as documented in §9.
 - 2026-07-13: Phase 5 executed end-to-end. Full context in PLAN.md §11 Steps 5.1–5.8. Highlights of what changed vs. the July 11 plan: (a) subdomain suffix `.openclaw.local` → `.localhost` (hosts-file wildcards not supported on Windows; `.localhost` short-circuits to loopback for free in browsers/curl; a Python `openclaw/_localhost_dns.py` DNS shim closes the Python-side gap). (b) Repo topology "one private repo, branch-per-subsite, custom domain per branch" → "four public repos, one per subsite, free github.io URLs" (free-tier Pages doesn't work on private repos, user picked free URLs, cleaner 1:1 domain-to-repo mapping if custom domains land later). (c) Extensive Docker networking work landed to let Staatic crawl `<slug>.localhost:8088` from inside the container: `extra_hosts` on wordpress service, `network_mode: "service:wordpress"` on wpcli, a bind-mounted `apache/openclaw-multisite.conf` adding `Listen 8088` + `ServerAlias *.localhost`. (d) The user's `carterman82.github.io` repo has an account-level CNAME to `www.reggaefancast.com`, so all project Pages URLs 301-redirect there — transparent to internal-link rewriting, documented as fine.
+- 2026-07-13: Phase 5 pilot rework planned (Steps 5.9–5.11 added). User rejected the first-round niches (`gardening`/`dogs`/`boardgames`/`coffee`) as too broad for the "fancast" family; also noted `dogfancast.com` already exists (name collision) and the default WordPress look isn't good enough. Rework: (a) delete + rebuild the four pilots with narrow-fandom niches and **original** brand names (not `X-fancast`) — proposed set: **Redstone Register** (Minecraft), **Sprue & Codex** (Warhammer 40K), **Slipstream Journal** (Formula 1), **Clack Report** (Mechanical keyboards). (b) Add Tech Tool Guide as a dedicated `techtools.localhost` subsite (rebrand from the current "Software Tool Guide" localhost persona) and add it to `DEPLOYABLE_SLUGS`. (c) Build an `openclaw-base` parent theme in the catfancast/animefancast editorial-magazine style (sticky nav + wordmark, full-width hero, card grid, optional sidebar, footer) + five new child themes overriding six semantic color slots and a font pair each. Execution paused pending user approval of Steps 5.9–5.11.
+- 2026-07-13: Resumed Phase 3.8 (finish steps 3.8.1/3.8.5-3.8.7) and added Phase 3.9 (local image generation) in the same session, after the user pointed at two live LAN endpoints: Qwen3.6 via LM Studio (`http://192.168.0.200:1234/v1`) and Flux via the Draw Things app's HTTP API (`http://192.168.0.200:7860`). Draw Things exposes an Automatic1111-compatible `POST /sdapi/v1/txt2img` (confirmed via live GET-root probing plus WebSearch — `GET /` returns the loaded model's default params, not a generation call). Image fallback chain designed as local Flux -> OpenAI `gpt-image-2` -> Unsplash, mirroring the text router's "never raises, return None, try next" contract exactly (no new exception types needed). Chose `1024x576` (16:9, matches the generator's hard landscape rule) and a fixed negative prompt banning text/watermark/logo/signature, since Draw Things' API supports a negative prompt unlike OpenAI's. `LOCAL_IMAGE_TIMEOUT_SECONDS=300.0` (vs. 600.0 for text) as a starting guess for local Flux inference; to be revisited once real latency is observed. **Incident**: a single test `POST` against the Draw Things endpoint left both port 7860 and the unrelated port 1234 (LM Studio) refusing new connections, while the host still answered ping — read as the GPU/host getting pinned rendering the test image, not a code or network-config bug. User chose to check the machine themselves rather than have live verification continue; all code/config/doc work for both Phase 3.8's remaining steps and the new Phase 3.9 was completed regardless (nothing in either required the host to be up), with live verification (Step 3.8.1's tool-call round-trip, Step 3.8.5's 5-run quality gate, and Phase 3.9 Step 3.9.5) deferred until the user confirms the host is responsive again.
+- 2026-07-14: Live verification of Phase 3.8/3.9 against the LAN host, once confirmed responsive. **Bug found and fixed**: `_generate_with_local` in `generator.py` (and the `smoke-local-toolcall.py` script) called the OpenAI-compatible endpoint with `tool_choice={"type":"function","function":{"name":tool_name}}`; this LM Studio server version rejects that with HTTP 400 ("Supported string values: none, auto, required"). Both call sites fixed to `tool_choice="required"` — equivalent here since only one tool is ever offered, and the pre-existing `call_name != tool_name` check still guards against a wrong tool. This would have silently broken the entire local-text primary path (100% fallback to Claude) had it shipped unverified — confirms the value of Step 3.8.1's "prove it before trusting it" gate. After the fix: `smoke-local-toolcall.py` PASS at 2.81s latency; `smoke-local-image.py` PASS at 109.39s latency (909KB landscape PNG, visually confirmed on-topic and uncorrupted). Full-pipeline testing (3 `--site localhost --draft` runs) showed local `generate`/`revise` succeeding 2/3 and 2/3 respectively, with the misses sharing one signature: `LocalProviderError: model returned no tool call (content preview: '' or '\n\n')`. Working theory: Qwen3.6 is a reasoning/thinking model, and its internal reasoning tokens occasionally consume the full `MAX_TOKENS=12000` budget on the large article-generation/revision prompts before it emits the tool call — the tiny 2-field smoke-test schema never triggers this. Not root-caused or fixed in this session (the router's fallback-to-Claude already absorbs it correctly per the fallback design); left as an open item for Step 3.8.5's formal 5-run quality gate to quantify and potentially address (e.g. raising `MAX_TOKENS` or disabling extended thinking on the local server). One run also stalled ~9.5 hours mid-request (`ConnectionResetError` after a long hang) — traced to the host machine sleeping mid-request, not a code or config defect; re-ran cleanly once the machine was awake. Both-flags-disabled run confirmed pre-3.8/3.9 behavior is unchanged (`provider=claude` both stages, `source=OpenAI` image). Phase 3.9 exit criteria met in full; Phase 3.8 Step 3.8.1 complete; Step 3.8.5's formal 5-run gate remains open, informed by (but not satisfied by) this session's 3 runs.
+- 2026-07-14 (continuation): Qwen "no tool call" failure escalated from the earlier 2/3 rate to **3-for-3** on a single `--site localhost` run — `subreddit_select` (content preview `''`, ~18s), `generate` (`'\n\n'`, ~2m40s), `revise` (`''`, ~2m20s). All three stages completed with HTTP 200 and non-trivial latency (Qwen is spending compute) but returned empty `tool_calls`. Every stage fell back to Claude, so the run still published — but with zero benefit from having Qwen enabled. Because `scripts/smoke-local-toolcall.py` passed the same day at 2.81s using a trivial 2-field schema, the failure is not a transport or auth issue and cannot be reproduced by the current smoke test. **Working hypothesis** (to be falsified, not assumed): Qwen3.6 has a hybrid reasoning mode; if LM Studio serves it with thinking enabled, Qwen burns tokens on `<think>…</think>` before ever emitting a tool call, hits `MAX_TOKENS=12000`, and returns empty content + no `tool_calls`. Alternative candidates to rule out: prompt-length pressure (STYLE.md ~51k + TOPIC.md ~37k + IMAGE_GENERATOR.md ~10k + website_memory ~8k on `generate`), tool-schema complexity (`submit_article` has 15 required fields vs. smoke's 2), or LM Studio serving-side settings drift since 3.8.1's PASS. **Plan**: three new Phase 3.8 steps (3.8.5-3.8.7) added to run this to ground before the formal quality gate (renumbered 3.8.8) can be measured — reproduce the failure outside the publish pipeline with the real production schemas + prompts (3.8.5), persist the full raw response body on every future no-tool-call incident so scheduled runs leave a forensic trail instead of a lossy 200-char preview (3.8.6), and expose four new `.env` tuning knobs — `LOCAL_MODEL_TEMPERATURE`, `LOCAL_MODEL_TOP_P`, `LOCAL_MODEL_MAX_TOKENS`, `LOCAL_MODEL_DISABLE_THINKING` — so thinking can be turned off (and other levers pulled) without a code change (3.8.7). Previously-pending steps renumbered: quality gate → 3.8.8, regression check → 3.8.9, docs → 3.8.10. The router's fallback is doing exactly what it was designed to do, so this is not a user-visible outage; it is a "primary path is currently 0% effective" defect that Steps 3.8.5-3.8.7 need to close before the primary/fallback split is worth measuring.
+- 2026-07-14 (Steps 3.8.5-3.8.7 resolution): **Root cause confirmed: thinking-mode token exhaustion, and it's non-deterministic.** `scripts/smoke-local-toolcall.py` was extended with a `--stages` flag reusing the real `subreddit_select`/`generate`/`revise` schemas and prompts, dumping full diagnostics (including LM Studio's `message.reasoning_content` field, which turned out to be the key signal) to `logs/qwen-smoke-<stage>.json`. Observed `reasoning_content` length ranged from 600 to ~52,700 chars across calls with similar prompt shapes — when it runs long, `completion_tokens` hits the ceiling, `finish_reason=length`, and both `content` and `tool_calls` come back empty, exactly the field-level signature of the production fallbacks. Length did not track cleanly with prompt size or schema complexity (the short-prompt/small-schema `subreddit_select` stage failed in production while the long-prompt/large-schema `generate`/`revise` stages sometimes passed in isolation), ruling out those two alternative hypotheses. Two suppression mechanisms were tested against this LM Studio build: the plan's originally-specified `extra_body={"chat_template_kwargs":{"enable_thinking":False}}` is silently ignored (identical behavior with the flag true/false); `extra_body={"reasoning_effort":"none"}` does suppress `reasoning_content` (confirmed empty) but reliably breaks `tool_choice="required"` grammar enforcement — 0/4 trials produced a tool call when present, the model just answers in prose. A third option, Qwen3's native `/no_think` inline suffix, partially suppressed reasoning and preserved tool-calling but was unreliable (~40-60% success across repeated trials) and was not adopted. **Decision**: since no suppression mechanism is both effective and safe, `LOCAL_MODEL_DISABLE_THINKING` (Step 3.8.7) ships defaulting to **`false`**, deviating from the plan's original `true` default; it's wired as an opt-in escape hatch using the `reasoning_effort` mechanism for a future LM Studio/model build that might handle it better. The practical fix that did ship: `LOCAL_MODEL_MAX_TOKENS` (new `.env` knob, default 12000) threaded through both `generator.py::_generate_with_local` and `trends.py::_select_subreddits_local`, which also fixed a pre-existing bug where `trends.py` hardcoded `_SUBREDDIT_SELECT_MAX_TOKENS=2048` — below even the low end of observed reasoning lengths, so that stage was essentially guaranteed to fail regardless of the thinking-mode question. Step 3.8.6 shipped `openclaw/_local_diagnostics.py::dump_fallback_response`, called from both call sites before every fallback-triggering raise, writing `logs/qwen-fallback-YYYY-MM-DD-HHMMSS-<stage>.json` sidecars with the full raw response (verified live: three real dumps captured from a `--site localhost --draft` run, each showing `finish_reason=length`, `completion_tokens` pinned near 12000, and a populated `reasoning_content`). **Net outcome**: with all three 3.8.7 knobs in place, a full end-to-end run (`logs/_e2e-run-1.log`) still fell back on all three stages (subreddit_select, generate, revise) — the router/fallback contract held and the post published cleanly via Claude, but the "local as primary" goal was not achieved in this session. Step 3.8.8's quality gate (4-of-5 local successes) remains blocked; next options are a future LM Studio/model build with working thinking-mode control, or formally downgrading Qwen3.6 to advisory-only and keeping Claude as primary.
 
 ## 13. Open Questions
 
-- Theme: current default block theme is acceptable; revisit if visual polish matters.
-- Version control remote: Openclaw's main repo lives at `github.com/carterman82/openclaw`. Phase 5 static exports live in four sibling repos under the same account (`openclaw-{gardening,dogs,boardgames,coffee}`).
+- Theme: **superseded 2026-07-13**. Step 5.11 will replace the Twenty Twenty-Five parent + palette-only child theme approach with a dedicated `openclaw-base` parent theme in the catfancast/animefancast editorial-magazine style.
+- Version control remote: Openclaw's main repo lives at `github.com/carterman82/openclaw`. First-round Phase 5 static exports live in four sibling repos (`openclaw-{gardening,dogs,boardgames,coffee}`); those repos will be archived/deleted as Step 5.9 rebuilds them under the new brand slugs (`openclaw-{redstone,sprueandcodex,slipstream,clack}`).
 - Analytics source for Phase 6 - Jetpack Stats vs Google Analytics 4 vs Plausible vs the site's existing analytics. Decide in §11.5 Step 6.1.
 - ~~Custom-domain source for Phase 5 pilot subsites~~ — RESOLVED 2026-07-13: chose free `carterman82.github.io/openclaw-<slug>/` URLs.
 - ~~Media handling for static export~~ — RESOLVED 2026-07-13: Staatic 1.12.5 bundles `/wp-content/uploads/` into per-subsite exports; verified in Step 5.4.

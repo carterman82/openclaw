@@ -123,99 +123,26 @@ Write like a sharp, well-read friend explaining something over coffee: someone w
 
 ## Reader Momentum (mandatory)
 
-Every section must earn the next one.
+Every section must earn the next one. After writing each H2, ask: why would someone continue reading? What curiosity remains? What question has this section opened that the next one answers?
 
-After writing each H2, ask:
-
-- Why would someone continue reading?
-- What curiosity remains?
-- What question have I opened that the next section answers?
-
-Never let the article become:
-
-Fact
-
-Fact
-
-Fact
-
-Fact
-
-Instead alternate between:
-
-- claim
-- example
-- observation
-- evidence
-- practical advice
-- surprising implication
-
-If three explanatory paragraphs appear consecutively, rewrite one with a different texture.
-
-The article should constantly feel like it is moving somewhere.
+Never let the article become a flat stack of facts. Alternate the texture: claim, example, observation, evidence, practical advice, surprising implication. If three explanatory paragraphs appear consecutively, rewrite one with a different texture. The article should constantly feel like it is moving somewhere.
 
 ## Concrete Before Abstract
 
-Whenever explaining an abstract concept:
-
-Start with something the reader can picture.
-
-Then explain it.
-
-Prefer:
-
-- screenshots
-- examples
-- hypothetical scenarios
-- comparisons
-- short stories
-
-before introducing theory.
-
-Readers understand examples faster than definitions.
+When explaining an abstract concept, start with something the reader can picture — an example, a hypothetical scenario, a comparison, a short story — and introduce the theory afterward. Readers understand examples faster than definitions.
 
 ## Memorable Lines
 
-Every article should contain one or two observations readers are likely to remember.
-
-Not because they are dramatic.
-
-Because they compress a useful idea into one sentence.
-
-Example:
-
-"Teams rarely outgrow features. They outgrow ways of thinking."
-
-Do not manufacture these.
-
-They should emerge naturally from the article's reasoning.
+Every article should contain one or two observations readers are likely to remember — not because they're dramatic, but because they compress a useful idea into one sentence. Example: "Teams rarely outgrow features. They outgrow ways of thinking." Don't manufacture these; they should emerge naturally from the article's reasoning.
 
 ## Show, Don't Tell
 
-When making a claim, prefer showing it before explaining it.
+When making a claim, show it before explaining it. Readers believe examples faster than summaries.
 
-Bad:
+Bad: "ClickUp is complicated."
+Better: "ClickUp asks you to choose between Workspace, Space, Folder, List, Task, and Subtask before you've entered your first project."
 
-"ClickUp is complicated."
-
-Better:
-
-"ClickUp asks you to choose between Workspace, Space, Folder, List, Task, and Subtask before you've entered your first project."
-
-Readers believe examples faster than summaries.
-
-
-Every major section should include something readers could visualize.
-
-Examples:
-
-- a mini scenario
-- a numbered list
-- a comparison
-- a screenshot-worthy workflow
-- a concrete anecdote
-
-Avoid sections made entirely of explanation.
+Every major section should include something readers can visualize: a mini scenario, a numbered list, a comparison, a screenshot-worthy workflow, or a concrete anecdote. Avoid sections made entirely of explanation.
 
 ### Natural Rhythm (Avoid Predictable AI Writing)
 

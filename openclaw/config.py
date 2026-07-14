@@ -49,6 +49,30 @@ def _normalize_optional(value: str | None) -> str | None:
     return value
 
 
+def _parse_float(value: str | None, default: float) -> float:
+    if not value:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
+def _parse_int(value: str | None, default: int) -> int:
+    if not value:
+        return default
+    try:
+        return int(value)
+    except ValueError:
+        return default
+
+
+def _parse_bool(value: str | None, default: bool) -> bool:
+    if not value:
+        return default
+    return value.strip().lower() in _TRUE_STRINGS
+
+
 @dataclass(frozen=True)
 class Config:
     ANTHROPIC_API_KEY: str
@@ -60,6 +84,19 @@ class Config:
     LOCAL_MODEL_BASE_URL: str | None = None
     LOCAL_MODEL_NAME: str | None = None
     LOCAL_MODEL_ENABLED: bool = False
+    LOCAL_MODEL_TEMPERATURE: float = 0.2
+    LOCAL_MODEL_TOP_P: float = 0.9
+    LOCAL_MODEL_MAX_TOKENS: int = 12000
+    # Default False: Step 3.8.5/3.8.7 (2026-07-14) found that the only
+    # mechanism that actually suppresses thinking on this LM Studio build
+    # (extra_body={"reasoning_effort":"none"}) also reliably breaks
+    # tool_choice="required" grammar enforcement, so the model answers in
+    # plain prose instead of calling the tool. See PLAN.md §12 for the full
+    # writeup. Kept as an opt-in knob in case a future server/model build
+    # handles it correctly.
+    LOCAL_MODEL_DISABLE_THINKING: bool = False
+    LOCAL_IMAGE_BASE_URL: str | None = None
+    LOCAL_IMAGE_ENABLED: bool = False
 
     @classmethod
     def load(cls) -> "Config":
@@ -79,6 +116,7 @@ class Config:
         base_url = os.environ["WP_BASE_URL"].rstrip("/")
         _validate_base_url(base_url)
         local_enabled_raw = (os.getenv("LOCAL_MODEL_ENABLED") or "").strip().lower()
+        local_image_enabled_raw = (os.getenv("LOCAL_IMAGE_ENABLED") or "").strip().lower()
         return cls(
             ANTHROPIC_API_KEY=os.environ["ANTHROPIC_API_KEY"],
             WP_BASE_URL=base_url,
@@ -89,4 +127,12 @@ class Config:
             LOCAL_MODEL_BASE_URL=_normalize_optional(os.getenv("LOCAL_MODEL_BASE_URL")),
             LOCAL_MODEL_NAME=_normalize_optional(os.getenv("LOCAL_MODEL_NAME")),
             LOCAL_MODEL_ENABLED=local_enabled_raw in _TRUE_STRINGS,
+            LOCAL_MODEL_TEMPERATURE=_parse_float(os.getenv("LOCAL_MODEL_TEMPERATURE"), 0.2),
+            LOCAL_MODEL_TOP_P=_parse_float(os.getenv("LOCAL_MODEL_TOP_P"), 0.9),
+            LOCAL_MODEL_MAX_TOKENS=_parse_int(os.getenv("LOCAL_MODEL_MAX_TOKENS"), 12000),
+            LOCAL_MODEL_DISABLE_THINKING=_parse_bool(
+                os.getenv("LOCAL_MODEL_DISABLE_THINKING"), False
+            ),
+            LOCAL_IMAGE_BASE_URL=_normalize_optional(os.getenv("LOCAL_IMAGE_BASE_URL")),
+            LOCAL_IMAGE_ENABLED=local_image_enabled_raw in _TRUE_STRINGS,
         )

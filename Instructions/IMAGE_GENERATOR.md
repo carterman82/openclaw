@@ -13,8 +13,9 @@ This file governs how cover image prompts are generated for catfancast.com artic
 - **Aspect ratio:** 16:9
 - **Layout:** Full-bleed composition — the scene fills the entire frame. No reserved blank areas. The cat and environment should occupy the full canvas.
 - **Opening line of every prompt:**
-  `Create a cinematic 16:9 cover illustration for an editorial article titled "[ARTICLE TITLE]."`
-- **Closing line of every prompt:** a depth/quality descriptor (e.g. "Highly detailed photorealistic illustration, cinematic color grading, sharp focus.").
+  `Create a cinematic 16:9 cover photograph for an editorial article titled "[ARTICLE TITLE]."`
+- **Closing line of every prompt:** a photorealism/depth/quality descriptor (e.g. "Photorealistic, cinematic color grading, shallow depth of field, sharp focus on fine fur detail.").
+- **No text, ever — this is a hard constraint, not a style preference.** The image generator (local Flux model) renders text, letters, numbers, signage, and logos as garbled artifacts, so the prompt must never imply or require any of it. Never write a title treatment, caption, sign, book cover, newspaper, collar tag, nameplate, or any other element a viewer would expect to carry legible text. If a scene naturally suggests text-bearing objects (a vet chart, a cereal box, a street sign), either drop the object or describe it explicitly as blank/unmarked/blurred-out.
 
 ---
 
@@ -32,6 +33,7 @@ This file governs how cover image prompts are generated for catfancast.com artic
 10. **Use quality descriptors sparingly.** A few precise terms beat a wall of "masterpiece, 8k, ultra-detailed, amazing."
 11. **Mention depth explicitly** (atmospheric perspective, depth of field, volumetric fog) — this is what separates flat AI images from professional ones.
 12. **Fill the frame.** Use a full-bleed composition — no reserved blank zones. "No text in the image" is the hard constraint; do not add a negative-space area as if text will be overlaid.
+13. **Favor photographic realism over illustration.** The current image generator (local Flux model) is strongest at photorealism, cinematic lighting, and fine physical detail (fur texture, whiskers, catchlights in the eyes, skin/fabric grain) — lean on those strengths. Describe the scene as a photograph a wildlife/editorial photographer captured, not a painting or digital illustration, unless an article explicitly calls for a painterly/historical art style.
 
 **The thumbnail test:** before finalizing a prompt, ask — would this still be striking as a small thumbnail in search results or social media? If not, it's missing a clear silhouette, a single focal point, a tight palette, or visual hierarchy. Fix the prompt, don't just add adjectives.
 
@@ -51,7 +53,8 @@ Build every prompt in this order:
 [Color palette — 2–3 named colors]
 [Scale]
 [Environmental storytelling detail]
-[Art style + rendering quality, used sparingly]
+[No-text call-out, if the scene has any object that could imply text]
+[Photorealism + rendering quality, used sparingly]
 ```
 
 ---
@@ -71,7 +74,7 @@ towering · colossal · endless horizon · immense · dwarfing the characters ·
 atmospheric perspective · foreground framing · depth of field · volumetric fog · layered environment · aerial perspective
 
 **Quality descriptors (pick 2–3 max):**
-highly detailed digital painting · premium concept art · cinematic color grading · professional key visual · production-quality illustration · sharp focus
+photorealistic · shot on a full-frame camera · shallow depth of field · cinematic color grading · fine fur/whisker detail · sharp focus with soft bokeh background · natural catchlight in the eyes · film-grain texture
 
 ---
 
@@ -81,9 +84,9 @@ highly detailed digital painting · premium concept art · cinematic color gradi
 
 **Generated prompt:**
 
-> Create a cinematic 16:9 cover illustration for an editorial article titled "Maine Coon Size: The Genetics and History Behind the Largest Domestic Breed." Full-bleed composition — the scene fills the entire frame with no reserved blank areas. A massive long-haired brown-tabby Maine Coon stands in profile on a weathered wooden porch railing, full body visible, lynx-tipped ears erect, plumed tail draped behind. A smaller domestic shorthair cat sits on the porch floor in the midground for scale contrast, eclipsed by the Maine Coon's body length. Behind them, a New England farmhouse and pine forest recede into soft morning mist. The atmosphere should feel quiet, grounded, and faintly majestic, with soft directional golden-hour backlighting, warm earth tones (amber, deep forest green, weathered grey), reflective dew on the railing, and a premium National Geographic-style aesthetic. Highly detailed photorealistic illustration, cinematic color grading, sharp focus.
+> Create a cinematic 16:9 cover photograph for an editorial article titled "Maine Coon Size: The Genetics and History Behind the Largest Domestic Breed." Full-bleed composition — the scene fills the entire frame with no reserved blank areas. A massive long-haired brown-tabby Maine Coon stands in profile on a weathered wooden porch railing, full body visible, lynx-tipped ears erect, plumed tail draped behind. A smaller domestic shorthair cat sits on the porch floor in the midground for scale contrast, eclipsed by the Maine Coon's body length. Behind them, a New England farmhouse and pine forest recede into soft morning mist. The atmosphere should feel quiet, grounded, and faintly majestic, with soft directional golden-hour backlighting, warm earth tones (amber, deep forest green, weathered grey), reflective dew on the railing, and a premium National Geographic-style aesthetic. No text, signage, or logos anywhere in the frame. Photorealistic, shot on a full-frame camera with shallow depth of field, fine fur detail catching the light, cinematic color grading, sharp focus.
 
-Notice how this prompt hits every rule: format stated first, full-bleed layout, one focal subject as the hero (the Maine Coon), a layered scene (Maine Coon → smaller cat for scale → farmhouse → forest), explicit lighting and palette, explicit scale (smaller cat for size contrast — never just say "big," show the comparison), environmental storytelling (porch + New England backdrop tied to the breed's Maine origins), full frame filled.
+Notice how this prompt hits every rule: format stated first, full-bleed layout, one focal subject as the hero (the Maine Coon), a layered scene (Maine Coon → smaller cat for scale → farmhouse → forest), explicit lighting and palette, explicit scale (smaller cat for size contrast — never just say "big," show the comparison), environmental storytelling (porch + New England backdrop tied to the breed's Maine origins), full frame filled, an explicit no-text call-out, and photorealistic/fine-detail quality descriptors instead of illustration language.
 
 ---
 
@@ -96,6 +99,7 @@ When generating a cover image prompt for a new article, follow these steps in or
 3. **Choose a mood** that matches the article's emotional angle (curious, regal, quietly powerful, playful, melancholic for end-of-life care pieces, scholarly for historical pieces) — this drives lighting and color choices.
 4. **Choose 2–3 colors** that reinforce that mood. Cats benefit from grounded natural palettes — golden hour, cool overcast, warm interior lamplight, deep forest, soft window light.
 5. **Real cats only — name the breed, describe the cat physically.** Use the actual breed name (e.g., "a chocolate-point Siamese," "a blue British Shorthair on a windowsill," "a torbie Maine Coon mid-stretch"), and for historical real cats use their name + accurate physical description ("Tama the calico stationmaster wearing her conductor's cap at Kishi Station"). **NEVER depict copyrighted fictional cat characters** — no Garfield, Hello Kitty, Pusheen, Tom (Tom & Jerry), Jiji, Luna, Cheshire Cat, Crookshanks, Mrs. Norris, Salem, Snowbell, the Cat in the Hat, anime cat characters, or any cat owned by a studio/publisher/creator. Named real cats from history (Tama, Larry, Stubbs, Dewey, Unsinkable Sam) are fine — they are real animals, not copyrighted characters.
-6. **Build the prompt** using the formula above, in order.
-7. **Run the thumbnail test** before finalizing — if it fails, fix the focal point/palette/silhouette rather than piling on adjectives.
-8. **Confirm the spec**: 16:9, full-bleed (no blank zones), opening line states the article title verbatim, no fictional/copyrighted cat character anywhere in the prompt, no text in the image.
+6. **Build the prompt** using the formula above, in order. Describe it as a photograph (lens/depth-of-field/fine-detail language), not a painting or illustration.
+7. **Scan for text-bearing objects** (signs, tags, charts, book/box covers, screens) and either cut them or explicitly mark them blank/unmarked — the local image generator renders text as garbled artifacts.
+8. **Run the thumbnail test** before finalizing — if it fails, fix the focal point/palette/silhouette rather than piling on adjectives.
+9. **Confirm the spec**: 16:9, full-bleed (no blank zones), opening line states the article title verbatim, no fictional/copyrighted cat character anywhere in the prompt, absolutely no text/letters/numbers/logos anywhere in the image, photorealistic rather than illustrated.

@@ -1,7 +1,9 @@
 """Featured-image sources for openclaw articles.
 
-Active path: OpenAI gpt-image-2 (see `generate_openai_image`). The Unsplash
-search/download/attribution helpers below are kept as a flippable fallback.
+Fallback chain (Phase 3.9): local Flux via Draw Things
+(`generate_local_image`, gated by `LOCAL_IMAGE_ENABLED`) -> OpenAI gpt-image-2
+(`generate_openai_image`) -> Unsplash search (`find_unsplash_image`). Each
+function never raises; a `None` return means "try the next source."
 """
 
 from __future__ import annotations
@@ -23,6 +25,17 @@ UTM_PARAMS: Final[str] = "utm_source=openclaw&utm_medium=referral"
 OPENAI_IMAGE_MODEL: Final[str] = "gpt-image-2"
 OPENAI_IMAGE_SIZE: Final[str] = "1536x1024"
 OPENAI_IMAGE_QUALITY: Final[str] = "medium"
+
+LOCAL_IMAGE_TIMEOUT_SECONDS: Final[float] = 1200.0
+LOCAL_IMAGE_WIDTH: Final[int] = 1024
+LOCAL_IMAGE_HEIGHT: Final[int] = 576
+LOCAL_IMAGE_STEPS: Final[int] = 40
+LOCAL_IMAGE_HR_SCALE: Final[float] = 2.0
+LOCAL_IMAGE_HR_SECOND_PASS_STEPS: Final[int] = 20
+LOCAL_IMAGE_DENOISING_STRENGTH: Final[float] = 0.5
+LOCAL_IMAGE_NEGATIVE_PROMPT: Final[str] = (
+    "text, watermark, logo, signature, caption, subtitle, low quality, blurry"
+)
 
 ALLOWED_IMAGE_MIME: Final[frozenset[str]] = frozenset({
     "image/jpeg", "image/png", "image/webp", "image/gif",
@@ -93,6 +106,67 @@ def generate_openai_image(prompt: str, alt_text: str) -> dict | None:
         image_bytes = base64.b64decode(b64)
     except (AttributeError, IndexError, ValueError) as exc:
         logger.warning("OpenAI image response malformed: %s", exc)
+        return None
+    if not _validate_image(image_bytes, "image/png"):
+        return None
+    return {
+        "image_bytes": image_bytes,
+        "mime_type": "image/png",
+        "alt_text": alt_text,
+        "attribution": None,
+    }
+
+
+def generate_local_image(prompt: str, alt_text: str) -> dict | None:
+    """Generate one image via a local Draw Things HTTP API (Flux).
+
+    Returns the same dict shape as `generate_openai_image` so main.py stays
+    source-agnostic. `attribution` is None (no credit needed for AI-generated
+    images). Returns None on missing config, network error, malformed
+    response, or failed validation — never raises, matching the other
+    image-source functions' fallback-friendly contract.
+    """
+    cfg = Config.load()
+    if not cfg.LOCAL_IMAGE_ENABLED or not cfg.LOCAL_IMAGE_BASE_URL:
+        return None
+    base_url = cfg.LOCAL_IMAGE_BASE_URL.rstrip("/")
+    try:
+        resp = requests.post(
+            f"{base_url}/sdapi/v1/txt2img",
+            json={
+                "prompt": prompt,
+                "negative_prompt": LOCAL_IMAGE_NEGATIVE_PROMPT,
+                "width": LOCAL_IMAGE_WIDTH,
+                "height": LOCAL_IMAGE_HEIGHT,
+                "steps": LOCAL_IMAGE_STEPS,
+                "enable_hr": True,
+                "hr_scale": LOCAL_IMAGE_HR_SCALE,
+                "hr_second_pass_steps": LOCAL_IMAGE_HR_SECOND_PASS_STEPS,
+                "hr_upscaler": "Latent",
+                "denoising_strength": LOCAL_IMAGE_DENOISING_STRENGTH,
+            },
+            timeout=LOCAL_IMAGE_TIMEOUT_SECONDS,
+        )
+    except requests.RequestException as exc:
+        logger.warning("Local image generation request failed: %s", exc)
+        return None
+    if not resp.ok:
+        logger.warning(
+            "Local image generation returned %d: %s", resp.status_code, resp.text[:200],
+        )
+        return None
+    try:
+        images = resp.json().get("images") or []
+    except ValueError as exc:
+        logger.warning("Local image generation response was not JSON: %s", exc)
+        return None
+    if not images:
+        logger.warning("Local image generation returned no images.")
+        return None
+    try:
+        image_bytes = base64.b64decode(images[0])
+    except (ValueError, TypeError) as exc:
+        logger.warning("Local image generation returned invalid base64: %s", exc)
         return None
     if not _validate_image(image_bytes, "image/png"):
         return None

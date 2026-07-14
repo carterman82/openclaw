@@ -17,7 +17,13 @@ from urllib.parse import urlparse
 from .config import Config
 from .deploy import deploy_after_publish, is_deployable
 from .generator import generate_article, revise_article
-from .images import attribution_html, find_unsplash_image, generate_openai_image, track_download
+from .images import (
+    attribution_html,
+    find_unsplash_image,
+    generate_local_image,
+    generate_openai_image,
+    track_download,
+)
 from .publisher import (
     get_category_names,
     get_seo_plugin,
@@ -312,24 +318,35 @@ _MIME_TO_EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "
 
 
 def _fetch_and_attach_image(article: dict) -> tuple[dict | None, int | None, str]:
-    """Generate via OpenAI, fall back to Unsplash, then publish without image.
+    """Generate via local Flux, fall back to OpenAI, then Unsplash, then no image.
 
     Returns (image, attachment_id, body_html_with_credit). The credit suffix
-    is appended only for Unsplash (its attribution dict is truthy); OpenAI
-    images return attribution=None and the body is unchanged. On full failure
-    returns (None, None, original_body_html) so publishing never blocks.
+    is appended only for Unsplash (its attribution dict is truthy); local and
+    OpenAI images return attribution=None and the body is unchanged. On full
+    failure returns (None, None, original_body_html) so publishing never blocks.
     """
     body = article["body_html"]
     image = None
+    source = ""
 
     prompt = article.get("image_prompt")
     # Prefer the generator's keyphrase-inclusive alt text; fall back gracefully.
     alt_hint = article.get("image_alt_text") or article.get("focus_keyphrase") or article["title"]
     if prompt:
-        logger.info("Generating OpenAI image (prompt=%r).", prompt[:120])
-        image = generate_openai_image(prompt, alt_hint)
+        if Config.load().LOCAL_IMAGE_ENABLED:
+            logger.info("Generating local image via Draw Things (prompt=%r).", prompt[:120])
+            image = generate_local_image(prompt, alt_hint)
+            if image:
+                source = "Local (Draw Things)"
+            else:
+                logger.warning("Local image generation failed; falling back to OpenAI.")
         if not image:
-            logger.warning("OpenAI image generation failed; falling back to Unsplash.")
+            logger.info("Generating OpenAI image (prompt=%r).", prompt[:120])
+            image = generate_openai_image(prompt, alt_hint)
+            if image:
+                source = "OpenAI"
+            else:
+                logger.warning("OpenAI image generation failed; falling back to Unsplash.")
     else:
         logger.warning("Article has no image_prompt; falling back to Unsplash.")
 
@@ -338,9 +355,13 @@ def _fetch_and_attach_image(article: dict) -> tuple[dict | None, int | None, str
         if unsplash_q:
             logger.info("Searching Unsplash (query=%r).", unsplash_q)
             image = find_unsplash_image(unsplash_q)
+            if image:
+                source = f"Unsplash ({image['attribution']['photographer_name']})"
 
     if not image:
-        logger.warning("No image from OpenAI or Unsplash; publishing without featured image.")
+        logger.warning(
+            "No image from local, OpenAI, or Unsplash; publishing without featured image."
+        )
         return None, None, body
 
     attribution = image.get("attribution")
@@ -357,7 +378,6 @@ def _fetch_and_attach_image(article: dict) -> tuple[dict | None, int | None, str
         logger.warning("upload_media failed; publishing without featured image.", exc_info=True)
         return None, None, body
 
-    source = "OpenAI" if attribution is None else f"Unsplash ({attribution['photographer_name']})"
     logger.info("Uploaded featured image (id=%d, source=%s, alt=%r).", attachment_id, source, alt)
 
     final_body = body + "\n" + caption if caption else body
@@ -445,6 +465,14 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     post.add_argument(
+        "--skip-reddit",
+        action="store_true",
+        help=(
+            "Skip the Reddit trend scrape entirely (Google Suggest signals still "
+            "gathered). Speeds up testing runs."
+        ),
+    )
+    post.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Enable debug logging.",
@@ -512,6 +540,9 @@ def main(argv: list[str] | None = None) -> int:
                 trending_signals = gather_trending_signals(
                     subreddits=site_subreddits,
                     seeds=site_seeds,
+                    category=category,
+                    site_name=site_name or None,
+                    reddit_enabled=not args.skip_reddit,
                 )
             logger.info(
                 "Calling Claude (topic=%r, category=%r).",

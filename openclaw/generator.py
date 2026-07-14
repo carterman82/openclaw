@@ -17,6 +17,7 @@ import anthropic
 import httpx
 import openai
 
+from ._local_diagnostics import dump_fallback_response
 from .config import Config
 from .constants import ALLOWED_CATEGORIES
 
@@ -458,12 +459,16 @@ def _generate_with_local(
     tool_schema: dict,
     base_url: str,
     model_name: str,
+    cfg: Config | None = None,
+    stage: str = "generate",
 ) -> dict:
     """Call an OpenAI-compatible local server (LM Studio) with tool-use.
 
     Raises `LocalProviderError` on any provider-side failure (empty tool call,
     malformed JSON in arguments, HTTP/network error, timeout). The router
-    catches this and falls back to Claude.
+    catches this and falls back to Claude. Before any raise past a successful
+    HTTP response, the full raw response is dumped to
+    `logs/qwen-fallback-<timestamp>-<stage>.json` for forensics (Step 3.8.6).
     """
     client = openai.OpenAI(
         base_url=base_url,
@@ -472,6 +477,24 @@ def _generate_with_local(
         max_retries=0,
     )
     tool_name = tool_schema["name"]
+    create_kwargs: dict = {}
+    if cfg is not None:
+        create_kwargs["temperature"] = cfg.LOCAL_MODEL_TEMPERATURE
+        create_kwargs["top_p"] = cfg.LOCAL_MODEL_TOP_P
+        max_tokens = cfg.LOCAL_MODEL_MAX_TOKENS
+        if cfg.LOCAL_MODEL_DISABLE_THINKING:
+            # Step 3.8.5/3.8.7 (2026-07-14): `chat_template_kwargs.
+            # enable_thinking=False` is silently ignored by this LM Studio
+            # build. `extra_body.reasoning_effort="none"` DOES suppress the
+            # <think> trace, but was also observed to reliably break
+            # tool_choice="required" grammar enforcement (the model answers
+            # in plain prose instead of calling the tool) - so this default
+            # is OFF (see Config.LOCAL_MODEL_DISABLE_THINKING). Left wired
+            # as an opt-in knob for a future server/model build where it
+            # might work without that side effect.
+            create_kwargs["extra_body"] = {"reasoning_effort": "none"}
+    else:
+        max_tokens = MAX_TOKENS
     try:
         response = client.chat.completions.create(
             model=model_name,
@@ -480,18 +503,26 @@ def _generate_with_local(
                 {"role": "user", "content": user_message},
             ],
             tools=[_anthropic_to_openai_tool_schema(tool_schema)],
-            tool_choice={"type": "function", "function": {"name": tool_name}},
-            max_tokens=MAX_TOKENS,
+            # This server (LM Studio's OpenAI-compat layer) rejects the
+            # object form `{"type":"function","function":{"name":...}}` with
+            # a 400 ("Supported string values: none, auto, required").
+            # "required" is equivalent here since only one tool is offered;
+            # the call_name check below still guards against a wrong tool.
+            tool_choice="required",
+            max_tokens=max_tokens,
+            **create_kwargs,
         )
     except (openai.APIError, openai.APIConnectionError, openai.APITimeoutError,
             httpx.HTTPError) as exc:
         raise LocalProviderError(f"HTTP/API error: {type(exc).__name__}: {exc}") from exc
 
     if not response.choices:
+        dump_fallback_response(stage, model_name, None, reason="no choices in response")
         raise LocalProviderError("no choices in response")
     message = response.choices[0].message
     tool_calls = getattr(message, "tool_calls", None) or []
     if not tool_calls:
+        dump_fallback_response(stage, model_name, response, reason="no tool call")
         raise LocalProviderError(
             f"model returned no tool call (content preview: "
             f"{(message.content or '')[:200]!r})"
@@ -499,6 +530,7 @@ def _generate_with_local(
     call = tool_calls[0]
     call_name = getattr(getattr(call, "function", None), "name", None)
     if call_name != tool_name:
+        dump_fallback_response(stage, model_name, response, reason="wrong tool name")
         raise LocalProviderError(
             f"expected tool call {tool_name!r}, got {call_name!r}"
         )
@@ -506,12 +538,14 @@ def _generate_with_local(
     try:
         article = json.loads(raw_args)
     except json.JSONDecodeError as exc:
+        dump_fallback_response(stage, model_name, response, reason="invalid JSON arguments")
         raise LocalProviderError(
             f"tool arguments were not valid JSON: {exc}. Preview: {raw_args[:200]!r}"
         ) from exc
     try:
         _validate_article_payload(article)
     except ValueError as exc:
+        dump_fallback_response(stage, model_name, response, reason="payload validation failed")
         raise LocalProviderError(f"payload validation failed: {exc}") from exc
     return article
 
@@ -676,6 +710,7 @@ def _dispatch(
         article = _generate_with_local(
             system_prompt, user_message, tool_schema,
             cfg.LOCAL_MODEL_BASE_URL, cfg.LOCAL_MODEL_NAME,
+            cfg=cfg, stage=stage,
         )
         logger.info(
             "provider=local status=success stage=%s model=%s",

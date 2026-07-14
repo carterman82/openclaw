@@ -16,6 +16,12 @@ Per-site subreddits and suggest seeds live in `website_memory/{host}.trends.json
 When no trends file exists for the active site, `gather_trending_signals` returns
 empty lists — no signals leak from one site to another.
 
+Scanning every subreddit in that file serially (Reddit's anonymous RSS rate
+limit forces a multi-second gap plus backoff between requests) took 15-20
+minutes for a ~18-subreddit list. `select_relevant_subreddits` asks a fast
+model to narrow that list down to the handful actually worth scanning this
+run before `fetch_reddit_trends` touches the network at all.
+
 The signal is consumed by `generator.generate_article(trending_signals=...)`
 and rendered into a `<reference_data type="trending_signals">` block in the
 user message. TOPIC.md's evergreen/trending ratio remains authoritative;
@@ -24,13 +30,20 @@ this module supplies inputs, not directives.
 
 from __future__ import annotations
 
+import json
 import logging
 import random
 import time
 import xml.etree.ElementTree as ET
 from typing import Final
 
+import anthropic
+import httpx
+import openai
 import requests
+
+from ._local_diagnostics import dump_fallback_response
+from .config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +94,247 @@ def _get_reddit_rss(sub: str, headers: dict[str, str]) -> "requests.Response | N
         )
         time.sleep(wait)
     return None  # unreachable, but keeps type-checkers happy
+
+
+SUBREDDIT_SELECT_FALLBACK_MODEL: Final[str] = "claude-haiku-4-5-20251001"
+TOP_N_SUBREDDITS: Final[int] = 3
+# Thinking-mode local models (e.g. Qwen3.6) spend a chunk of the completion
+# budget on a <think> trace before emitting the actual tool call. Step 3.8.5
+# (2026-07-14) measured reasoning traces for this exact stage/schema running
+# anywhere from ~300 to 11999+ tokens (observed finish_reason=length with
+# zero tool call at the old 2048 cap, and even at 12000 in one trial) - the
+# length is genuinely non-deterministic per call, not proportional to task
+# complexity. `_select_subreddits_local` now uses `cfg.LOCAL_MODEL_MAX_TOKENS`
+# (default 12000) when a Config is supplied; this constant is only the
+# fallback for direct/unit-test calls that don't pass `cfg`.
+_SUBREDDIT_SELECT_MAX_TOKENS: Final[int] = 12000
+_SUBREDDIT_SELECT_TIMEOUT_SECONDS: Final[float] = 180.0
+
+_SUBREDDIT_TOOL_SCHEMA: Final[dict] = {
+    "name": "select_subreddits",
+    "description": "Return the subreddit names most likely to have current, relevant discussion for this article run.",
+    "input_schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "subreddits": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "Subreddit names without the r/ prefix, most relevant first.",
+            },
+        },
+        "required": ["subreddits"],
+    },
+}
+
+
+class _SubredditSelectionError(Exception):
+    """Raised when the local provider produces an unusable subreddit selection.
+
+    Caught by `select_relevant_subreddits`, which falls back to Claude Haiku.
+    Never propagates out of this module.
+    """
+
+
+def _build_subreddit_select_message(
+    candidates: list[str],
+    category: str | None,
+    site_name: str | None,
+    limit: int,
+) -> str:
+    focus = f" This run's article category is {category!r}." if category else ""
+    site = f" The site is {site_name!r}." if site_name else ""
+    return (
+        f"Candidate subreddits from this site's trends config: "
+        f"{', '.join(candidates)}.{site}{focus} "
+        f"Pick the {limit} subreddits most likely to have current, relevant "
+        f"discussion for this run. Prefer names from the candidate list, but "
+        f"you may name a different real subreddit instead if you're confident "
+        f"it fits better. Return subreddit names only, no r/ prefix."
+    )
+
+
+def _clean_subreddit_names(raw: list, limit: int) -> list[str]:
+    picked = [str(s).removeprefix("r/").strip() for s in raw]
+    return [s for s in picked if s][:limit]
+
+
+_SUBREDDIT_SELECT_STAGE: Final[str] = "subreddit_select"
+
+
+def _select_subreddits_local(
+    user_message: str,
+    base_url: str,
+    model_name: str,
+    limit: int,
+    cfg: Config | None = None,
+) -> list[str]:
+    """Call the local OpenAI-compatible server (LM Studio, e.g. Qwen 3.6) with tool-use.
+
+    Raises `_SubredditSelectionError` on any provider-side failure so the
+    caller can fall back to Claude Haiku. Before any raise past a successful
+    HTTP response, the full raw response is dumped to
+    `logs/qwen-fallback-<timestamp>-subreddit_select.json` for forensics
+    (Step 3.8.6).
+    """
+    client = openai.OpenAI(
+        base_url=base_url,
+        api_key="lm-studio",  # LM Studio ignores it; SDK requires non-empty
+        timeout=_SUBREDDIT_SELECT_TIMEOUT_SECONDS,
+        max_retries=0,
+    )
+    tool_schema = {
+        "type": "function",
+        "function": {
+            "name": _SUBREDDIT_TOOL_SCHEMA["name"],
+            "description": _SUBREDDIT_TOOL_SCHEMA["description"],
+            "parameters": _SUBREDDIT_TOOL_SCHEMA["input_schema"],
+        },
+    }
+    create_kwargs: dict = {}
+    max_tokens = _SUBREDDIT_SELECT_MAX_TOKENS
+    if cfg is not None:
+        create_kwargs["temperature"] = cfg.LOCAL_MODEL_TEMPERATURE
+        create_kwargs["top_p"] = cfg.LOCAL_MODEL_TOP_P
+        max_tokens = cfg.LOCAL_MODEL_MAX_TOKENS
+        if cfg.LOCAL_MODEL_DISABLE_THINKING:
+            # See generator.py::_generate_with_local for why this key was
+            # chosen over chat_template_kwargs.enable_thinking.
+            create_kwargs["extra_body"] = {"reasoning_effort": "none"}
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": user_message}],
+            tools=[tool_schema],
+            tool_choice="required",
+            max_tokens=max_tokens,
+            **create_kwargs,
+        )
+    except (openai.APIError, openai.APIConnectionError, openai.APITimeoutError,
+            httpx.HTTPError) as exc:
+        raise _SubredditSelectionError(f"HTTP/API error: {type(exc).__name__}: {exc}") from exc
+
+    if not response.choices:
+        dump_fallback_response(
+            _SUBREDDIT_SELECT_STAGE, model_name, None, reason="no choices in response"
+        )
+        raise _SubredditSelectionError("no choices in response")
+    message = response.choices[0].message
+    tool_calls = getattr(message, "tool_calls", None) or []
+    if not tool_calls:
+        dump_fallback_response(
+            _SUBREDDIT_SELECT_STAGE, model_name, response, reason="no tool call"
+        )
+        raise _SubredditSelectionError(
+            f"model returned no tool call (content preview: "
+            f"{(message.content or '')[:200]!r})"
+        )
+    call = tool_calls[0]
+    call_name = getattr(getattr(call, "function", None), "name", None)
+    if call_name != _SUBREDDIT_TOOL_SCHEMA["name"]:
+        dump_fallback_response(
+            _SUBREDDIT_SELECT_STAGE, model_name, response, reason="wrong tool name"
+        )
+        raise _SubredditSelectionError(
+            f"expected tool call {_SUBREDDIT_TOOL_SCHEMA['name']!r}, got {call_name!r}"
+        )
+    raw_args = getattr(call.function, "arguments", "") or ""
+    try:
+        args = json.loads(raw_args)
+    except json.JSONDecodeError as exc:
+        dump_fallback_response(
+            _SUBREDDIT_SELECT_STAGE, model_name, response, reason="invalid JSON arguments"
+        )
+        raise _SubredditSelectionError(
+            f"tool arguments were not valid JSON: {exc}. Preview: {raw_args[:200]!r}"
+        ) from exc
+    picked = _clean_subreddit_names(args.get("subreddits", []), limit)
+    if not picked:
+        dump_fallback_response(
+            _SUBREDDIT_SELECT_STAGE, model_name, response,
+            reason="no usable subreddit names in tool arguments",
+        )
+        raise _SubredditSelectionError("no usable subreddit names in tool arguments")
+    return picked
+
+
+def _select_subreddits_claude(user_message: str, limit: int) -> list[str]:
+    """Call Claude Haiku with tool-use. Raises `_SubredditSelectionError` on failure."""
+    cfg = Config.load()
+    client = anthropic.Anthropic(api_key=cfg.ANTHROPIC_API_KEY)
+    try:
+        response = client.messages.create(
+            model=SUBREDDIT_SELECT_FALLBACK_MODEL,
+            max_tokens=1024,
+            messages=[{"role": "user", "content": user_message}],
+            tools=[_SUBREDDIT_TOOL_SCHEMA],
+            tool_choice={"type": "tool", "name": "select_subreddits"},
+        )
+    except anthropic.APIError as exc:
+        raise _SubredditSelectionError(f"Claude API error: {exc}") from exc
+    for block in response.content:
+        if getattr(block, "type", None) == "tool_use" and block.name == "select_subreddits":
+            picked = _clean_subreddit_names(block.input.get("subreddits", []), limit)
+            if picked:
+                return picked
+    raise _SubredditSelectionError("Claude returned no usable select_subreddits tool call")
+
+
+def select_relevant_subreddits(
+    candidates: list[str],
+    category: str | None = None,
+    site_name: str | None = None,
+    limit: int = TOP_N_SUBREDDITS,
+) -> list[str]:
+    """Ask a fast model to pick the `limit` subreddits worth scanning this run.
+
+    Replaces an O(len(candidates)) serial RSS scan with a single cheap model
+    call plus an O(limit) scan. The model may return names straight from
+    `candidates` or name a different real subreddit it knows fits better
+    ("off the top of its head") — `fetch_reddit_trends` fails soft on any
+    invalid name, so an unlisted guess is safe to try.
+
+    Routes like `generator.py`: tries the local model (e.g. Qwen 3.6 via LM
+    Studio) first when `LOCAL_MODEL_ENABLED=true`, falls back to Claude Haiku
+    on any local failure, and falls back to the first `limit` candidates if
+    both providers fail — never raises.
+    """
+    if not candidates:
+        return []
+    cfg = Config.load()
+    user_message = _build_subreddit_select_message(candidates, category, site_name, limit)
+
+    if cfg.LOCAL_MODEL_ENABLED and cfg.LOCAL_MODEL_BASE_URL and cfg.LOCAL_MODEL_NAME:
+        try:
+            picked = _select_subreddits_local(
+                user_message, cfg.LOCAL_MODEL_BASE_URL, cfg.LOCAL_MODEL_NAME, limit,
+                cfg=cfg,
+            )
+            logger.info(
+                "provider=local status=success stage=subreddit_select model=%s picks=%s",
+                cfg.LOCAL_MODEL_NAME, picked,
+            )
+            return picked
+        except _SubredditSelectionError as exc:
+            logger.warning(
+                "provider=local status=fallback stage=subreddit_select reason=%s: %s",
+                type(exc).__name__, exc,
+            )
+
+    try:
+        picked = _select_subreddits_claude(user_message, limit)
+        logger.info(
+            "provider=claude status=success stage=subreddit_select model=%s picks=%s",
+            SUBREDDIT_SELECT_FALLBACK_MODEL, picked,
+        )
+        return picked
+    except _SubredditSelectionError as exc:
+        logger.warning(
+            "provider=claude status=fallback stage=subreddit_select reason=%s: %s "
+            "using first %d candidates.",
+            type(exc).__name__, exc, limit,
+        )
+    return candidates[:limit]
 
 
 GOOGLE_SUGGEST_URL: Final[str] = "http://suggestqueries.google.com/complete/search"
@@ -212,6 +466,9 @@ def gather_trending_signals(
     seeds: list[str] | None = None,
     reddit_limit: int = 15,
     suggest_limit_per_seed: int = 5,
+    category: str | None = None,
+    site_name: str | None = None,
+    reddit_enabled: bool = True,
 ) -> dict:
     """Collect both signal sources for `generator.generate_article`.
 
@@ -219,9 +476,22 @@ def gather_trending_signals(
     When both are empty/None, returns empty lists rather than using any
     hardcoded defaults — no signals from one site bleed into another.
 
+    When `reddit_enabled` is False, the Reddit RSS scan is skipped entirely
+    (Google Suggest still runs) — set this from `--skip-reddit` to speed up
+    testing. Otherwise, `subreddits` is first narrowed to
+    `TOP_N_SUBREDDITS` via `select_relevant_subreddits` so only a handful of
+    RSS requests are made instead of scanning the whole candidate list.
+
     Always returns a dict with both keys, possibly empty. Logs counts.
     """
-    reddit = fetch_reddit_trends(subreddits or [], limit=reddit_limit)
+    if not reddit_enabled:
+        logger.info("Reddit trend scraping disabled (--skip-reddit); skipping.")
+        reddit: list[dict] = []
+    elif subreddits:
+        chosen = select_relevant_subreddits(subreddits, category=category, site_name=site_name)
+        reddit = fetch_reddit_trends(chosen, limit=reddit_limit)
+    else:
+        reddit = []
     suggest = fetch_google_suggest(seeds=seeds or [], limit_per_seed=suggest_limit_per_seed)
     logger.info(
         "Trending signals: %d Reddit posts, %d Suggest completions.",
