@@ -7,8 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A WordPress prototype article site plus an **openclaw agent** — a Claude-powered
 Python script that writes and publishes one article on demand (Phase 2),
 augments with images and SEO fields (Phase 3), scheduled unattended daily at
-07:00 via Windows Task Scheduler (Phase 4), and eventually analytics-aware
-(Phase 5). "Openclaw" = our name for the agent, not an external tool.
+07:00 via Windows Task Scheduler (Phase 4), fanned out into a local WordPress
+multisite with per-subsite static export to GitHub Pages (Phase 5), and
+eventually analytics-aware (Phase 6). "Openclaw" = our name for the agent, not
+an external tool.
 
 ## Read this first
 
@@ -36,6 +38,7 @@ boxes) and append any new decisions to §4.
 - **Local model + fallback (Phase 3.8):** `openclaw/generator.py`'s `generate_article()` is a router. When `LOCAL_MODEL_ENABLED=true` in `.env`, it tries `_generate_with_local` (LM Studio OpenAI-compatible endpoint at `LOCAL_MODEL_BASE_URL`, model id in `LOCAL_MODEL_NAME`) and falls back to `_generate_with_claude` on any `LocalProviderError` (connection failure, timeout, empty/wrong tool call, non-JSON args, missing/empty required field). When unset or false, routes directly to Claude — pre-3.8 behavior. Structured log lines: `provider=<local|claude> status=<success|fallback> [reason=...]`.
 - **Per-run randomness + second-pass editor (2026-07-11):** when neither `--topic` nor `--category` is given, `main.py` rolls a random category (`_pick_random_category`) and per-run variation directives (`_roll_variation_directives`: length band, FAQ ~1-in-3, hook type) — LLMs can't self-randomize, so structural variety comes from code. After generation, `generator.revise_article()` runs an editor pass over the draft through the same provider router (`stage=revise`): helpfulness/redundancy/style/SEO audit, category code-guarded, no new links, hrefs must stay byte-identical. Bypass with `--skip-review`.
 - **Scheduling (Phase 4):** `scripts/run-openclaw.ps1` is the wrapper invoked by Windows Task Scheduler at 07:00 daily. Reads `scheduled-sites.json` at the project root (array of `{slug, enabled, notes}`), runs `python -m openclaw post --site <slug> --verbose` per enabled entry, retries N=2 (60s→300s), writes per-attempt logs to `logs/openclaw-YYYY-MM-DD-<slug>.log`, and drops `logs/last-run-failed.flag` on any final failure (removes it on all-pass). Log-flag-only notification — no email/toast/push. Uses `Start-Process` with `-RedirectStandardOutput/-RedirectStandardError` to sidestep PS 5.1's native-command stderr wrapping (which otherwise turns Python `logging` output into `NativeCommandError` records that trip `$ErrorActionPreference=Stop`).
+- **Multisite + static export (Phase 5):** the local Docker WordPress is a subdomain multisite. Primary site (`blog_id=1`) is at `http://localhost:8088/`; four pilot subsites live at `<slug>.localhost:8088/` for slugs `gardening`, `dogs`, `boardgames`, `coffee`. `.localhost` is RFC 6761 loopback — browsers/curl resolve it for free; `openclaw/_localhost_dns.py` (auto-loaded from `openclaw/__init__.py`) monkey-patches `socket.getaddrinfo` so Python does the same. Each subsite has a Twenty Twenty-Five child theme at `wp-content/themes/openclaw-<slug>/` (bind-mounted individually in `docker-compose.yml` to survive volume resets), a persona at `website_memory/<slug>.localhost.md`, and its own scheduled-sites.json entry (initially `enabled=false`). `openclaw-agent` is a network super-admin; one app password works for the whole network. **Staatic 1.12.5** is network-active; per-subsite options (`staatic_deployment_method=filesystem`, `staatic_filesystem_target_directory=/var/www/html/wp-content/staatic-exports/<slug>`, `staatic_destination_url=https://carterman82.github.io/openclaw-<slug>/`) point the export at the bind-mounted `staatic-exports/<slug>/` on the host with URLs pre-rewritten for GH Pages. `openclaw/deploy.py::deploy_after_publish` runs after `publish_post()` for the four pilot slugs (`DEPLOYABLE_SLUGS` allowlist — non-pilot sites skip the whole chain, so a scheduled catfancast run never accidentally tries to git-push somewhere): fires `wp staatic publish`, then commits + pushes the export into `.gh-worktree/openclaw-<slug>/` on the `main` branch of `github.com/carterman82/openclaw-<slug>`. Bypass with `--skip-deploy` on `python -m openclaw post`. Docker plumbing worth remembering: (a) `apache/openclaw-multisite.conf` bind-mount adds `Listen 8088` + `ServerAlias *.localhost` so both host and container reach the site at `<slug>.localhost:8088`; (b) `extra_hosts` on the `wordpress` service maps subsite domains → 127.0.0.1; (c) `network_mode: "service:wordpress"` on `wpcli` shares that hosts file so `wp staatic publish` from wpcli can crawl the subsites; (d) `staatic-exports/` bind-mount is on BOTH wordpress and wpcli services (wpcli-side is the one Staatic actually writes from).
 
 ## Common commands
 
@@ -64,6 +67,10 @@ python -m openclaw post --help
 # Multi-site: select a per-site prefix block from .env
 python -m openclaw post --site catfancast --draft
 
+# Phase 5 pilot subsites (local WP multisite → Staatic → GitHub Pages)
+python -m openclaw post --site gardening --draft            # publish + export + push
+python -m openclaw post --site dogs --draft --skip-deploy   # publish only, skip static export/git push
+
 # Generation-only smoke test: calls Claude, uses recent-title de-duplication, does NOT publish
 python scripts/smoke-trends.py
 
@@ -78,16 +85,19 @@ There are no automated tests. Verification steps are manual (see PLAN.md §7).
 
 ```
 openclaw/
+├── __init__.py    # auto-installs the _localhost_dns shim on any openclaw import
+├── _localhost_dns.py # monkey-patches socket.getaddrinfo so *.localhost resolves to 127.0.0.1 in this process
 ├── config.py      # Config.load() → frozen dataclass from .env; called by generator, publisher, images
 ├── constants.py   # shared category constants (offline fallback only)
 ├── generator.py   # generate_article(...) — Claude tool-use; loads Instructions/*.md + website_memory/{host}.md at runtime
 ├── publisher.py   # publish_post + upload_media + list_recent_post_titles + list_recent_posts_for_linking
 ├── images.py      # find_unsplash_image / generate_openai_image / attribution_html / track_download
-├── main.py        # `python -m openclaw post` CLI entry; wires generation → links → image → publish
+├── deploy.py      # Phase 5: trigger_staatic_export + commit_and_push for the four pilot subsites
+├── main.py        # `python -m openclaw post` CLI entry; wires generation → links → image → publish → deploy
 └── __main__.py    # module runner for `python -m openclaw`
 ```
 
-Data flow: `main.py` parses args → `_activate_site(args.site)` copies prefixed env vars into bare positions (no-op when `--site` omitted) → `Config.load()` and hostname derived from `WP_BASE_URL` for the per-site persona lookup → fetches `get_site_name()`, `get_seo_plugin()`, `get_category_names()`, `list_recent_post_titles()` (for de-dup, when no `--topic`), and `list_recent_posts_for_linking()` (internal-link candidates) from WP → `generate_article()` (Claude API with the live category list, site name, `site_host` for `website_memory/{host}.md` lookup, avoidance titles, and link candidates threaded in) → `revise_article()` second-pass editor (same local-with-Claude-fallback router, `stage=revise` in provider log lines; audits helpfulness, redundancy, style compliance, and SEO fields; category is code-guarded and no new links are allowed; skip with `--skip-review`) → main validates internal links against candidates (strips invented URLs) and enforces external-link safety attrs (`rel="noopener" target="_blank"`) → `_fetch_and_attach_image()` (Unsplash search + `upload_media` + `attribution_html` append to body) → `publish_post()` with `featured_media` → optional `track_download()` → prints post URL.
+Data flow: `main.py` parses args → `_activate_site(args.site)` copies prefixed env vars into bare positions (no-op when `--site` omitted) → `Config.load()` and hostname derived from `WP_BASE_URL` for the per-site persona lookup → fetches `get_site_name()`, `get_seo_plugin()`, `get_category_names()`, `list_recent_post_titles()` (for de-dup, when no `--topic`), and `list_recent_posts_for_linking()` (internal-link candidates) from WP → `generate_article()` (Claude API with the live category list, site name, `site_host` for `website_memory/{host}.md` lookup, avoidance titles, and link candidates threaded in) → `revise_article()` second-pass editor (same local-with-Claude-fallback router, `stage=revise` in provider log lines; audits helpfulness, redundancy, style compliance, and SEO fields; category is code-guarded and no new links are allowed; skip with `--skip-review`) → main validates internal links against candidates (strips invented URLs) and enforces external-link safety attrs (`rel="noopener" target="_blank"`) → `_fetch_and_attach_image()` (Unsplash search + `upload_media` + `attribution_html` append to body) → `publish_post()` with `featured_media` → optional `track_download()` → prints post URL → for Phase 5 pilot slugs (`gardening`, `dogs`, `boardgames`, `coffee`), `deploy.deploy_after_publish()` runs `wp staatic publish` and commits + pushes `staatic-exports/<slug>/` to `github.com/carterman82/openclaw-<slug>` (unless `--skip-deploy`).
 
 **Structured output:** `generator.py` uses Claude tool-use with `tool_choice={"type":"tool","name":"submit_article"}`. The tool's `input_schema` requires: `title`, `body_html`, `category` (runtime enum), `tags`, SEO fields (`excerpt`, `slug`, `focus_keyphrase`, `seo_title`, `meta_description`, `image_alt_text`, `image_prompt`, `unsplash_query`), and link reports (`internal_links_used`, `external_links_used`).
 

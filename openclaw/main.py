@@ -15,6 +15,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .config import Config
+from .deploy import deploy_after_publish, is_deployable
 from .generator import generate_article, revise_article
 from .images import attribution_html, find_unsplash_image, generate_openai_image, track_download
 from .publisher import (
@@ -436,6 +437,14 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Skip the second-pass editor agent (publish the raw first draft).",
     )
     post.add_argument(
+        "--skip-deploy",
+        action="store_true",
+        help=(
+            "Skip the Phase 5 static export + GitHub Pages push after publish. "
+            "Only affects local multisite pilot subsites; other sites never deploy."
+        ),
+    )
+    post.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Enable debug logging.",
@@ -649,6 +658,21 @@ def main(argv: list[str] | None = None) -> int:
             url = post.get("link") or post.get("guid", {}).get("rendered", "unknown")
             logger.info("Published: %s", url)
             print(url)
+
+            if args.skip_deploy:
+                logger.info("Deploy step skipped (--skip-deploy).")
+            elif is_deployable(args.site):
+                logger.info("Starting Phase 5 deploy for %r.", args.site)
+                if deploy_after_publish(args.site, article["title"]):
+                    logger.info(
+                        "Deployed to https://carterman82.github.io/openclaw-%s/",
+                        args.site,
+                    )
+                else:
+                    logger.warning(
+                        "Deploy failed for %r (post is published; deploy owed).",
+                        args.site,
+                    )
             return 0
         except Exception as exc:
             logger.exception("Run failed: %s", exc)

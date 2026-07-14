@@ -1,11 +1,42 @@
 {
-  "reddit_subreddits": ["SaaS", "Entrepreneur", "smallbusiness", "productivity"],
+  "reddit_subreddits": [
+    "SaaS",
+    "Entrepreneur",
+    "smallbusiness",
+    "productivity",
+    "startups",
+    "indiehackers",
+    "freelance",
+    "digitalnomad",
+    "marketing",
+    "growthhacking",
+    "webdev",
+    "nocode",
+    "Accounting",
+    "consulting",
+    "remotework",
+    "sidehustle",
+    "ArtificialIntelligence",
+    "MachineLearning"
+  ],
   "google_suggest_seeds": [
     "best SaaS tools for",
     "how to automate",
     "AI tool for",
     "how to grow a",
     "best software for freelance",
-    "how to use AI to"
+    "how to use AI to",
+    "best way to",
+    "how to start a",
+    "tools for small business",
+    "how to scale a",
+    "what is the best",
+    "free tools for",
+    "how to manage",
+    "software to replace",
+    "AI vs",
+    "how much does it cost to",
+    "tips for",
+    "how to automate my"
   ]
 }

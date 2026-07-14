@@ -25,12 +25,17 @@ def _validate_base_url(url: str) -> None:
             f"WP_BASE_URL must use http or https; got scheme {scheme!r} in {url!r}."
         )
     host = (parsed.hostname or "").lower()
-    if host not in _LOCAL_HOSTS:
-        raise RuntimeError(
-            f"Refusing plain HTTP for non-local WP host {host!r}. "
-            f"Application Passwords sent over HTTP are exposed in transit. "
-            f"Use https:// for production targets, or one of {sorted(_LOCAL_HOSTS)} for dev."
-        )
+    # *.localhost is reserved per RFC 6761 — subdomains resolve to the loopback
+    # interface, so they're safe for HTTP just like bare `localhost` (used by the
+    # Phase 5 multisite pilot: gardening.localhost, dogs.localhost, ...).
+    if host in _LOCAL_HOSTS or host.endswith(".localhost"):
+        return
+    raise RuntimeError(
+        f"Refusing plain HTTP for non-local WP host {host!r}. "
+        f"Application Passwords sent over HTTP are exposed in transit. "
+        f"Use https:// for production targets, or one of {sorted(_LOCAL_HOSTS)} "
+        f"(or a *.localhost subdomain) for dev."
+    )
 
 
 _TRUE_STRINGS = frozenset({"true", "1", "yes", "on"})

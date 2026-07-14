@@ -11,10 +11,10 @@ This file governs how cover image prompts are generated for catfancast.com artic
 ## Standard Spec for Every Cover
 
 - **Aspect ratio:** 16:9
-- **Layout:** Split composition — left ~35–40% reserved as clean negative space for the headline/site branding overlay; right ~60–65% holds the cinematic scene.
+- **Layout:** Full-bleed composition — the scene fills the entire frame. No reserved blank areas. The cat and environment should occupy the full canvas.
 - **Opening line of every prompt:**
   `Create a cinematic 16:9 cover illustration for an editorial article titled "[ARTICLE TITLE]."`
-- **Closing line of every prompt:** a negative-space instruction (never "no text" — instead describe the space the text will occupy).
+- **Closing line of every prompt:** a depth/quality descriptor (e.g. "Highly detailed photorealistic illustration, cinematic color grading, sharp focus.").
 
 ---
 
@@ -31,7 +31,7 @@ This file governs how cover image prompts are generated for catfancast.com artic
 9. **State the image's purpose/format** (editorial hero image, key visual, poster) — the model understands these layouts well.
 10. **Use quality descriptors sparingly.** A few precise terms beat a wall of "masterpiece, 8k, ultra-detailed, amazing."
 11. **Mention depth explicitly** (atmospheric perspective, depth of field, volumetric fog) — this is what separates flat AI images from professional ones.
-12. **Describe negative space instead of forbidding text.** "Generous negative space for editorial headlines" works far better than "no text."
+12. **Fill the frame.** Use a full-bleed composition — no reserved blank zones. "No text in the image" is the hard constraint; do not add a negative-space area as if text will be overlaid.
 
 **The thumbnail test:** before finalizing a prompt, ask — would this still be striking as a small thumbnail in search results or social media? If not, it's missing a clear silhouette, a single focal point, a tight palette, or visual hierarchy. Fix the prompt, don't just add adjectives.
 
@@ -43,7 +43,7 @@ Build every prompt in this order:
 
 ```
 [Purpose + format]
-[Composition / split-layout note]
+[Full-bleed composition note]
 [Main subject — one focal point, named or described as fits the scene]
 [Supporting characters/environment, foreground → midground → background]
 [Lighting]
@@ -51,7 +51,6 @@ Build every prompt in this order:
 [Color palette — 2–3 named colors]
 [Scale]
 [Environmental storytelling detail]
-[Negative space instruction for headline]
 [Art style + rendering quality, used sparingly]
 ```
 
@@ -82,9 +81,9 @@ highly detailed digital painting · premium concept art · cinematic color gradi
 
 **Generated prompt:**
 
-> Create a cinematic 16:9 cover illustration for an editorial article titled "Maine Coon Size: The Genetics and History Behind the Largest Domestic Breed." The composition should be split with bold magazine-style typography on the left and a hero nature-photography scene on the right. A massive long-haired brown-tabby Maine Coon stands in profile on a weathered wooden porch railing, full body visible, lynx-tipped ears erect, plumed tail draped behind. A smaller domestic shorthair cat sits on the porch floor in the midground for scale contrast, eclipsed by the Maine Coon's body length. Behind them, a New England farmhouse and pine forest recede into soft morning mist. The atmosphere should feel quiet, grounded, and faintly majestic, with soft directional golden-hour backlighting, warm earth tones (amber, deep forest green, weathered grey), reflective dew on the railing, and a premium National Geographic-style aesthetic. Leave generous negative space on the left for headlines and article branding. Highly detailed photorealistic illustration, cinematic color grading, sharp focus, professional editorial cover design.
+> Create a cinematic 16:9 cover illustration for an editorial article titled "Maine Coon Size: The Genetics and History Behind the Largest Domestic Breed." Full-bleed composition — the scene fills the entire frame with no reserved blank areas. A massive long-haired brown-tabby Maine Coon stands in profile on a weathered wooden porch railing, full body visible, lynx-tipped ears erect, plumed tail draped behind. A smaller domestic shorthair cat sits on the porch floor in the midground for scale contrast, eclipsed by the Maine Coon's body length. Behind them, a New England farmhouse and pine forest recede into soft morning mist. The atmosphere should feel quiet, grounded, and faintly majestic, with soft directional golden-hour backlighting, warm earth tones (amber, deep forest green, weathered grey), reflective dew on the railing, and a premium National Geographic-style aesthetic. Highly detailed photorealistic illustration, cinematic color grading, sharp focus.
 
-Notice how this prompt hits every rule: format stated first, split layout, one focal subject as the hero (the Maine Coon), a layered scene (Maine Coon → smaller cat for scale → farmhouse → forest), explicit lighting and palette, explicit scale (smaller cat for size contrast — never just say "big," show the comparison), environmental storytelling (porch + New England backdrop tied to the breed's Maine origins), and negative space described rather than forbidden.
+Notice how this prompt hits every rule: format stated first, full-bleed layout, one focal subject as the hero (the Maine Coon), a layered scene (Maine Coon → smaller cat for scale → farmhouse → forest), explicit lighting and palette, explicit scale (smaller cat for size contrast — never just say "big," show the comparison), environmental storytelling (porch + New England backdrop tied to the breed's Maine origins), full frame filled.
 
 ---
 
@@ -99,4 +98,4 @@ When generating a cover image prompt for a new article, follow these steps in or
 5. **Real cats only — name the breed, describe the cat physically.** Use the actual breed name (e.g., "a chocolate-point Siamese," "a blue British Shorthair on a windowsill," "a torbie Maine Coon mid-stretch"), and for historical real cats use their name + accurate physical description ("Tama the calico stationmaster wearing her conductor's cap at Kishi Station"). **NEVER depict copyrighted fictional cat characters** — no Garfield, Hello Kitty, Pusheen, Tom (Tom & Jerry), Jiji, Luna, Cheshire Cat, Crookshanks, Mrs. Norris, Salem, Snowbell, the Cat in the Hat, anime cat characters, or any cat owned by a studio/publisher/creator. Named real cats from history (Tama, Larry, Stubbs, Dewey, Unsinkable Sam) are fine — they are real animals, not copyrighted characters.
 6. **Build the prompt** using the formula above, in order.
 7. **Run the thumbnail test** before finalizing — if it fails, fix the focal point/palette/silhouette rather than piling on adjectives.
-8. **Confirm the spec**: 16:9, split layout, negative space line included, opening line states the article title verbatim, no fictional/copyrighted cat character anywhere in the prompt.
+8. **Confirm the spec**: 16:9, full-bleed (no blank zones), opening line states the article title verbatim, no fictional/copyrighted cat character anywhere in the prompt, no text in the image.

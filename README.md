@@ -87,6 +87,64 @@ python -m openclaw post --site othersite --draft
 If `--site` is omitted, the agent falls back to the bare `WP_*` env vars, so
 existing single-site setups keep working with no change.
 
+## Multisite + static export (Phase 5)
+
+Four pilot subsites run on the local Docker WordPress as a subdomain multisite
+and auto-deploy static exports to per-subsite GitHub Pages repos.
+
+**Local topology**
+- Multisite subdomain install; base URL `http://localhost:8088/`.
+- Four subsites at `.localhost` subdomains (RFC 6761 loopback, no hosts-file
+  entry needed): `gardening.localhost:8088`, `dogs.localhost:8088`,
+  `boardgames.localhost:8088`, `coffee.localhost:8088`.
+- Python's `socket.getaddrinfo` doesn't short-circuit `*.localhost` on
+  Windows the way browsers/curl do. `openclaw/_localhost_dns.py` (auto-loaded
+  from `openclaw/__init__.py`) monkey-patches it to resolve any `.localhost`
+  hostname to `127.0.0.1` inside the openclaw process.
+- Each subsite has a Twenty Twenty-Five child theme at
+  `wp-content/themes/openclaw-<slug>/`, bind-mounted in `docker-compose.yml`
+  so it survives volume resets. Each theme's `theme.json` sets a niche-
+  appropriate palette + font stack.
+- Each subsite has its own persona at `website_memory/<slug>.localhost.md`
+  and its own trends config at `website_memory/<slug>.localhost.trends.json`.
+
+**Static export + deploy**
+- Staatic 1.12.5 is network-active. Per-subsite settings:
+  - `staatic_deployment_method = filesystem`
+  - `staatic_filesystem_target_directory = /var/www/html/wp-content/staatic-exports/<slug>`
+    (bind-mounted to `staatic-exports/<slug>/` on the host)
+  - `staatic_destination_url = https://carterman82.github.io/openclaw-<slug>/`
+- `openclaw/deploy.py::deploy_after_publish` runs after `publish_post()`
+  for pilot slugs only (`gardening`, `dogs`, `boardgames`, `coffee`).
+  It shells out to `wp staatic publish`, then commits and pushes the export
+  into a persistent working tree under `.gh-worktree/openclaw-<slug>/` on
+  the `main` branch of the matching GitHub repo. Non-pilot slugs
+  (`catfancast`, `localhost`) skip the deploy chain — the allowlist lives
+  in `deploy.DEPLOYABLE_SLUGS`.
+- GH Pages URLs: `https://carterman82.github.io/openclaw-<slug>/` (301-
+  redirect to `www.reggaefancast.com/openclaw-<slug>/` because the user's
+  account has a custom domain configured for `carterman82.github.io`; the
+  redirect is transparent).
+- Pass `--skip-deploy` to skip the export+push step (WP publish still
+  happens).
+
+**Adding a new pilot subsite**
+1. `docker compose run --rm wpcli site create --slug=<slug> --title="<Title>" --email=you@example.com`
+2. Add the `<slug>.localhost` extra_hosts entry to the `wordpress` service in
+   `docker-compose.yml` and recreate the container.
+3. Scaffold `wp-content/themes/openclaw-<slug>/` (style.css + theme.json),
+   add its bind-mount to both `wordpress` and `wpcli` volumes, recreate.
+4. `wp theme enable openclaw-<slug> --network` + `wp theme activate ...`.
+5. Write `website_memory/<slug>.localhost.md` (persona) and `<slug>.localhost.trends.json`.
+6. `wp term create category ...` — five to ten evergreen categories.
+7. Add `<SLUG>_WP_BASE_URL/USERNAME/APP_PASSWORD` block to `.env`.
+8. `gh repo create carterman82/openclaw-<slug> --public` + init README +
+   .nojekyll + enable Pages (see `openclaw/deploy.py` for the exact API calls).
+9. Set Staatic options via `wp option update` (`staatic_deployment_method`,
+   `staatic_filesystem_target_directory`, `staatic_destination_url`).
+10. Add the slug to `openclaw/deploy.DEPLOYABLE_SLUGS`.
+11. Smoke: `python -m openclaw post --site <slug> --draft --skip-review`.
+
 ## Usage
 
 ```powershell

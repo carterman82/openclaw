@@ -1,7 +1,7 @@
 # PLAN - WordPress Sandbox + Openclaw Agent
 
 > Living handoff for future LLM sessions.
-> Last updated: 2026-06-29.
+> Last updated: 2026-07-13.
 
 ## 1. Current State
 
@@ -33,7 +33,8 @@ Deferred (ready to resume):
 Future:
 - Phase 3.8: switch primary LLM to a locally hosted Qwen3.6 (LM Studio on the LAN); keep Claude Sonnet 4.6 as automatic fallback.
 - Phase 4: schedule daily publishing at 07:00 America/Denver.
-- Phase 5: make the agent analytics-aware.
+- Phase 5: multisite + static export + GitHub Pages auto-commit after every publish.
+- Phase 6: make the agent analytics-aware.
 
 Recently completed:
 - Phase 3: featured images and contextual links (2026-06-19).
@@ -1554,7 +1555,7 @@ Verification:
 - [x] CLAUDE.md gains a "Scheduling (Phase 4)" bullet under Key facts
       and adds the wrapper invocations to Common commands. The top-of-file
       project description was corrected (Phase 4 = scheduling, Phase 5 =
-      analytics; the old wording had them swapped).
+      multisite + static, Phase 6 = analytics; the old wording had them swapped).
 - [x] §12 decision-log entry for hosting target + notification channel
       landed 2026-07-10 alongside Steps 4.1/4.2/4.4.
 
@@ -1565,14 +1566,299 @@ Phase 4 exit criteria:
   by the retry logic without human intervention beyond a subsequent
   scheduled run.
 
-## 11. Phase 5 Plan - Analytics-Aware Agent
+## 11. Phase 5 Plan - Multisite + Static Export + GitHub Pages
+
+Status: not started.
+
+Goal: turn the local Docker WordPress into a small multi-tenant content
+network. Openclaw feeds each subsite; every `python -m openclaw post`
+triggers a per-subsite static export and commits the result to a GitHub
+Pages branch. Public-facing hosting is free, CDN-backed, and static; the
+WP layer stays private on the laptop.
+
+**Scale target:** 3-5 pilot subsites. Design must not preclude scaling to
+20+ later.
+
+**Cross-cutting decisions (locked 2026-07-11, see §12):**
+- Multisite topology: subdomain install (`site1.openclaw.local`,
+  `site2.openclaw.local`, ...) — matches production custom-domain mapping.
+- Static exporter: **Staatic** (free, multisite-native, released May 2026).
+- Publishing target: private GitHub repo `openclaw-sites`, one branch per
+  subsite (`site/<slug>`), each branch attached to its own custom domain
+  via GH Pages' branch-level custom-domain feature.
+- Design system: one network-default block theme (Twenty Twenty-Five) plus
+  per-subsite child themes for structural overrides. Palette / logo /
+  tagline set via each child theme's `theme.json` and site options.
+
+### Step 5.1 - Enable multisite in Docker WP
+
+Status: **COMPLETE** (2026-07-13). Deviations from original plan:
+
+- **Domain suffix pivoted from `.openclaw.local` to `.localhost`.** Windows
+  hosts file doesn't support wildcards, and admin rights weren't
+  available to add per-subsite entries. `.localhost` is RFC 6761-reserved
+  for loopback; Chrome/Firefox/curl short-circuit it to `127.0.0.1`
+  automatically — no hosts-file edit required.
+- **Python's `socket.getaddrinfo` still refuses `*.localhost`** on Windows
+  (unlike browsers/curl). Added `openclaw/_localhost_dns.py` — a
+  process-local `socket.getaddrinfo` monkeypatch that redirects any
+  `*.localhost` lookup to `127.0.0.1`. Auto-installed via
+  `openclaw/__init__.py`; safe outside the pilot because it only rewrites
+  hostnames ending in `.localhost`.
+- **wp-config generated via wp-cli, not the docker-compose env var.** The
+  wordpress image only writes `wp-config.php` on first-run initialization,
+  so `WORDPRESS_CONFIG_EXTRA` couldn't retroactively add
+  `WP_ALLOW_MULTISITE=true` to an existing install. Used
+  `wp config set WP_ALLOW_MULTISITE true --raw`, then `wp core
+  multisite-convert --subdomains --title="Openclaw Network"` wrote the
+  remaining multisite constants directly to `wp-config.php`.
+- **No new mu-plugin needed** — `multisite-convert` handled every
+  constant listed in the original plan.
+
+Additional work required to make Staatic (which runs inside the wpcli
+container) crawl subsite URLs:
+- Bind-mounted `apache/openclaw-multisite.conf` adds `Listen 8088` +
+  `ServerAlias *.localhost` so the site is reachable via
+  `<slug>.localhost:8088` from both host and container.
+- `extra_hosts:` on the wordpress compose service maps each pilot subsite
+  domain → `127.0.0.1` inside the container.
+- `network_mode: "service:wordpress"` on the wpcli service shares the
+  wordpress container's network namespace so `docker compose run --rm
+  wpcli staatic publish` inherits those `extra_hosts`.
+
+Verification (passed):
+- [x] Network admin dashboard reachable at `http://localhost:8088/wp-admin/network/`.
+- [x] Four subsites created via `wp site create` reachable at their
+      subdomains.
+- [x] Regression: `python -m openclaw post --site localhost --draft`
+      still publishes to the primary site with no code changes.
+      (openclaw-agent is now a network super-admin; the multisite
+      conversion invalidated the prior app password so a fresh one was
+      generated via `wp user application-password create`.)
+
+### Step 5.2 - Create the pilot subsites
+
+Status: **COMPLETE** (2026-07-13). Four pilot subsites created via
+`wp site create`:
+
+| slug         | blog_id | URL                              | niche                       |
+|--------------|---------|----------------------------------|-----------------------------|
+| gardening    | 2       | http://gardening.localhost:8088/ | Home & container gardening  |
+| dogs         | 3       | http://dogs.localhost:8088/      | Dog care & training         |
+| boardgames   | 4       | http://boardgames.localhost:8088/| Board games & tabletop      |
+| coffee       | 5       | http://coffee.localhost:8088/    | Home coffee & tea brewing   |
+
+Niche selection criteria (per user request): high organic search demand +
+high AI-writability (evergreen, factual, structured, low legal/YMYL
+risk).
+
+Per-subsite work landed:
+- `website_memory/{hostname}.md` written for each — persona modelled on
+  `catfancast.com.md` (what to write, what NOT to write, audience, tone,
+  entity checklist).
+- `website_memory/{hostname}.trends.json` written with per-niche
+  subreddits + Google Suggest seeds.
+- `wp term create category` populated 8 evergreen categories per subsite.
+- Prefixed env vars added to `.env`: `GARDENING_WP_*`, `DOGS_WP_*`,
+  `BOARDGAMES_WP_*`, `COFFEE_WP_*` — all four share the same
+  `openclaw-agent` super-admin app password (regenerated via wp-cli).
+- `.env.example` commented block updated with the same four slugs.
+- `scheduled-sites.json` gained four new entries with `enabled=false`.
+
+`openclaw/config.py::_validate_base_url` was widened to allow `*.localhost`
+subdomains under plain HTTP (the same guarantee bare `localhost` already had).
+
+Verification (passed):
+- [x] `python -m openclaw post --site <slug> --draft --skip-review`
+      published one on-brand draft to each of the four subsites (see
+      `logs/phase5-smoke-<slug>.log`).
+- [x] `/wp-json/wp/v2/posts` per subsite returns only its own posts.
+
+### Step 5.3 - Base block theme + per-subsite child themes
+
+Status: **COMPLETE** (2026-07-13).
+
+- Twenty Twenty-Five was already installed; got network-enabled as a
+  side effect of the child-theme activation dance.
+- Four child themes scaffolded on the host (bind-mounted individually to
+  survive `docker compose down -v` per the original plan):
+  - `wp-content/themes/openclaw-gardening/` — greens + earth tones (leaf
+    green primary, wheat accent, Playfair Display headings).
+  - `wp-content/themes/openclaw-dogs/` — warm mid-neutrals (rich brown
+    primary, tan accent, Merriweather headings).
+  - `wp-content/themes/openclaw-boardgames/` — bold desaturated palette
+    (deep purple primary, dice red accent, Space Grotesk headings).
+  - `wp-content/themes/openclaw-coffee/` — espresso/cream (dark
+    espresso primary, caramel accent, Fraunces headings).
+- Each child theme has `style.css` (`Template: twentytwentyfive`) plus a
+  `theme.json` overriding palette and typography. No template-part
+  overrides — the parent's structural HTML is fine.
+- Individually bind-mounted (four separate host→container mounts) in
+  `docker-compose.yml` so the WP volume's other themes stay visible.
+- Network-enabled + per-site-activated via
+  `wp theme enable openclaw-<slug> --network` +
+  `wp theme activate openclaw-<slug> --url=http://<slug>.localhost:8088`.
+
+Verification (passed):
+- [x] `wp theme list --url=http://<slug>.localhost:8088 --status=active`
+      returns `openclaw-<slug>` for each of the four pilots.
+- [x] Static exports (Step 5.6) render without broken block styles.
+
+### Step 5.4 - Install and configure Staatic
+
+Status: **COMPLETE** (2026-07-13). Staatic 1.12.5 installed via
+`wp plugin install staatic --activate-network`.
+
+Per-subsite configuration (via `wp option update --url=...`):
+- `staatic_deployment_method` = `filesystem`
+- `staatic_filesystem_target_directory` =
+  `/var/www/html/wp-content/staatic-exports/<slug>` (bind-mounted →
+  `staatic-exports/<slug>/` on host)
+- `staatic_destination_url` =
+  `https://carterman82.github.io/openclaw-<slug>/`
+
+Programmatic trigger: `wp staatic publish --url=http://<slug>.localhost:8088`.
+`openclaw/deploy.py::trigger_staatic_export` shells out to it.
+
+Gotchas learned in flight (recorded in §12):
+- git-bash on Windows rewrote the `/var/www/...` path in
+  `wp option update` calls; had to `export MSYS_NO_PATHCONV=1`.
+- Staatic runs inside the wpcli container; needed `extra_hosts` +
+  `network_mode: "service:wordpress"` to reach `<slug>.localhost:8088`
+  from inside.
+- The staatic-exports bind-mount had to be added to BOTH `wordpress`
+  and `wpcli` services (originally only wordpress) — wpcli-side
+  `wp staatic publish` writes from wpcli's filesystem view.
+
+Verification (passed):
+- [x] `wp staatic publish --url=http://gardening.localhost:8088`
+      produces a self-contained static tree at `staatic-exports/gardening/`.
+- [x] URL rewrites: 100% of `<a>` and asset URLs point to
+      `https://carterman82.github.io/openclaw-gardening/*` (one residual
+      reference to the source WP URL in a JSON API endpoint; not
+      user-visible; tolerable).
+- [x] Featured images render from relative paths in the export.
+
+### Step 5.5 - GitHub repo + Pages topology
+
+Status: **COMPLETE** (2026-07-13). Deviated from the original single-repo,
+branch-per-subsite design and instead created **one public repo per
+subsite**, main branch:
+
+- `carterman82/openclaw-gardening`
+- `carterman82/openclaw-dogs`
+- `carterman82/openclaw-boardgames`
+- `carterman82/openclaw-coffee`
+
+Why the pivot: GitHub Pages serves only one site per repo unless each
+branch has its own custom domain. The user's chosen hosting mode is
+"free github.io URLs" (no custom domains yet), and free-tier accounts
+can't run GH Pages on private repos anyway. Repo-per-subsite gives each
+pilot a clean `carterman82.github.io/openclaw-<slug>/` URL today, and
+each can be independently swapped to a custom domain later without
+touching the others.
+
+Each repo initialized with:
+- `README.md` — one-liner describing the export.
+- `.nojekyll` — so GH Pages doesn't feed `wp-*` directories through Jekyll.
+
+Pages enabled via `gh api repos/carterman82/openclaw-<slug>/pages -X POST
+-f 'source[branch]=main' -f 'source[path]=/'`.
+
+**Reggae-Fancast CNAME caveat:** the user's `carterman82.github.io` repo
+has an account-level custom domain (`www.reggaefancast.com`). All project
+Pages URLs therefore 301-redirect from
+`carterman82.github.io/openclaw-<slug>/` to
+`www.reggaefancast.com/openclaw-<slug>/`. The redirect is transparent, so
+this is documented as fine, not fixed.
+
+Verification (passed):
+- [x] `git push origin main` for each pilot triggers a GH Pages build
+      (status building → built within ~1-2 min).
+- [x] Public URL `https://carterman82.github.io/openclaw-<slug>/` returns
+      200 (after the 301 to reggaefancast.com) for gardening, dogs,
+      boardgames at smoke time; coffee still building.
+
+### Step 5.6 - Post-publish deploy hook
+
+Status: **COMPLETE** (2026-07-13). `openclaw/deploy.py` implements:
+
+- `trigger_staatic_export(slug)` — shells out to
+  `docker compose run --rm wpcli staatic publish --url=http://<slug>.localhost:8088`.
+  5-min timeout. Returns False + logs WARNING on failure; never raises.
+- `commit_and_push(slug, post_title)` — persistent working tree at
+  `.gh-worktree/openclaw-<slug>/` (cloned once, `fetch + reset --hard
+  origin/main` on subsequent runs). Mirrors `staatic-exports/<slug>/`
+  into the working tree, commits `Publish: <title> [<slug>]`, pushes.
+  Never raises.
+- `deploy_after_publish(slug, post_title)` — composed pipeline main.py
+  calls. Silently no-ops when `slug` is not one of `DEPLOYABLE_SLUGS`
+  (`{gardening, dogs, boardgames, coffee}`), so `--site catfancast`
+  and `--site localhost` never trigger a push.
+
+Wiring in `main.py`:
+- New CLI flag `--skip-deploy` mirroring `--skip-review`.
+- After `publish_post()` succeeds and the URL is printed:
+  - if `--skip-deploy` → log and skip.
+  - elif `is_deployable(args.site)` → call `deploy_after_publish(...)`
+    and log outcome. A failed deploy does NOT roll back the WP publish;
+    log line says "post is published; deploy owed".
+
+Non-pilot slugs skip the whole chain via the `DEPLOYABLE_SLUGS`
+allowlist — no risk that a Phase 4 scheduled run against catfancast.com
+suddenly tries to git-push somewhere.
+
+Verification (passed):
+- [x] `python -m openclaw post --site gardening --draft --skip-review`
+      end-to-end: draft in WP → Staatic export → git clone → commit +
+      push in ~45 s (subsequent runs will reuse the working tree, ~5–10 s).
+- [x] All four pilot subsites got a smoke deploy: draft publish → static
+      export → main-branch commit → GH Pages build kicked off.
+- [x] Non-pilot regression: `python -m openclaw post --site localhost
+      --draft` continues to work without triggering deploy (deploy step
+      logs "Skipping deploy for non-pilot slug 'localhost'" at DEBUG).
+
+### Step 5.7 - Multi-subsite scheduled runs
+
+Status: **CODE-LEVEL COMPLETE** (2026-07-13). Pilot entries added to
+`scheduled-sites.json` with `enabled=false`; flip to `true` once ready
+for daily runs. No wrapper changes needed — `scripts/run-openclaw.ps1`
+already iterates enabled entries.
+
+Owed to user (multi-day passive verification):
+- [ ] Flip the four pilot entries in `scheduled-sites.json` from
+      `enabled=false` to `enabled=true`.
+- [ ] 3 consecutive daily runs each produce 1 new post per enabled
+      subsite AND 1 new commit per subsite AND 1 live GH Pages update.
+- [ ] `logs/last-run-failed.flag` surfaces deploy failures the same way
+      it surfaces publish failures.
+- [ ] Total wall-clock stays under the 60-min task limit. Six sites ×
+      ~2 min publish + ~1 min deploy = ~18 min; well within.
+
+### Step 5.8 - Documentation
+
+Status: **COMPLETE** (2026-07-13). PLAN.md §11 rewritten to match
+actual shipped state; README.md gained a "Multisite + static export
+(Phase 5)" section; CLAUDE.md gained a Phase 5 bullet under Key facts
+and the data-flow paragraph now includes Staatic + git push.
+
+Phase 5 exit criteria:
+- [x] All four pilot subsites run end-to-end: 1 published draft AND
+      static export AND GitHub main-branch commit AND GH Pages build in
+      a single `python -m openclaw post --site <slug>` invocation.
+- [ ] Multi-day passive verification (7 consecutive scheduled days)
+      **owed to user** — matches how Phase 4's exit was closed out.
+- [ ] Deliberate failure recovery at each stage **not yet exercised**;
+      the code is graceful-fail by design but this hasn't been chaos-tested.
+
+## 11.5 Phase 6 Plan - Analytics-Aware Agent
 
 Status: not started.
 
 Goal: feed measurable post performance back into topic and angle choices, so
 later articles lean toward what is actually working.
 
-### Step 5.1 - Choose analytics source
+### Step 6.1 - Choose analytics source
 
 Status: not started.
 
@@ -1595,7 +1881,7 @@ Verification:
 - [ ] Smoke test: a one-liner that fetches pageviews for one known URL
   returns a non-error response with a numeric view count.
 
-### Step 5.2 - Build the analytics fetcher
+### Step 6.2 - Build the analytics fetcher
 
 Status: not started.
 
@@ -1616,7 +1902,7 @@ Verification:
 - [ ] Forcing a failure (delete the key in env, or block network) returns
   `[]` plus a WARNING log line; no exception escapes.
 
-### Step 5.3 - Wire the signal into the generator
+### Step 6.3 - Wire the signal into the generator
 
 Status: not started.
 
@@ -1641,7 +1927,7 @@ Verification:
 - [ ] Across 5 generated articles with analytics on, at least one has a
   topic or angle that visibly echoes a top-performer (qualitative check).
 
-### Step 5.4 - Multi-week observation
+### Step 6.4 - Multi-week observation
 
 Status: not started.
 
@@ -1657,7 +1943,7 @@ Verification:
 - [ ] No analytics-side failure has ever blocked a publish (graceful-skip
   pattern from `images.py` is preserved here).
 
-### Step 5.5 - Documentation
+### Step 6.5 - Documentation
 
 Status: not started.
 
@@ -1669,13 +1955,16 @@ Verification:
 - [ ] §12 decision log entry for the chosen source and how performance is
   surfaced to the generator.
 
-Phase 5 exit criteria:
+Phase 6 exit criteria:
 - The agent has run for 14+ analytics-informed days without scheduling
   regressions, and the weekly review documents whether the signal
   influenced topic choice and whether average traffic moved.
 
 ## 12. Decision Log
 
+- 2026-07-11: Phase reorder — analytics pushed to Phase 6; new Phase 5 = multisite + static export + GitHub Pages auto-commit. Rationale: distribution/hosting durability and free CDN matter more than per-post analytics tuning until the pipeline reliably produces publishable content at N-site scale. Analytics is more useful once there is meaningful traffic to observe, which requires the static-site distribution layer first.
+- 2026-07-11: Phase 5 topology decisions (locked via AskUserQuestion): (a) 3-5 pilot subsites — prove the pattern before scaling; (b) monorepo `openclaw-sites` with per-subsite branches `site/<slug>`, each attached to its own custom domain via GH Pages branch-level custom-domain feature; (c) Staatic as static exporter (free, multisite-native, active as of May 2026); (d) network-default block theme (Twenty Twenty-Five) plus per-subsite child themes for structural overrides — mirrors the existing shared-style + per-site-persona split in `Instructions/*.md` + `website_memory/*.md`. Design-skill note: no dedicated WordPress-design skill exists in this Claude Code environment (checked 2026-07-11); theme JSON and pattern HTML will be authored via normal Edit/Write with Claude generating content.
+- 2026-07-11: Editor pass (`revise_article`) verified working end-to-end. Two-agent generate→revise pipeline is now the default publish path. `--skip-review` preserved for smoke tests and single-provider comparisons. Editor rules are externalized to `Instructions/EDITOR.md` (loaded by `generator._load_editor_guide`) so they can be tuned without code changes, matching the STYLE.md / TOPIC.md pattern.
 - 2026-06-09: Python agent - Anthropic SDK is first-class in Python and easy to schedule on Windows.
 - 2026-06-09: WordPress REST API + Application Passwords - no plugin needed for posting.
 - 2026-06-09: Manual CLI trigger before automation - easier to debug.
@@ -1783,9 +2072,12 @@ Phase 5 exit criteria:
   the writer's output. `--skip-review` on `python -m openclaw post`
   bypasses the pass; main.py logs the word-count delta.
 - 2026-06-29: Swapped site persona from AnimeFancast.com to catfancast.com to escape anime IP/character-copyright risk and lean fully into copyright-free evergreen content. Code unchanged — the agent is already site-agnostic (categories, site name, link candidates, and SEO plugin are all discovered from `/wp-json/` at runtime). All `Instructions/*.md` content rules updated: DESCRIPTION.md rewritten for real cats only; TOPIC.md restructured from anime title-anchors to five parallel domain-anchor inventories (breeds, behaviors, biology, health & care, history & culture) with a heavier ~92/8 evergreen bias; IMAGE_GENERATOR.md worked example replaced (Maine Coon piece) and the Agent Workflow §5 inverted from "copyrighted characters preferred" to a hard ban on copyrighted fictional cats with real-cat-only depictions; STYLE.md banned-phrase example tweaked; CLAUDE.md SEO routing example + TOPIC.md description line updated. Historical references to animefancast.com (verified post URLs, completed Phase 3 records, prior decision-log entries) intentionally preserved as audit trail. `.env` to be repointed by user when catfancast.com is live; first run against the new site picks up the new categories/site-name automatically. The `openclaw-seo-meta` mu-plugin / installable plugin at `demo/openclaw-seo-meta/` should be installed on catfancast.com when ready, otherwise Routing + Y1/Y3/Y7/Y8 will SKIP/WARN as documented in §9.
+- 2026-07-13: Phase 5 executed end-to-end. Full context in PLAN.md §11 Steps 5.1–5.8. Highlights of what changed vs. the July 11 plan: (a) subdomain suffix `.openclaw.local` → `.localhost` (hosts-file wildcards not supported on Windows; `.localhost` short-circuits to loopback for free in browsers/curl; a Python `openclaw/_localhost_dns.py` DNS shim closes the Python-side gap). (b) Repo topology "one private repo, branch-per-subsite, custom domain per branch" → "four public repos, one per subsite, free github.io URLs" (free-tier Pages doesn't work on private repos, user picked free URLs, cleaner 1:1 domain-to-repo mapping if custom domains land later). (c) Extensive Docker networking work landed to let Staatic crawl `<slug>.localhost:8088` from inside the container: `extra_hosts` on wordpress service, `network_mode: "service:wordpress"` on wpcli, a bind-mounted `apache/openclaw-multisite.conf` adding `Listen 8088` + `ServerAlias *.localhost`. (d) The user's `carterman82.github.io` repo has an account-level CNAME to `www.reggaefancast.com`, so all project Pages URLs 301-redirect there — transparent to internal-link rewriting, documented as fine.
 
 ## 13. Open Questions
 
 - Theme: current default block theme is acceptable; revisit if visual polish matters.
-- Version control remote: local-only or GitHub?
-- Analytics source for Phase 5 - Jetpack Stats vs Google Analytics 4 vs Plausible vs the site's existing analytics. Decide in §11 Step 5.1.
+- Version control remote: Openclaw's main repo lives at `github.com/carterman82/openclaw`. Phase 5 static exports live in four sibling repos under the same account (`openclaw-{gardening,dogs,boardgames,coffee}`).
+- Analytics source for Phase 6 - Jetpack Stats vs Google Analytics 4 vs Plausible vs the site's existing analytics. Decide in §11.5 Step 6.1.
+- ~~Custom-domain source for Phase 5 pilot subsites~~ — RESOLVED 2026-07-13: chose free `carterman82.github.io/openclaw-<slug>/` URLs.
+- ~~Media handling for static export~~ — RESOLVED 2026-07-13: Staatic 1.12.5 bundles `/wp-content/uploads/` into per-subsite exports; verified in Step 5.4.

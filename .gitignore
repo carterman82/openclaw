@@ -21,3 +21,9 @@ Thumbs.db
 
 # Phase 4 scheduler output
 logs/
+
+# Phase 5 static exports + local deploy working trees
+staatic-exports/
+.gh-worktree/
+.gh-init/
+

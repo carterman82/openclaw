@@ -1,11 +1,42 @@
 {
-  "reddit_subreddits": ["cats", "CatAdvice", "AskVet", "Catloaf"],
+  "reddit_subreddits": [
+    "cats",
+    "CatAdvice",
+    "AskVet",
+    "Catloaf",
+    "CatsAreAssholes",
+    "catpictures",
+    "bengalcats",
+    "mainecoons",
+    "ragdolls",
+    "blackcats",
+    "CatTraining",
+    "feralcats",
+    "tortoiseshell",
+    "NorwegianForestCats",
+    "tabbycats",
+    "SupermodelCats",
+    "Pets",
+    "PetAdvice"
+  ],
   "google_suggest_seeds": [
     "why does my cat",
     "cat breed that",
     "how to cat",
     "is it normal for cats to",
     "my cat keeps",
-    "what does it mean when my cat"
+    "what does it mean when my cat",
+    "why is my cat",
+    "can cats eat",
+    "how long do cats",
+    "my cat won't",
+    "signs my cat is",
+    "how to tell if a cat",
+    "best cat breed for",
+    "how to introduce a cat",
+    "why do cats",
+    "kitten not",
+    "what to do when your cat",
+    "my cat is"
   ]
 }

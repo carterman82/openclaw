@@ -25,6 +25,14 @@ services:
         condition: service_healthy
     ports:
       - "127.0.0.1:8088:80"
+    # Resolve subsite hostnames to the container's own loopback so Staatic
+    # can crawl `http://<slug>.localhost:8088/` from inside the container.
+    # Apache is configured to also listen on 8088 (see apache/openclaw-multisite.conf).
+    extra_hosts:
+      - "gardening.localhost=127.0.0.1"
+      - "dogs.localhost=127.0.0.1"
+      - "boardgames.localhost=127.0.0.1"
+      - "coffee.localhost=127.0.0.1"
     environment:
       WORDPRESS_DB_HOST: db:3306
       WORDPRESS_DB_USER: wp
@@ -36,11 +44,26 @@ services:
     volumes:
       - wp_data:/var/www/html
       - ./wp-content/mu-plugins:/var/www/html/wp-content/mu-plugins:ro
+      # Phase 5: per-subsite child themes bind-mounted individually so they
+      # survive `docker compose down -v` and are host-editable.
+      - ./wp-content/themes/openclaw-gardening:/var/www/html/wp-content/themes/openclaw-gardening
+      - ./wp-content/themes/openclaw-dogs:/var/www/html/wp-content/themes/openclaw-dogs
+      - ./wp-content/themes/openclaw-boardgames:/var/www/html/wp-content/themes/openclaw-boardgames
+      - ./wp-content/themes/openclaw-coffee:/var/www/html/wp-content/themes/openclaw-coffee
+      # Apache: multisite ServerAlias + second Listen 8088 so Staatic can crawl
+      # `<slug>.localhost:8088` from inside the container.
+      - ./apache/openclaw-multisite.conf:/etc/apache2/conf-enabled/openclaw-multisite.conf:ro
+      # Phase 5 host directory for Staatic exports (per-subsite subfolders).
+      - ./staatic-exports:/var/www/html/wp-content/staatic-exports
 
   wpcli:
     image: wordpress:cli-php8.3
     depends_on:
       - wordpress
+    # Share the wordpress container's network namespace so wp-cli inherits its
+    # extra_hosts entries (subsite hostnames → 127.0.0.1). Needed for Staatic
+    # crawls invoked via `wp staatic publish --url=http://<slug>.localhost:8088/`.
+    network_mode: "service:wordpress"
     environment:
       WORDPRESS_DB_HOST: db:3306
       WORDPRESS_DB_USER: wp
@@ -49,6 +72,13 @@ services:
     volumes:
       - wp_data:/var/www/html
       - ./wp-content/mu-plugins:/var/www/html/wp-content/mu-plugins:ro
+      - ./wp-content/themes/openclaw-gardening:/var/www/html/wp-content/themes/openclaw-gardening
+      - ./wp-content/themes/openclaw-dogs:/var/www/html/wp-content/themes/openclaw-dogs
+      - ./wp-content/themes/openclaw-boardgames:/var/www/html/wp-content/themes/openclaw-boardgames
+      - ./wp-content/themes/openclaw-coffee:/var/www/html/wp-content/themes/openclaw-coffee
+      # Match the wordpress service so `wp staatic publish` writes into the same
+      # bind-mounted export tree the host filesystem sees.
+      - ./staatic-exports:/var/www/html/wp-content/staatic-exports
     user: "33:33"
     entrypoint: ["wp"]
 
