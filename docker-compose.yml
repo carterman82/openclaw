@@ -33,6 +33,7 @@ services:
       - "dogs.localhost=127.0.0.1"
       - "boardgames.localhost=127.0.0.1"
       - "coffee.localhost=127.0.0.1"
+      - "techtools.localhost=127.0.0.1"
     environment:
       WORDPRESS_DB_HOST: db:3306
       WORDPRESS_DB_USER: wp
@@ -46,6 +47,11 @@ services:
       - ./wp-content/mu-plugins:/var/www/html/wp-content/mu-plugins:ro
       # Phase 5: per-subsite child themes bind-mounted individually so they
       # survive `docker compose down -v` and are host-editable.
+      # openclaw-base + openclaw-techtools are the Step 5.11 shipped themes;
+      # the four fandom slug directories (gardening/dogs/boardgames/coffee) are
+      # first-round pilot child themes retained until Step 5.9 rebuilds them.
+      - ./wp-content/themes/openclaw-base:/var/www/html/wp-content/themes/openclaw-base
+      - ./wp-content/themes/openclaw-techtools:/var/www/html/wp-content/themes/openclaw-techtools
       - ./wp-content/themes/openclaw-gardening:/var/www/html/wp-content/themes/openclaw-gardening
       - ./wp-content/themes/openclaw-dogs:/var/www/html/wp-content/themes/openclaw-dogs
       - ./wp-content/themes/openclaw-boardgames:/var/www/html/wp-content/themes/openclaw-boardgames
@@ -72,6 +78,8 @@ services:
     volumes:
       - wp_data:/var/www/html
       - ./wp-content/mu-plugins:/var/www/html/wp-content/mu-plugins:ro
+      - ./wp-content/themes/openclaw-base:/var/www/html/wp-content/themes/openclaw-base
+      - ./wp-content/themes/openclaw-techtools:/var/www/html/wp-content/themes/openclaw-techtools
       - ./wp-content/themes/openclaw-gardening:/var/www/html/wp-content/themes/openclaw-gardening
       - ./wp-content/themes/openclaw-dogs:/var/www/html/wp-content/themes/openclaw-dogs
       - ./wp-content/themes/openclaw-boardgames:/var/www/html/wp-content/themes/openclaw-boardgames

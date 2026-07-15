@@ -40,7 +40,7 @@ _GH_REPO_PREFIX = "openclaw-"
 # Other slugs (catfancast, localhost as primary) are skipped by the wiring in
 # main.py so this list stays authoritative and predictable.
 DEPLOYABLE_SLUGS: frozenset[str] = frozenset({
-    "gardening", "dogs", "boardgames", "coffee",
+    "gardening", "dogs", "boardgames", "coffee", "techtools",
 })
 
 _STAATIC_TIMEOUT_SEC = 300

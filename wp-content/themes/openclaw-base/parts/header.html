@@ -1,0 +1,39 @@
+<!-- wp:group {"className":"openclaw-topbar","layout":{"type":"constrained","contentSize":"1200px"}} -->
+<div class="wp-block-group openclaw-topbar">
+    <!-- wp:group {"layout":{"type":"flex","justifyContent":"left","flexWrap":"nowrap","verticalAlignment":"center"},"style":{"spacing":{"padding":{"top":"var:preset|spacing|5","bottom":"var:preset|spacing|5"}}}} -->
+    <div class="wp-block-group" style="padding-top:var(--wp--preset--spacing--5);padding-bottom:var(--wp--preset--spacing--5)">
+        <!-- wp:site-title {"level":0,"style":{"typography":{"fontFamily":"var:preset|font-family|openclaw-display","fontSize":"24px","fontWeight":"700","letterSpacing":"-0.02em"}}} /-->
+    </div>
+    <!-- /wp:group -->
+</div>
+<!-- /wp:group -->
+
+<!-- wp:group {"className":"openclaw-category-nav","layout":{"type":"constrained","contentSize":"1200px"}} -->
+<div class="wp-block-group openclaw-category-nav">
+    <!-- wp:categories {"showEmpty":false,"style":{"typography":{"fontFamily":"var:preset|font-family|openclaw-display"}},"className":"openclaw-cat-list"} /-->
+    <style>
+        .openclaw-category-nav .wp-block-categories,
+        .openclaw-category-nav .wp-block-categories-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 32px;
+        }
+        .openclaw-category-nav .wp-block-categories li a {
+            color: var(--wp--preset--color--openclaw-text);
+            font-family: var(--wp--preset--font-family--openclaw-display);
+            font-size: 13px;
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 14px 0;
+            display: inline-block;
+        }
+        .openclaw-category-nav .wp-block-categories li a:hover {
+            color: var(--wp--preset--color--openclaw-primary);
+        }
+    </style>
+</div>
+<!-- /wp:group -->

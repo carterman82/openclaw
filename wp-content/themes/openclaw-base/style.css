@@ -1,0 +1,339 @@
+/*
+Theme Name: Openclaw Base
+Theme URI: https://github.com/carterman82/openclaw
+Author: openclaw
+Description: Editorial-magazine parent theme for the openclaw multisite network. Provides a shared magazine layout (header wordmark + optional category nav, featured lead, category explorer, 3-col card grid, single-column reading layout with auto-injected TOC and related posts, multi-column footer). Six semantic color slots and a font pairing exposed via theme.json for child themes to override.
+Version: 0.1.0
+Requires at least: 6.6
+Requires PHP: 8.1
+License: GPL-2.0-or-later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: openclaw-base
+*/
+
+:root {
+    --openclaw-radius: 12px;
+    --openclaw-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    --openclaw-shadow-hover: 0 12px 24px rgba(15, 23, 42, 0.10);
+}
+
+body {
+    background: var(--wp--preset--color--openclaw-background);
+    color: var(--wp--preset--color--openclaw-text);
+    font-family: var(--wp--preset--font-family--openclaw-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6,
+.wp-block-post-title,
+.wp-block-site-title {
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    letter-spacing: -0.01em;
+}
+
+a {
+    color: var(--wp--preset--color--openclaw-primary);
+    text-decoration: none;
+}
+
+a:hover {
+    color: var(--wp--preset--color--openclaw-accent);
+}
+
+.openclaw-topbar {
+    border-bottom: 1px solid var(--wp--preset--color--openclaw-muted);
+    background: var(--wp--preset--color--openclaw-surface);
+}
+
+.openclaw-category-nav {
+    border-top: 1px solid color-mix(in srgb, var(--wp--preset--color--openclaw-muted) 40%, transparent);
+    background: var(--wp--preset--color--openclaw-surface);
+}
+
+.openclaw-category-nav a {
+    color: var(--wp--preset--color--openclaw-text);
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 13px;
+    letter-spacing: 0.05em;
+    padding: 14px 0;
+    display: inline-block;
+}
+
+.openclaw-category-nav a:hover {
+    color: var(--wp--preset--color--openclaw-primary);
+}
+
+.openclaw-card,
+.openclaw-hero-card,
+.openclaw-highlighted-card {
+    background: var(--wp--preset--color--openclaw-surface);
+    border-radius: var(--openclaw-radius);
+    overflow: hidden;
+    box-shadow: var(--openclaw-shadow);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.openclaw-card:hover,
+.openclaw-hero-card:hover,
+.openclaw-highlighted-card:hover {
+    box-shadow: var(--openclaw-shadow-hover);
+    transform: translateY(-2px);
+}
+
+.openclaw-card img,
+.openclaw-hero-card img,
+.openclaw-highlighted-card img,
+.openclaw-featured-image img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 0;
+}
+
+/*
+ * Highlighted top row on the home template: 2 newest posts, side-by-side on
+ * desktop, stacked on narrow viewports. Cards share the .openclaw-card visual
+ * language above but sit in their own grid container so they collapse
+ * independently of the "More articles" 3-col grid below.
+ */
+.wp-block-post-template.openclaw-highlighted-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 32px;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+@media (max-width: 800px) {
+    .wp-block-post-template.openclaw-highlighted-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.openclaw-highlighted-card {
+    align-self: stretch;
+}
+
+/*
+ * Long-tail grid: uniform 3-col layout with equal-height cards, tablet at
+ * 2-col, mobile at 1-col. Matches catfancast's seamless-fit pattern where
+ * uniform card sizing eliminates whitespace gaps between rows.
+ *
+ * Scoped so the highlighted top row (2-col) stays independent.
+ */
+.wp-block-post-template.is-layout-grid:not(.openclaw-highlighted-grid) {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 24px;
+}
+
+.wp-block-post-template.is-layout-grid:not(.openclaw-highlighted-grid) > li {
+    margin: 0;
+    padding: 0;
+}
+
+@media (max-width: 900px) {
+    .wp-block-post-template.is-layout-grid:not(.openclaw-highlighted-grid) {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+@media (max-width: 600px) {
+    .wp-block-post-template.is-layout-grid:not(.openclaw-highlighted-grid) {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+.openclaw-featured-image img {
+    border-radius: var(--openclaw-radius);
+}
+
+.openclaw-meta,
+.openclaw-card-meta {
+    color: var(--wp--preset--color--openclaw-muted);
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+}
+
+.openclaw-category-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px;
+    background: color-mix(in srgb, var(--wp--preset--color--openclaw-accent) 12%, transparent);
+    color: var(--wp--preset--color--openclaw-primary);
+    border-radius: 999px;
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.openclaw-category-chip::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--wp--preset--color--openclaw-accent);
+}
+
+.openclaw-explore-tile {
+    display: block;
+    padding: 20px 24px;
+    background: var(--wp--preset--color--openclaw-surface);
+    border-radius: var(--openclaw-radius);
+    border: 1px solid color-mix(in srgb, var(--wp--preset--color--openclaw-muted) 30%, transparent);
+    color: var(--wp--preset--color--openclaw-text);
+    transition: border-color 0.2s ease, transform 0.2s ease;
+    text-align: left;
+}
+
+.openclaw-explore-tile:hover {
+    border-color: var(--wp--preset--color--openclaw-primary);
+    color: var(--wp--preset--color--openclaw-primary);
+    transform: translateY(-2px);
+}
+
+.openclaw-explore-tile-name {
+    display: block;
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    font-weight: 600;
+    font-size: 20px;
+    margin-bottom: 4px;
+}
+
+.openclaw-explore-tile-count {
+    display: block;
+    color: var(--wp--preset--color--openclaw-muted);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.openclaw-explore-tile-underline {
+    display: block;
+    width: 32px;
+    height: 3px;
+    background: var(--wp--preset--color--openclaw-accent);
+    margin-top: 16px;
+    border-radius: 2px;
+}
+
+.openclaw-toc {
+    background: var(--wp--preset--color--openclaw-surface);
+    border: 1px solid color-mix(in srgb, var(--wp--preset--color--openclaw-muted) 30%, transparent);
+    border-radius: var(--openclaw-radius);
+    padding: 24px 32px;
+    margin: 32px 0;
+}
+
+.openclaw-toc-title {
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--wp--preset--color--openclaw-muted);
+    margin: 0 0 12px 0;
+}
+
+.openclaw-toc ol {
+    margin: 0;
+    padding-left: 24px;
+    counter-reset: openclaw-toc;
+    list-style: none;
+}
+
+.openclaw-toc li {
+    counter-increment: openclaw-toc;
+    padding: 4px 0;
+    position: relative;
+}
+
+.openclaw-toc li::before {
+    content: counter(openclaw-toc) ".";
+    position: absolute;
+    left: -28px;
+    color: var(--wp--preset--color--openclaw-muted);
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+}
+
+.openclaw-toc a {
+    color: var(--wp--preset--color--openclaw-text);
+    border-bottom: 1px solid transparent;
+}
+
+.openclaw-toc a:hover {
+    color: var(--wp--preset--color--openclaw-primary);
+    border-bottom-color: var(--wp--preset--color--openclaw-primary);
+}
+
+.openclaw-related {
+    margin-top: 64px;
+    padding-top: 48px;
+    border-top: 1px solid color-mix(in srgb, var(--wp--preset--color--openclaw-muted) 30%, transparent);
+}
+
+.openclaw-related-heading {
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--wp--preset--color--openclaw-muted);
+    margin: 0 0 24px 0;
+}
+
+.openclaw-related-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+}
+
+@media (max-width: 900px) {
+    .openclaw-related-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 600px) {
+    .openclaw-related-grid { grid-template-columns: 1fr; }
+}
+
+.openclaw-related-card {
+    display: block;
+    color: var(--wp--preset--color--openclaw-text);
+}
+
+.openclaw-related-card img {
+    border-radius: var(--openclaw-radius);
+    aspect-ratio: 16 / 9;
+    object-fit: cover;
+    margin-bottom: 12px;
+}
+
+.openclaw-related-card h4 {
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0;
+    line-height: 1.35;
+}
+
+.openclaw-footer-bottom {
+    border-top: 1px solid color-mix(in srgb, var(--wp--preset--color--openclaw-muted) 40%, transparent);
+    color: var(--wp--preset--color--openclaw-muted);
+    font-size: 13px;
+    padding-top: 24px;
+    margin-top: 48px;
+}
+
+.wp-block-post-content h2 {
+    scroll-margin-top: 24px;
+}

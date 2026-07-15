@@ -8,6 +8,7 @@ model is disabled, the Claude path is byte-identical to pre-3.8 behavior.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import logging
 from pathlib import Path
@@ -453,6 +454,41 @@ def _anthropic_to_openai_tool_schema(tool_schema: dict) -> dict:
     }
 
 
+def _rewrite_prompt_for_json_mode(system_prompt: str, tool_name: str) -> str:
+    """Strip the trailing "call the tool" sentence and replace with JSON-mode wording.
+
+    Both generator and editor system prompts end with a "Submit ... by calling
+    the {tool_name} tool" line. Under JSON schema response_format there is no
+    tool available; leaving that sentence in confuses smaller local models into
+    emitting empty content or prose apologies. This rewriter is idempotent —
+    if the phrase is absent, only the JSON-mode instruction is appended.
+    """
+    replacements = [
+        (
+            f"Submit the article by calling the {tool_name} tool.",
+            f"Return ONLY a single JSON object matching the {tool_name} schema. "
+            f"No prose, no markdown fences, no explanation before or after.",
+        ),
+        (
+            f"Submit the revised article by calling the {tool_name} tool.",
+            f"Return ONLY a single JSON object matching the {tool_name} schema "
+            f"with the complete revised article. No prose, no markdown fences.",
+        ),
+    ]
+    out = system_prompt
+    replaced = False
+    for old, new in replacements:
+        if old in out:
+            out = out.replace(old, new)
+            replaced = True
+    if not replaced:
+        out = out.rstrip() + (
+            f"\n\nReturn ONLY a single JSON object matching the {tool_name} "
+            f"schema. No prose, no markdown fences."
+        )
+    return out
+
+
 def _generate_with_local(
     system_prompt: str,
     user_message: str,
@@ -462,13 +498,19 @@ def _generate_with_local(
     cfg: Config | None = None,
     stage: str = "generate",
 ) -> dict:
-    """Call an OpenAI-compatible local server (LM Studio) with tool-use.
+    """Call an OpenAI-compatible local server (LM Studio) with JSON schema mode.
 
-    Raises `LocalProviderError` on any provider-side failure (empty tool call,
-    malformed JSON in arguments, HTTP/network error, timeout). The router
-    catches this and falls back to Claude. Before any raise past a successful
-    HTTP response, the full raw response is dumped to
-    `logs/qwen-fallback-<timestamp>-<stage>.json` for forensics (Step 3.8.6).
+    Step 3.8.8 (2026-07-14): switched from `tool_choice="required"` to
+    `response_format={"type":"json_schema", ...}`. Qwen 3 in LM Studio
+    reliably returned HTTP 200 with empty `tool_calls` under the tool_choice
+    grammar (see logs/qwen-fallback-*.json); JSON-schema mode uses a simpler
+    GBNF path in llama.cpp and lands actual output in `message.content`.
+
+    Raises `LocalProviderError` on any provider-side failure (empty content,
+    malformed JSON, HTTP/network error, timeout, missing required field).
+    The router catches this and falls back to Claude. Before any raise past
+    a successful HTTP response, the full raw response is dumped to
+    `logs/qwen-fallback-<timestamp>-<stage>.json` for forensics.
     """
     client = openai.OpenAI(
         base_url=base_url,
@@ -477,10 +519,19 @@ def _generate_with_local(
         max_retries=0,
     )
     tool_name = tool_schema["name"]
+    schema = tool_schema["input_schema"]
+    local_system_prompt = _rewrite_prompt_for_json_mode(system_prompt, tool_name)
     create_kwargs: dict = {}
+    extra_body: dict = {}
     if cfg is not None:
         create_kwargs["temperature"] = cfg.LOCAL_MODEL_TEMPERATURE
         create_kwargs["top_p"] = cfg.LOCAL_MODEL_TOP_P
+        create_kwargs["frequency_penalty"] = cfg.LOCAL_MODEL_FREQUENCY_PENALTY
+        create_kwargs["presence_penalty"] = cfg.LOCAL_MODEL_PRESENCE_PENALTY
+        # llama.cpp / LM Studio native anti-loop knob (Step 3.8.9). Not an
+        # OpenAI-standard field, so it goes via extra_body. See Config.
+        if cfg.LOCAL_MODEL_REPETITION_PENALTY and cfg.LOCAL_MODEL_REPETITION_PENALTY != 1.0:
+            extra_body["repetition_penalty"] = cfg.LOCAL_MODEL_REPETITION_PENALTY
         max_tokens = cfg.LOCAL_MODEL_MAX_TOKENS
         if cfg.LOCAL_MODEL_DISABLE_THINKING:
             # Step 3.8.5/3.8.7 (2026-07-14): `chat_template_kwargs.
@@ -492,23 +543,26 @@ def _generate_with_local(
             # is OFF (see Config.LOCAL_MODEL_DISABLE_THINKING). Left wired
             # as an opt-in knob for a future server/model build where it
             # might work without that side effect.
-            create_kwargs["extra_body"] = {"reasoning_effort": "none"}
+            extra_body["reasoning_effort"] = "none"
+        if extra_body:
+            create_kwargs["extra_body"] = extra_body
     else:
         max_tokens = MAX_TOKENS
     try:
         response = client.chat.completions.create(
             model=model_name,
             messages=[
-                {"role": "system", "content": system_prompt},
+                {"role": "system", "content": local_system_prompt},
                 {"role": "user", "content": user_message},
             ],
-            tools=[_anthropic_to_openai_tool_schema(tool_schema)],
-            # This server (LM Studio's OpenAI-compat layer) rejects the
-            # object form `{"type":"function","function":{"name":...}}` with
-            # a 400 ("Supported string values: none, auto, required").
-            # "required" is equivalent here since only one tool is offered;
-            # the call_name check below still guards against a wrong tool.
-            tool_choice="required",
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": tool_name,
+                    "schema": schema,
+                    "strict": True,
+                },
+            },
             max_tokens=max_tokens,
             **create_kwargs,
         )
@@ -520,27 +574,32 @@ def _generate_with_local(
         dump_fallback_response(stage, model_name, None, reason="no choices in response")
         raise LocalProviderError("no choices in response")
     message = response.choices[0].message
-    tool_calls = getattr(message, "tool_calls", None) or []
-    if not tool_calls:
-        dump_fallback_response(stage, model_name, response, reason="no tool call")
+    raw_content = (message.content or "").strip()
+    if not raw_content:
+        # Qwen 3 (thinking mode) emits the constrained JSON into
+        # `reasoning_content` and leaves `content` empty. Confirmed against
+        # logs/qwen-fallback-2026-07-15-{171852,172107,172334}.json where
+        # complete valid submit_article JSON landed in reasoning_content on
+        # all three stages.
+        raw_content = (getattr(message, "reasoning_content", "") or "").strip()
+    if not raw_content:
+        dump_fallback_response(stage, model_name, response, reason="empty content")
         raise LocalProviderError(
-            f"model returned no tool call (content preview: "
-            f"{(message.content or '')[:200]!r})"
+            f"model returned empty content (finish_reason: "
+            f"{response.choices[0].finish_reason!r})"
         )
-    call = tool_calls[0]
-    call_name = getattr(getattr(call, "function", None), "name", None)
-    if call_name != tool_name:
-        dump_fallback_response(stage, model_name, response, reason="wrong tool name")
-        raise LocalProviderError(
-            f"expected tool call {tool_name!r}, got {call_name!r}"
-        )
-    raw_args = getattr(call.function, "arguments", "") or ""
+    # Some models still wrap JSON in ```json fences despite the instruction.
+    if raw_content.startswith("```"):
+        stripped = raw_content.strip("`")
+        if stripped.lower().startswith("json"):
+            stripped = stripped[4:]
+        raw_content = stripped.strip()
     try:
-        article = json.loads(raw_args)
+        article = json.loads(raw_content)
     except json.JSONDecodeError as exc:
-        dump_fallback_response(stage, model_name, response, reason="invalid JSON arguments")
+        dump_fallback_response(stage, model_name, response, reason="invalid JSON in content")
         raise LocalProviderError(
-            f"tool arguments were not valid JSON: {exc}. Preview: {raw_args[:200]!r}"
+            f"content was not valid JSON: {exc}. Preview: {raw_content[:200]!r}"
         ) from exc
     try:
         _validate_article_payload(article)
@@ -683,6 +742,48 @@ def revise_article(
     return revised
 
 
+def _is_anthropic_credit_error(exc: BaseException) -> bool:
+    """True when the Anthropic client failed because the account is out of credits.
+
+    The API returns a plain 400 BadRequestError with the message
+    'Your credit balance is too low to access the Anthropic API. ...' — there
+    is no dedicated exception subclass for it, so we match on the substring.
+    """
+    return isinstance(exc, anthropic.BadRequestError) and "credit balance" in str(exc).lower()
+
+
+def _retry_local_hotter(
+    cfg: Config,
+    system_prompt: str,
+    user_message: str,
+    tool_schema: dict,
+    stage: str,
+) -> dict:
+    """Retry the local model with a hotter sampling profile.
+
+    Used when Claude fallback itself failed (e.g. credit exhaustion) after
+    local already returned an unusable result. If the first local call looped
+    at the default temperature, a hotter run has a real chance of breaking
+    out. If this also fails, `_generate_with_local` raises `LocalProviderError`
+    exactly as normal and the caller re-raises a combined error.
+    """
+    hotter = dataclasses.replace(
+        cfg,
+        LOCAL_MODEL_TEMPERATURE=0.7,
+        LOCAL_MODEL_REPETITION_PENALTY=1.25,
+    )
+    logger.warning(
+        "Retrying local with hotter sampling (temperature=0.7, "
+        "repetition_penalty=1.25) stage=%s",
+        stage,
+    )
+    return _generate_with_local(
+        system_prompt, user_message, tool_schema,
+        hotter.LOCAL_MODEL_BASE_URL, hotter.LOCAL_MODEL_NAME,
+        cfg=hotter, stage=stage,
+    )
+
+
 def _dispatch(
     cfg: Config,
     system_prompt: str,
@@ -690,7 +791,13 @@ def _dispatch(
     tool_schema: dict,
     stage: str = "generate",
 ) -> dict:
-    """Route: local -> Claude fallback if LOCAL_MODEL_ENABLED; else Claude direct."""
+    """Route: local -> Claude fallback if LOCAL_MODEL_ENABLED; else Claude direct.
+
+    If the Claude fallback fails specifically because the account is out of
+    credits, retry local once more with a hotter sampling profile before
+    raising — otherwise a single Qwen loop with a $0 Anthropic balance would
+    crash the whole run.
+    """
     if not cfg.LOCAL_MODEL_ENABLED:
         article = _generate_with_claude(system_prompt, user_message, tool_schema)
         logger.info("provider=claude status=success stage=%s", stage)
@@ -717,14 +824,39 @@ def _dispatch(
             stage, cfg.LOCAL_MODEL_NAME,
         )
         return article
-    except LocalProviderError as exc:
+    except LocalProviderError as local_exc:
         logger.warning(
             "provider=local status=fallback stage=%s reason=%s: %s",
-            stage, type(exc).__name__, exc,
+            stage, type(local_exc).__name__, local_exc,
         )
-        article = _generate_with_claude(system_prompt, user_message, tool_schema)
-        logger.info("provider=claude status=success stage=%s", stage)
-        return article
+        try:
+            article = _generate_with_claude(system_prompt, user_message, tool_schema)
+            logger.info("provider=claude status=success stage=%s", stage)
+            return article
+        except anthropic.BadRequestError as claude_exc:
+            if not _is_anthropic_credit_error(claude_exc):
+                raise
+            logger.warning(
+                "Claude fallback failed on credit-balance error (stage=%s); "
+                "retrying local with hotter sampling.",
+                stage,
+            )
+            try:
+                article = _retry_local_hotter(
+                    cfg, system_prompt, user_message, tool_schema, stage,
+                )
+                logger.info(
+                    "provider=local status=success stage=%s model=%s (hotter retry)",
+                    stage, cfg.LOCAL_MODEL_NAME,
+                )
+                return article
+            except LocalProviderError as retry_exc:
+                raise RuntimeError(
+                    f"Both providers failed at stage={stage}. "
+                    f"Local (initial): {local_exc}. "
+                    f"Claude: credit balance exhausted. "
+                    f"Local (hotter retry): {retry_exc}."
+                ) from retry_exc
 
 
 # ---------------------------------------------------------------------------

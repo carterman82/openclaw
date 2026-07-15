@@ -84,9 +84,31 @@ class Config:
     LOCAL_MODEL_BASE_URL: str | None = None
     LOCAL_MODEL_NAME: str | None = None
     LOCAL_MODEL_ENABLED: bool = False
-    LOCAL_MODEL_TEMPERATURE: float = 0.2
+    # Step 3.8.9 (2026-07-15): bumped 0.2 -> 0.4. At 0.2 Qwen 3 falls into
+    # structural repetition loops mid-body_html even with penalties active
+    # (see logs/qwen-fallback-2026-07-15-185033-generate.json where it looped
+    # "The time tells you about your next X" varying X). Higher temperature
+    # naturally breaks out of those local minima.
+    LOCAL_MODEL_TEMPERATURE: float = 0.4
     LOCAL_MODEL_TOP_P: float = 0.9
     LOCAL_MODEL_MAX_TOKENS: int = 12000
+    # Step 3.8.8 (2026-07-15): Qwen 3 in JSON-schema mode falls into token-
+    # repeat loops mid-body_html and burns the full max_tokens budget
+    # emitting "..., the consensus, the consensus, the consensus, ..." (see
+    # logs/qwen-fallback-2026-07-15-173147-generate.json). Frequency and
+    # presence penalties are the standard remedy; only applied to the local
+    # provider, not to Claude.
+    LOCAL_MODEL_FREQUENCY_PENALTY: float = 0.3
+    LOCAL_MODEL_PRESENCE_PENALTY: float = 0.2
+    # Step 3.8.9 (2026-07-15): frequency/presence penalties helped but weren't
+    # enough - noon run had 2/3 sites still loop mid-body_html at the 12000
+    # token cap (see logs/qwen-fallback-2026-07-15-180435/181229-generate.json).
+    # llama.cpp's native repetition_penalty is a multiplicative penalty on the
+    # raw token distribution (different mechanism than OpenAI-standard
+    # frequency/presence), passed via extra_body since it's not a standard
+    # OpenAI field. Default 1.15 is a common llama.cpp anti-loop value; 1.0
+    # disables it entirely, values > 1.2 start hurting prose quality.
+    LOCAL_MODEL_REPETITION_PENALTY: float = 1.15
     # Default False: Step 3.8.5/3.8.7 (2026-07-14) found that the only
     # mechanism that actually suppresses thinking on this LM Studio build
     # (extra_body={"reasoning_effort":"none"}) also reliably breaks
@@ -127,9 +149,18 @@ class Config:
             LOCAL_MODEL_BASE_URL=_normalize_optional(os.getenv("LOCAL_MODEL_BASE_URL")),
             LOCAL_MODEL_NAME=_normalize_optional(os.getenv("LOCAL_MODEL_NAME")),
             LOCAL_MODEL_ENABLED=local_enabled_raw in _TRUE_STRINGS,
-            LOCAL_MODEL_TEMPERATURE=_parse_float(os.getenv("LOCAL_MODEL_TEMPERATURE"), 0.2),
+            LOCAL_MODEL_TEMPERATURE=_parse_float(os.getenv("LOCAL_MODEL_TEMPERATURE"), 0.4),
             LOCAL_MODEL_TOP_P=_parse_float(os.getenv("LOCAL_MODEL_TOP_P"), 0.9),
             LOCAL_MODEL_MAX_TOKENS=_parse_int(os.getenv("LOCAL_MODEL_MAX_TOKENS"), 12000),
+            LOCAL_MODEL_FREQUENCY_PENALTY=_parse_float(
+                os.getenv("LOCAL_MODEL_FREQUENCY_PENALTY"), 0.3
+            ),
+            LOCAL_MODEL_PRESENCE_PENALTY=_parse_float(
+                os.getenv("LOCAL_MODEL_PRESENCE_PENALTY"), 0.2
+            ),
+            LOCAL_MODEL_REPETITION_PENALTY=_parse_float(
+                os.getenv("LOCAL_MODEL_REPETITION_PENALTY"), 1.15
+            ),
             LOCAL_MODEL_DISABLE_THINKING=_parse_bool(
                 os.getenv("LOCAL_MODEL_DISABLE_THINKING"), False
             ),

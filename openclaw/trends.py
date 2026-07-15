@@ -183,30 +183,48 @@ def _select_subreddits_local(
         timeout=_SUBREDDIT_SELECT_TIMEOUT_SECONDS,
         max_retries=0,
     )
-    tool_schema = {
-        "type": "function",
-        "function": {
-            "name": _SUBREDDIT_TOOL_SCHEMA["name"],
-            "description": _SUBREDDIT_TOOL_SCHEMA["description"],
-            "parameters": _SUBREDDIT_TOOL_SCHEMA["input_schema"],
-        },
-    }
+    tool_name = _SUBREDDIT_TOOL_SCHEMA["name"]
+    schema = _SUBREDDIT_TOOL_SCHEMA["input_schema"]
+    # Step 3.8.8 (2026-07-14): JSON-schema response_format instead of
+    # tool_choice="required" — see generator._generate_with_local for the
+    # full rationale. Same rewrite tail: the model had no tool available
+    # under this path, so any "call the tool" phrasing would confuse it.
+    system_msg = (
+        f"You select subreddits for editorial research. Return ONLY a single "
+        f"JSON object matching the {tool_name} schema. No prose, no fences."
+    )
     create_kwargs: dict = {}
+    extra_body: dict = {}
     max_tokens = _SUBREDDIT_SELECT_MAX_TOKENS
     if cfg is not None:
         create_kwargs["temperature"] = cfg.LOCAL_MODEL_TEMPERATURE
         create_kwargs["top_p"] = cfg.LOCAL_MODEL_TOP_P
+        create_kwargs["frequency_penalty"] = cfg.LOCAL_MODEL_FREQUENCY_PENALTY
+        create_kwargs["presence_penalty"] = cfg.LOCAL_MODEL_PRESENCE_PENALTY
+        if cfg.LOCAL_MODEL_REPETITION_PENALTY and cfg.LOCAL_MODEL_REPETITION_PENALTY != 1.0:
+            extra_body["repetition_penalty"] = cfg.LOCAL_MODEL_REPETITION_PENALTY
         max_tokens = cfg.LOCAL_MODEL_MAX_TOKENS
         if cfg.LOCAL_MODEL_DISABLE_THINKING:
             # See generator.py::_generate_with_local for why this key was
             # chosen over chat_template_kwargs.enable_thinking.
-            create_kwargs["extra_body"] = {"reasoning_effort": "none"}
+            extra_body["reasoning_effort"] = "none"
+        if extra_body:
+            create_kwargs["extra_body"] = extra_body
     try:
         response = client.chat.completions.create(
             model=model_name,
-            messages=[{"role": "user", "content": user_message}],
-            tools=[tool_schema],
-            tool_choice="required",
+            messages=[
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_message},
+            ],
+            response_format={
+                "type": "json_schema",
+                "json_schema": {
+                    "name": tool_name,
+                    "schema": schema,
+                    "strict": True,
+                },
+            },
             max_tokens=max_tokens,
             **create_kwargs,
         )
@@ -220,33 +238,32 @@ def _select_subreddits_local(
         )
         raise _SubredditSelectionError("no choices in response")
     message = response.choices[0].message
-    tool_calls = getattr(message, "tool_calls", None) or []
-    if not tool_calls:
+    raw_content = (message.content or "").strip()
+    if not raw_content:
+        # See generator._generate_with_local: Qwen 3 in thinking mode emits
+        # the JSON into reasoning_content and leaves content empty.
+        raw_content = (getattr(message, "reasoning_content", "") or "").strip()
+    if not raw_content:
         dump_fallback_response(
-            _SUBREDDIT_SELECT_STAGE, model_name, response, reason="no tool call"
+            _SUBREDDIT_SELECT_STAGE, model_name, response, reason="empty content"
         )
         raise _SubredditSelectionError(
-            f"model returned no tool call (content preview: "
-            f"{(message.content or '')[:200]!r})"
+            f"model returned empty content (finish_reason: "
+            f"{response.choices[0].finish_reason!r})"
         )
-    call = tool_calls[0]
-    call_name = getattr(getattr(call, "function", None), "name", None)
-    if call_name != _SUBREDDIT_TOOL_SCHEMA["name"]:
-        dump_fallback_response(
-            _SUBREDDIT_SELECT_STAGE, model_name, response, reason="wrong tool name"
-        )
-        raise _SubredditSelectionError(
-            f"expected tool call {_SUBREDDIT_TOOL_SCHEMA['name']!r}, got {call_name!r}"
-        )
-    raw_args = getattr(call.function, "arguments", "") or ""
+    if raw_content.startswith("```"):
+        stripped = raw_content.strip("`")
+        if stripped.lower().startswith("json"):
+            stripped = stripped[4:]
+        raw_content = stripped.strip()
     try:
-        args = json.loads(raw_args)
+        args = json.loads(raw_content)
     except json.JSONDecodeError as exc:
         dump_fallback_response(
-            _SUBREDDIT_SELECT_STAGE, model_name, response, reason="invalid JSON arguments"
+            _SUBREDDIT_SELECT_STAGE, model_name, response, reason="invalid JSON in content"
         )
         raise _SubredditSelectionError(
-            f"tool arguments were not valid JSON: {exc}. Preview: {raw_args[:200]!r}"
+            f"content was not valid JSON: {exc}. Preview: {raw_content[:200]!r}"
         ) from exc
     picked = _clean_subreddit_names(args.get("subreddits", []), limit)
     if not picked:

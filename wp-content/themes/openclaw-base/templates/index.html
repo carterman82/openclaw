@@ -1,0 +1,54 @@
+<!-- wp:template-part {"slug":"header","tagName":"header","area":"header"} /-->
+
+<!-- wp:group {"tagName":"main","layout":{"type":"constrained","contentSize":"1200px"},"style":{"spacing":{"padding":{"top":"var:preset|spacing|8","bottom":"var:preset|spacing|8"}}}} -->
+<main class="wp-block-group" style="padding-top:var(--wp--preset--spacing--8);padding-bottom:var(--wp--preset--spacing--8)">
+
+    <!-- Highlighted top row: 2 newest posts side-by-side, larger cards with excerpts. -->
+    <!-- wp:query {"queryId":1,"query":{"perPage":2,"pages":0,"offset":0,"postType":"post","order":"desc","orderBy":"date","inherit":false},"align":"wide","layout":{"type":"default"}} -->
+    <div class="wp-block-query alignwide">
+        <!-- wp:post-template {"className":"openclaw-highlighted-grid","layout":{"type":"grid","columnCount":2}} -->
+            <!-- wp:group {"className":"openclaw-highlighted-card","layout":{"type":"default"}} -->
+            <div class="wp-block-group openclaw-highlighted-card">
+                <!-- wp:post-featured-image {"isLink":true,"aspectRatio":"16/9","width":"100%","sizeSlug":"openclaw-hero"} /-->
+                <!-- wp:group {"style":{"spacing":{"padding":{"top":"24px","right":"32px","bottom":"32px","left":"32px"}}},"layout":{"type":"default"}} -->
+                <div class="wp-block-group" style="padding:24px 32px 32px 32px">
+                    <!-- wp:post-terms {"term":"category","fontSize":"xs","className":"openclaw-card-meta"} /-->
+                    <!-- wp:post-title {"level":2,"isLink":true,"fontSize":"2xl","style":{"typography":{"lineHeight":"1.2","fontWeight":"700","letterSpacing":"-0.01em"},"spacing":{"margin":{"top":"10px","bottom":"12px"}}}} /-->
+                    <!-- wp:post-excerpt {"fontSize":"sm","excerptLength":30,"showMoreOnNewLine":false,"moreText":"Read","style":{"color":{"text":"var:preset|color|openclaw-muted"},"typography":{"lineHeight":"1.55"}}} /-->
+                    <!-- wp:post-date {"fontSize":"xs","className":"openclaw-card-meta","style":{"color":{"text":"var:preset|color|openclaw-muted"},"spacing":{"margin":{"top":"16px"}}}} /-->
+                </div>
+                <!-- /wp:group -->
+            </div>
+            <!-- /wp:group -->
+        <!-- /wp:post-template -->
+    </div>
+    <!-- /wp:query -->
+
+    <!-- Long-tail grid, offset 2 to skip the highlighted top row. perPage=30
+         so the home page renders the full recent stream inline before the
+         footer (matches catfancast/animefancast's ~20-item continuous feed).
+         Pagination arrows still render for future growth past 32 posts. -->
+    <!-- wp:query {"queryId":2,"query":{"perPage":30,"pages":0,"offset":2,"postType":"post","order":"desc","orderBy":"date","inherit":false},"align":"wide","layout":{"type":"default"},"style":{"spacing":{"margin":{"top":"var:preset|spacing|8"}}}} -->
+    <div class="wp-block-query alignwide" style="margin-top:var(--wp--preset--spacing--8)">
+        <!-- wp:post-template {"layout":{"type":"grid","columnCount":3}} -->
+            <!-- wp:template-part {"slug":"card"} /-->
+        <!-- /wp:post-template -->
+
+        <!-- wp:query-pagination {"paginationArrow":"chevron","layout":{"type":"flex","justifyContent":"center"},"style":{"spacing":{"margin":{"top":"var:preset|spacing|8"}}}} -->
+            <!-- wp:query-pagination-previous /-->
+            <!-- wp:query-pagination-numbers /-->
+            <!-- wp:query-pagination-next /-->
+        <!-- /wp:query-pagination -->
+
+        <!-- wp:query-no-results -->
+            <!-- wp:paragraph -->
+            <p>No posts yet.</p>
+            <!-- /wp:paragraph -->
+        <!-- /wp:query-no-results -->
+    </div>
+    <!-- /wp:query -->
+
+</main>
+<!-- /wp:group -->
+
+<!-- wp:template-part {"slug":"footer","tagName":"footer","area":"footer"} /-->

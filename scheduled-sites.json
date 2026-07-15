@@ -1,8 +1,8 @@
 [
   {
     "slug": "localhost",
-    "enabled": true,
-    "notes": "Local Docker WordPress at http://localhost:8088. Primary site of the multisite network (blog_id=1)."
+    "enabled": false,
+    "notes": "Local Docker WordPress at http://localhost:8088. Primary site of the multisite network (blog_id=1). Disabled 2026-07-14 in favor of the dedicated techtools subsite; primary is now admin/hub only."
   },
   {
     "slug": "catfancast",
@@ -26,7 +26,12 @@
   },
   {
     "slug": "coffee",
-    "enabled": false,
+    "enabled": true,
     "notes": "Phase 5 pilot subsite (blog_id=5) at http://coffee.localhost:8088. Enable after Staatic + GH Pages deploy is verified end-to-end."
+  },
+  {
+    "slug": "techtools",
+    "enabled": true,
+    "notes": "Phase 5 Step 5.10 subsite (blog_id=6) at http://techtools.localhost:8088 — Tech Tool Guide. 29 posts migrated from localhost primary on 2026-07-14. Enable after Staatic + GH Pages deploy is verified end-to-end."
   }
 ]

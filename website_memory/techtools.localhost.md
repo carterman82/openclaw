@@ -1,8 +1,8 @@
-# Software Tool Guide — Site Description for Content Generation
+# Tech Tool Guide — Site Description for Content Generation
 
 ## What this site is
 
-**Software Tool Guide** is a practical editorial site for founders, freelancers,
+**Tech Tool Guide** is a practical editorial site for founders, freelancers,
 marketers, and small business operators who live in software every day. It covers
 SaaS products, AI tools, productivity systems, and business strategy with the
 voice of a well-informed practitioner — not a detached analyst report, not a
