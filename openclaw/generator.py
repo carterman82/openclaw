@@ -11,6 +11,7 @@ from __future__ import annotations
 import dataclasses
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Final
 
@@ -38,8 +39,6 @@ _PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 _INSTRUCTIONS_DIR: Final[Path] = _PROJECT_ROOT / "Instructions"
 _WEBSITE_MEMORY_DIR: Final[Path] = _PROJECT_ROOT / "website_memory"
 STYLE_GUIDE_PATH: Final[Path] = _INSTRUCTIONS_DIR / "STYLE.md"
-IMAGE_GUIDE_PATH: Final[Path] = _INSTRUCTIONS_DIR / "IMAGE_GENERATOR.md"
-TOPIC_GUIDE_PATH: Final[Path] = _INSTRUCTIONS_DIR / "TOPIC.md"
 EDITOR_GUIDE_PATH: Final[Path] = _INSTRUCTIONS_DIR / "EDITOR.md"
 
 _DATA_CLOSE: Final[str] = "</reference_data>"
@@ -81,16 +80,18 @@ def _load_description(site_host: str) -> str:
         ) from exc
 
 
-def _load_image_guide() -> str:
+def _load_image_guide(site_host: str) -> str:
+    path = _WEBSITE_MEMORY_DIR / f"{site_host}.image.md"
     try:
-        return IMAGE_GUIDE_PATH.read_text(encoding="utf-8").strip()
+        return path.read_text(encoding="utf-8").strip()
     except FileNotFoundError:
         return ""
 
 
-def _load_topic_guide() -> str:
+def _load_topic_guide(site_host: str) -> str:
+    path = _WEBSITE_MEMORY_DIR / f"{site_host}.topic.md"
     try:
-        return TOPIC_GUIDE_PATH.read_text(encoding="utf-8").strip()
+        return path.read_text(encoding="utf-8").strip()
     except FileNotFoundError:
         return ""
 
@@ -258,24 +259,30 @@ def _build_system_prompt(categories: tuple[str, ...], site_host: str) -> str:
         logger.info("STYLE.md not found or empty; using base prompt only.")
         style_section = ""
 
-    image_guide = _load_image_guide()
+    image_guide = _load_image_guide(site_host)
     if image_guide:
-        logger.info("Loaded IMAGE_GENERATOR.md (%d chars).", len(image_guide))
+        logger.info("Loaded website_memory/%s.image.md (%d chars).", site_host, len(image_guide))
         image_guide_section = (
             "\n\n# Image generator guide\n\n" + _wrap_data(image_guide, "image_guide")
         )
     else:
-        logger.info("IMAGE_GENERATOR.md not found or empty; image_prompt rules only.")
+        logger.info(
+            "website_memory/%s.image.md not found or empty; image_prompt rules only.",
+            site_host,
+        )
         image_guide_section = ""
 
-    topic_guide = _load_topic_guide()
+    topic_guide = _load_topic_guide(site_host)
     if topic_guide:
-        logger.info("Loaded TOPIC.md (%d chars).", len(topic_guide))
+        logger.info("Loaded website_memory/%s.topic.md (%d chars).", site_host, len(topic_guide))
         topic_guide_section = (
             "\n\n# Topic selection guide\n\n" + _wrap_data(topic_guide, "topic_guide")
         )
     else:
-        logger.info("TOPIC.md not found or empty; using base prompt only.")
+        logger.info(
+            "website_memory/%s.topic.md not found or empty; using base prompt only.",
+            site_host,
+        )
         topic_guide_section = ""
 
     return (
@@ -321,8 +328,11 @@ def _build_avoidance_message(recent_titles: list[str] | None) -> str:
     return (
         "\n\nThe following articles have ALREADY been published on this site. "
         "You MUST NOT choose a topic that covers the same subject, concept, technique, "
-        "character, or angle — even if the title wording is different. "
-        "If in doubt, choose something completely unrelated.\n"
+        "character, or angle — even if the title wording is different. Never reuse or "
+        "closely paraphrase any of these titles, and never reuse any example title shown "
+        "elsewhere in these instructions — examples illustrate style only, not topics to "
+        "write. A repeated topic will be rejected by an automated check and the run "
+        "discarded, so if in doubt, choose something completely unrelated.\n"
         + _wrap_data(title_lines, "recent_titles")
     )
 
@@ -732,6 +742,19 @@ def revise_article(
     tool_schema = _build_tool_schema(effective_categories)
 
     revised = _dispatch(cfg, system_prompt, user_message, tool_schema, stage="revise")
+
+    def _body_words(a: dict) -> int:
+        return len(re.sub(r"<[^>]+>", " ", a.get("body_html", "")).split())
+
+    draft_words = _body_words(article)
+    revised_words = _body_words(revised)
+    if revised_words < max(150, int(draft_words * 0.6)):
+        logger.warning(
+            "Editor pass returned a degenerate body (~%d words vs draft ~%d); "
+            "discarding the revision and keeping the draft.",
+            revised_words, draft_words,
+        )
+        return article
 
     if revised["category"] != article["category"]:
         logger.warning(

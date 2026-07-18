@@ -1,9 +1,14 @@
 /*
-Theme Name: Coffee Fancast
-Theme URI: https://coffee.localhost:8088
-Description: Child theme of Twenty Twenty-Five for Coffee Fancast. Espresso and crema tones for a home-brewing editorial site.
+Theme Name: Crema
+Theme URI: https://github.com/carterman82/openclaw-coffee
 Author: openclaw
-Template: twentytwentyfive
-Version: 0.1.0
+Author URI: https://github.com/carterman82
+Description: Crema (coffee subsite) child theme. Warm café/roastery palette — cream + pale-latte + rich espresso primary + brass accent — with Cormorant Garamond (display) + Inter (body). Inherits the openclaw-base editorial-magazine layout.
+Version: 0.2.0
+Template: openclaw-base
+Requires at least: 6.6
+Requires PHP: 8.1
+License: GPL-2.0-or-later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Text Domain: openclaw-coffee
 */

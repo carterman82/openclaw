@@ -53,15 +53,16 @@ function openclaw_base_enqueue(): void {
         wp_get_theme( 'openclaw-base' )->get( 'Version' )
     );
 
-    // Google Fonts: child themes are expected to override the font-family in
-    // their theme.json. Enqueuing a generous font pair here keeps a single
-    // stylesheet call regardless of which child theme is active.
-    wp_enqueue_style(
-        'openclaw-base-fonts',
-        'https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap',
-        [],
-        null
+    // Google Fonts: child themes override the CSS font-family strings in their
+    // own theme.json, and can swap the Google Fonts stylesheet URL entirely by
+    // hooking the `openclaw_base_google_fonts_url` filter from their functions.php.
+    // The default pair (Inter Tight + Space Grotesk) covers openclaw-techtools
+    // and any child that doesn't set the filter.
+    $fonts_url = apply_filters(
+        'openclaw_base_google_fonts_url',
+        'https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap'
     );
+    wp_enqueue_style( 'openclaw-base-fonts', $fonts_url, [], null );
 }
 add_action( 'wp_enqueue_scripts', 'openclaw_base_enqueue' );
 

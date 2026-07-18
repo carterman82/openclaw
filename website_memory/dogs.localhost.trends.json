@@ -1,4 +1,38 @@
 {
-  "reddit_subreddits": ["dogs", "puppy101", "DogTraining", "dogpictures", "AskVet"],
-  "google_suggest_seeds": ["dog breed", "puppy training", "why does my dog", "best dog food for"]
+  "reddit_subreddits": [
+    "dogs",
+    "puppy101",
+    "DogTraining",
+    "AskVet",
+    "reactivedogs",
+    "rescuedogs",
+    "seniordogs",
+    "dogfood",
+    "dogswithjobs",
+    "workingdogs",
+    "openpuppies",
+    "dogpictures",
+    "GoldenRetrievers",
+    "germanshepherds",
+    "Labradors",
+    "AustralianShepherd",
+    "GreatPyrenees",
+    "BorderCollie",
+    "Vet",
+    "DogAdvice"
+  ],
+  "google_suggest_seeds": [
+    "dog breed",
+    "puppy training",
+    "why does my dog",
+    "best dog food for",
+    "how to train a",
+    "how to stop dog from",
+    "how much exercise does a",
+    "what to feed a",
+    "how to socialize a",
+    "best dog breed for",
+    "why do dogs",
+    "signs of"
+  ]
 }

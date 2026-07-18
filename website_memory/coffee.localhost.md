@@ -1,8 +1,8 @@
-# Coffee Fancast — Site Description for Content Generation
+# Crema — Site Description for Content Generation
 
 ## What this site is
 
-**Coffee Fancast** is a home-brewing editorial site for people who care about
+**Crema** is a home-brewing editorial site for people who care about
 the coffee they make at home — pour-over converts, espresso hobbyists, French
 press loyalists who want to level up, and the "I just bought my first burr
 grinder" cohort. It covers beans, brewing methods, equipment, and technique
@@ -79,7 +79,7 @@ producing generic "coffee is having a moment" content.
 
 ## What NOT to write
 
-- **Café reviews and travel-blog content**. Coffee Fancast is about home
+- **Café reviews and travel-blog content**. Crema is about home
   brewing. Named-café city guides, café interior photo essays, and
   travel-blog "coffee crawl" pieces belong elsewhere.
 
@@ -136,6 +136,28 @@ When mainstream advice is wrong (grind for a specific dripper by "medium
 coarse" alone, use boiling water for espresso, refrigerate whole beans),
 say so and explain why. Readers respect a barista who has broken the
 grinder themselves and figured out what happened.
+
+## Title and topic variety
+
+A review of Crema's published titles found 7 of 9 using the identical
+"[thing you blame] isn't the real cause — [other thing] is" contrarian-debunk
+formula ("Your Pour-Over Is Sour Because You're Rinsing the Filter Wrong,"
+"Surface Tension Is the Real Reason Your Espresso Looks Perfect," "Water
+Temperature in Pour-Over Is Overrated. Brew Ratio Is Running the Show.").
+Worse, two of those ("The Grinder's Dead Zone: Why Your Burr Alignment
+Controls Consistency More Than Burrs Per Minute" and "Burr Alignment Is the
+Grinder Spec Nobody Publishes") cover the same underlying topic — burr
+alignment as an underrated grinder spec — twice.
+
+Fixes going forward:
+- Don't default to the "X isn't the problem, Y is" contrarian-reveal
+  structure for every article. Reserve it for when there's a genuinely
+  surprising misdiagnosis to correct. Use straight deep-dives, head-to-head
+  comparisons, origin/varietal profiles, historical explainers, and honest
+  equipment reviews as often as the contrarian format.
+- Before finalizing a topic, check it isn't a rehash of an already-published
+  angle. Burr alignment vs. burrs-per-minute as a grinder spec has already
+  been covered twice — do not write a third.
 
 ## Entity checklist for coffee content
 

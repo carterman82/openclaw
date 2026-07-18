@@ -34,6 +34,8 @@ Assume readers are busy and impatient; your primary job is reducing friction. Fi
 
 The article should feel effortless to read.
 
+**The title is the first engagement edit.** Run the draft title through STYLE.md's mandatory pre-submit title check (colon rule, information gap, intention-question test, hedge words, CTR-killers, dignity). If it fails ANY item, rewrite the title so it passes while keeping the article's topic and thesis: keep the specific claim, fix the shape. A hedge word ("actually"), a promise-tease after a colon, or a tabloid gap is not "title intent" — it's a defect you are expected to fix.
+
 ## 2. Search Intent & Helpfulness
 
 Read the article as someone who searched the focus keyphrase and ask: "Does this fully answer why they clicked?" (The keyphrase is provided with the draft — never invent or infer one if it's missing; flag it instead.)

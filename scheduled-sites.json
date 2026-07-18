@@ -11,17 +11,17 @@
   },
   {
     "slug": "gardening",
-    "enabled": false,
+    "enabled": true,
     "notes": "Phase 5 pilot subsite (blog_id=2) at http://gardening.localhost:8088. Enable after Staatic + GH Pages deploy is verified end-to-end."
   },
   {
     "slug": "dogs",
-    "enabled": false,
+    "enabled": true,
     "notes": "Phase 5 pilot subsite (blog_id=3) at http://dogs.localhost:8088. Enable after Staatic + GH Pages deploy is verified end-to-end."
   },
   {
     "slug": "boardgames",
-    "enabled": false,
+    "enabled": true,
     "notes": "Phase 5 pilot subsite (blog_id=4) at http://boardgames.localhost:8088. Enable after Staatic + GH Pages deploy is verified end-to-end."
   },
   {

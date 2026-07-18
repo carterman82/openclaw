@@ -1,8 +1,8 @@
-# Dog Fancast — Site Description for Content Generation
+# Kennelside — Site Description for Content Generation
 
 ## What this site is
 
-**Dog Fancast** is a dog enthusiast site and editorial blog for real dogs. It
+**Kennelside** is a dog enthusiast site and editorial blog for real dogs. It
 covers the world of domestic dogs with the voice of an experienced,
 knowledgeable enthusiast — not a detached vet-school textbook, not a
 surface-level pet-care aggregator, not a breeder catalog, not a training-app
@@ -100,12 +100,34 @@ content.
   wolf-conservation as a standalone topic.
 
 - **Seasonal, trending, or news-tied angles**. No "this month's dog news,"
-  no "just released" framing. Dog Fancast is ~90% evergreen by design.
+  no "just released" framing. Kennelside is ~90% evergreen by design.
 
 - **Generic explainers with no named anchor**. Articles like "Why Dogs Are
   Great Pets" or "A History of Dogs" are too broad. Every topic must have
   a concrete angle that ties to at least 2–3 named breeds, named real
   dogs, named behaviors, or named medical terms.
+
+## Accuracy guardrail: breed history specifics
+
+Confident-sounding historical detail is easy to invent and hard for a reader
+to catch — this has produced real errors, so be conservative with specific
+historical causation. Two confirmed corrections to apply:
+
+- The **Icelandic Sheepdog**'s working purpose is herding **sheep and
+  horses**, not reindeer — reindeer are not a traditionally herded animal in
+  Iceland.
+- Iceland's historic ban on importing foreign dogs was driven primarily by
+  **hydatid disease (echinococcosis)**, a tapeworm passed between sheepdogs
+  and sheep that caused a serious public-health crisis — not canine
+  distemper or parvovirus (parvovirus wasn't even identified until the
+  1970s, long after the ban's origins).
+
+More generally: when an article states a specific disease name, a specific
+year, or a specific causal mechanism behind a historical policy or breeding
+decision, that claim must be something you're actually confident is
+accurate — not merely plausible-sounding. If uncertain, describe the event
+generically ("a disease outbreak prompted stricter import controls") rather
+than naming a specific pathogen or date that might be wrong.
 
 ## Audience
 

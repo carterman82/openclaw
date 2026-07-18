@@ -28,8 +28,9 @@ Current active work:
   migrated from localhost primary, `openclaw-techtools` GH repo + Pages
   online, end-to-end verified with draft post 1525. Localhost primary
   flipped to `enabled=false` (admin/hub only). Steps 5.9 (rebuild four
-  pilots as Redstone Register / Sprue & Codex / Slipstream Journal /
-  Clack Report) and 5.11 (`openclaw-base` parent theme + five editorial
+  pilots as Rootstock / Kennelside / Meeple / Crema — original brand
+  names for the same four hobby niches) and 5.11 (`openclaw-base` parent
+  theme + five editorial
   child themes) still pending; niches approved 2026-07-14, execution
   awaiting user go-ahead per step.
 
@@ -46,7 +47,7 @@ Future:
 - Phase 3.8: switch primary LLM to a locally hosted Qwen3.6 (LM Studio on the LAN); keep Claude Sonnet 4.6 as automatic fallback.
 - Phase 4: schedule daily publishing at 07:00 America/Denver.
 - Phase 5: multisite + static export + GitHub Pages auto-commit after every publish.
-- Phase 6: make the agent analytics-aware.
+- Phase Omega: make the agent analytics-aware. Deferred until every other phase is done AND the sites have real traffic to observe — analytics tuning without views is guesswork.
 
 Recently completed:
 - Phase 3: featured images and contextual links (2026-06-19).
@@ -2043,7 +2044,7 @@ Verification:
 - [x] CLAUDE.md gains a "Scheduling (Phase 4)" bullet under Key facts
       and adds the wrapper invocations to Common commands. The top-of-file
       project description was corrected (Phase 4 = scheduling, Phase 5 =
-      multisite + static, Phase 6 = analytics; the old wording had them swapped).
+      multisite + static, Phase Omega = analytics; the old wording had them swapped).
 - [x] §12 decision-log entry for hosting target + notification channel
       landed 2026-07-10 alongside Steps 4.1/4.2/4.4.
 
@@ -2349,79 +2350,94 @@ WordPress. This section replans the pilot into narrow-fandom subsites with
 original branding, adds Tech Tool Guide as a dedicated subsite, and lands
 a proper editorial-magazine base theme.
 
-### Step 5.9 - Rebuild pilot subsites with focused-fandom niches and original branding
+### Step 5.9 - Rebrand + restyle the four pilot subsites (keep original niches)
 
-Status: not started.
+Status: **IN PROGRESS** (2026-07-15).
 
-**Context:** the first-round pilot shipped four subsites named
-`gardening`, `dogs`, `boardgames`, `coffee`. The niches were too broad
-(the "fancast"-family sites work better around a single-fandom hobby than
-a generic category), one name collided with an existing production site
-(`dogfancast.com` is live), and none of the four had distinctive
-branding. This step deletes those pilots and replaces them with four
-narrow-fandom sites using original brand names — **not** the `X-fancast`
-pattern.
+**Context:** the first-round pilot shipped four subsites branded as
+`Garden Fancast` / `Dog Fancast` / `Board Game Fancast` / `Coffee
+Fancast`. User rejected the `X Fancast` naming pattern (2026-07-15 —
+too formulaic, no personality). **The niches themselves are fine** —
+gardening, dogs, board games, and coffee are all AI-writable evergreen
+verticals with active hobbyist audiences. An earlier revision of this
+step (2026-07-15 morning) proposed swapping the niches for narrow
+fandoms (Minecraft / Warhammer 40K / F1 / mechanical keyboards); that
+was walked back the same day — keep the four broad hobby niches, only
+change the brand name and visual identity of each subsite.
 
-**Proposed niches + brand names** (domain availability probed at planning
-time via HTTP+DNS; final selection pending user approval during review):
+**New brand names** (user-picked 2026-07-15 afternoon):
 
-| slug            | niche               | brand name          | proposed domain           | why                                                                                                        |
-|-----------------|---------------------|---------------------|---------------------------|------------------------------------------------------------------------------------------------------------|
-| redstone        | Minecraft           | Redstone Register   | `redstoneregister.com`    | User's own example. Massive audience; redstone/mods/versions/biomes are endlessly AI-writable and factual. |
-| sprueandcodex   | Warhammer 40K       | Sprue & Codex       | `sprueandcodex.com`       | Deep hobby (painting + rules + lore + army lists). "Sprue" = plastic frame minis come on; "codex" = army rulebook. |
-| slipstream      | Formula 1           | Slipstream Journal  | `slipstreamjournal.com`   | Global fandom. Tech + drama + drivers + circuits + history. Original name evokes the racing draft mechanic. |
-| clack           | Mechanical keyboards| Clack Report        | `clackreport.com`         | Dedicated enthusiast community; switches/keycaps/layouts/builds = evergreen AI-writable content.           |
+| slug        | niche       | old brand           | new brand   |
+|-------------|-------------|---------------------|-------------|
+| gardening   | Gardening   | Garden Fancast      | Rootstock   |
+| dogs        | Dogs        | Dog Fancast         | Kennelside  |
+| boardgames  | Board games | Board Game Fancast  | Meeple      |
+| coffee      | Coffee      | Coffee Fancast      | Crema       |
 
-Domain probes (2026-07-13):
-`redstoneregister.com` no HTTP response + 1 DNS record (likely available or parked),
-`sprueandcodex.com` same, `slipstreamjournal.com` same, `clackreport.com`
-same. Live sites already ruled out for `formationlap.com`, `paddockpost.com`,
-`chequeredflag.com`, `apexline.com`, `racingline.com`. No domain has been
-registered yet — GH Pages URLs use the free
-`carterman82.github.io/openclaw-<slug>/` pattern per Step 5.5's decision,
-so buying the branded domain and pointing it at the GH Pages repo can
-happen later without redoing this step.
+Slugs, blog_ids (2–5), env-var prefixes (`GARDENING_WP_*` etc.),
+`scheduled-sites.json` entries, `DEPLOYABLE_SLUGS`, docker-compose
+`extra_hosts`, and GH deploy repos (`openclaw-{gardening,dogs,boardgames,coffee}`)
+all stay unchanged — the rebrand touches WordPress-level identity and
+theme styling only, not infrastructure. Domains are not being
+registered; GH Pages URLs continue to use the free
+`carterman82.github.io/openclaw-<slug>/` pattern per Step 5.5
+(which in practice serves as `www.reggaefancast.com/openclaw-<slug>/`
+due to the account-level CNAME cascade — see the Step 5.10 asset-URL
+fix), and the new brand names live in `blogname` + persona file only.
+
+**Per-subsite visual identity** (unique child theme each, all children of
+`openclaw-base` — inheriting layout, overriding only the 6 semantic color
+slots + font families via `theme.json` + child `functions.php` for the
+Google Fonts swap):
+
+- **Rootstock (gardening)** — botanical editorial. Warm cream bg (#FBF7EE),
+  pale sage surface, deep forest primary (#3B5F3A), rusty terracotta accent
+  (#B0552C), moss-gray muted text. Fonts: Fraunces (serif display) + Lora
+  (serif body). Reads like a print gardening periodical.
+- **Kennelside (dogs)** — warm & tactile lifestyle. Warm off-white bg
+  (#FBF8F4), soft biscuit surface, saddle brown primary (#6E4A2C), mustard
+  accent (#D9A038), warm-taupe muted. Fonts: Domine (serif display) +
+  Nunito Sans (rounded body). Reads friendly, not clinical.
+- **Meeple (board games)** — tactile tabletop/print. Kraft-paper bg
+  (#F3E9D4), warmer cream surface, deep teal primary (#2A5B60), mustard
+  accent (#E0A93D), pencil-gray muted. Fonts: Roboto Slab (slab display) +
+  Work Sans (body). Reads stamped/printed like a game box.
+- **Crema (coffee)** — warm café/roastery. Cream bg (#FBF6EB), pale-latte
+  surface, rich espresso primary (#5C3B21), brass accent (#B08D42),
+  warm-mocha muted. Fonts: Cormorant Garamond (elegant serif display) +
+  Inter (clean body). Reads like a specialty roaster's editorial.
 
 Work:
-- `wp site delete <blog_id>` for blogs 2–5 (Hello World + smoke drafts
-  only, no content loss).
-- `wp site create --slug=<slug>` for the four new slugs at
-  `<slug>.localhost:8088`.
-- Write `website_memory/<slug>.localhost.md` for each new site — mirror
-  the catfancast persona template, with fandom-specific green-light /
-  red-light lists and entity checklists (redstone components, W40K
-  chapters/factions, F1 drivers/circuits/teams, keyboard switch families
-  / layouts).
-- Write `website_memory/<slug>.localhost.trends.json` per fandom
-  (subreddits + Google Suggest seeds).
-- 6–10 evergreen categories per subsite via `wp term create category ...`.
-- Delete the old prefixed env-var blocks from `.env` / `.env.example`;
-  add new ones: `REDSTONE_WP_*`, `SPRUE_WP_*`, `SLIPSTREAM_WP_*`,
-  `CLACK_WP_*`.
-- `scheduled-sites.json`: delete old pilot entries; add four new ones
-  with `enabled=false`.
-- Update `openclaw/deploy.py::DEPLOYABLE_SLUGS` to the new slug set.
-- Update `docker-compose.yml` `extra_hosts` for the new subdomains
-  (remove old, add new).
-- Delete/archive old GH repos (`openclaw-{gardening,dogs,boardgames,coffee}`);
-  create new ones (`openclaw-redstone`, `openclaw-sprueandcodex`,
-  `openclaw-slipstream`, `openclaw-clack`) via `gh repo create ... --public`.
-- Configure Staatic per new subsite (`staatic_deployment_method`,
-  `staatic_filesystem_target_directory`, `staatic_destination_url`).
-- Purge and recreate `staatic-exports/` subdirs.
+- Modify `openclaw-base/functions.php` to give each child theme a clean way
+  to swap the Google Fonts stylesheet (either dequeue-and-re-enqueue via
+  child `functions.php`, or a filter the child sets).
+- For each subsite, rewrite the retired `wp-content/themes/openclaw-<slug>/`
+  (currently `Template: twentytwentyfive` shells) into a real child of
+  `openclaw-base` — new `style.css` header, `theme.json` with the palette
+  + fonts above, `functions.php` for the font swap.
+- Rename WP identity per subsite: `wp option update blogname "<new brand>"
+  --url=http://<slug>.localhost:8088`; also `blogdescription` where the
+  persona sets a tagline.
+- Update the persona file `website_memory/<slug>.localhost.md` — replace
+  every occurrence of "<X> Fancast" with the new brand name; adjust
+  first-paragraph tone if needed to match the brand.
+- `wp theme activate openclaw-<slug> --url=http://<slug>.localhost:8088`
+  (currently `openclaw-base` is active on all four after the 2026-07-15
+  interim switch).
 
 Verification:
-- [ ] Four new subsites exist at their `.localhost` URLs, each with the
-      Step-5.11 child theme activated, persona loaded, categories present.
-- [ ] `python -m openclaw post --site <slug> --draft --skip-review`
-      produces an on-brand draft per subsite whose entities land on the
-      specific fandom (redstone components for Minecraft, chapters/
-      factions for W40K, drivers/circuits for F1, switches/keycaps for
-      keyboards).
-- [ ] End-to-end deploy per subsite → GH Pages 200 OK at
-      `carterman82.github.io/openclaw-<slug>/`.
-- [ ] Regression: `python -m openclaw post --site catfancast --draft`
-      still publishes correctly (unchanged remote site).
+- [ ] Each of the four subsites at `<slug>.localhost:8088` returns HTTP 200
+      with its new child theme active + brand-specific colors visible in the
+      inline `:root` variables + child-specific Google Fonts stylesheet
+      linked in `<head>`.
+- [ ] `wp option get blogname --url=http://<slug>.localhost:8088` returns
+      the new brand name for all four.
+- [ ] `python -m openclaw post --site <slug> --draft --skip-review` produces
+      a draft whose SEO title / persona voice reflects the new brand (no
+      residual "Fancast" strings in generated copy).
+- [ ] Regression: `python -m openclaw post --site catfancast --draft` and
+      `python -m openclaw post --site techtools --draft` still publish
+      correctly (unchanged).
 
 ### Step 5.10 - Add Tech Tool Guide as a dedicated `techtools.localhost` subsite
 
@@ -2467,9 +2483,14 @@ Deviations + gotchas:
 - **DEPLOYABLE_SLUGS extended** from four to five (added `techtools`).
 - **GH repo topology matches the other four pilots:** one public repo
   per subsite, main branch, README + `.nojekyll`, Pages enabled via
-  `gh api ... /pages`. The account-level CNAME still redirects
-  `carterman82.github.io/openclaw-techtools/` → `www.reggaefancast.com
-  /openclaw-techtools/`. Transparent; no fix needed.
+  `gh api ... /pages`. The account-level CNAME on `carterman82.github.io`
+  (→ `www.reggaefancast.com`) cascades to every project page, so
+  `carterman82.github.io/openclaw-techtools/` 301s to
+  `http://www.reggaefancast.com/openclaw-techtools/`. That HTTPS→HTTP
+  redirect made browsers block CSS + images as mixed content — fixed
+  2026-07-15 by setting `staatic_destination_url` to
+  `https://www.reggaefancast.com/openclaw-techtools/` so the HTML
+  links directly to the final serving domain with no redirect chain.
 
 Verification (passed):
 - [x] `http://techtools.localhost:8088/` reachable; persona loaded;
@@ -2486,7 +2507,7 @@ Verification (passed):
 
 ### Step 5.11 - Build `openclaw-base` parent theme + editorial-magazine child themes
 
-Status: **PARTIALLY COMPLETE** (2026-07-14) — parent theme + `openclaw-techtools` child theme shipped and verified live at `https://carterman82.github.io/openclaw-techtools/`. The four fandom child themes (redstone/sprueandcodex/slipstream/clack) are deferred to land with Step 5.9's subsite creation, since the plan calls for one child per new subsite and those subsites don't exist yet. Original scope (below) is preserved for the Step 5.9 companion work.
+Status: **PARTIALLY COMPLETE** (2026-07-14) — parent theme + `openclaw-techtools` child theme shipped and verified live at `https://carterman82.github.io/openclaw-techtools/`. The four pilot child themes (Rootstock/Kennelside/Meeple/Crema — the rebranded gardening/dogs/boardgames/coffee subsites) land as part of Step 5.9's rebrand+restyle pass. Original scope (below) is preserved as the reference the Step 5.9 themes are built against.
 
 **Scope adjustments made during execution (per user feedback on the initial design brief):**
 - **Skipped from original plan:** sticky nav, full-bleed hero with overlay text, sidebar template, newsletter template part, author-card template part, drop-cap. Reference sites (catfancast + animefancast, re-fetched 2026-07-14) don't use these; they'd be default-WP-y padding.
@@ -2522,7 +2543,7 @@ Verification (passed):
 - [x] A published post renders with 12 auto-injected `id="openclaw-h2-*"` anchors, 2 TOC nav elements, 3 related-post cards, category chip on the article header — all 29 migrated posts inherit these retroactively.
 - [x] Staatic re-export (352 files, ~21s) + git push completed; GH Pages built + live at `https://carterman82.github.io/openclaw-techtools/` with 0 remaining `techtools.localhost:8088` references and 67 correctly rewritten `carterman82.github.io/openclaw-techtools/` URLs on the home page alone.
 - [ ] User visual review (owed) — open `http://techtools.localhost:8088/` (local) and `https://carterman82.github.io/openclaw-techtools/` (live) in a browser; confirm layout + palette + typography reads as a real publication.
-- [ ] Four fandom child themes (redstone/sprueandcodex/slipstream/clack) — deferred to Step 5.9.
+- [ ] Four pilot child themes (Rootstock/Kennelside/Meeple/Crema for gardening/dogs/boardgames/coffee) — landed as part of Step 5.9's rebrand+restyle.
 
 **Original scope (preserved for reference; superseded by "scope adjustments" above):**
 
@@ -2579,27 +2600,29 @@ Work:
     `parts/newsletter.html`, `parts/author-card.html`.
   - Block patterns: hero pattern, card-grid pattern, newsletter block,
     category chip strip.
-- Retire the current `openclaw-{gardening,dogs,boardgames,coffee}` child
-  themes. Create five new child themes (one per new subsite from 5.9 +
-  techtools from 5.10):
-  - `openclaw-redstone` — Minecraft. Moody dark background with a
-    restrained editorial vibe; accent redstone-red. Font pair: Inter
-    Tight + Space Grotesk.
-  - `openclaw-sprueandcodex` — Warhammer 40K. Grimdark: near-black
-    background, oxblood primary, brass accent. Font pair: Fraunces Wide
-    (display) + Inter (body) — serif-heavy to evoke a gothic manuscript.
-  - `openclaw-slipstream` — Formula 1. High-contrast bright: racing red
-    primary, carbon black, safety-yellow accent. Font pair: Inter Tight
-    + Space Grotesk (mechanical / technical).
-  - `openclaw-clack` — Mechanical keyboards. Warm neutrals: muted almond
-    background, walnut primary, teal accent (keycap-color inspired).
-    Font pair: Inter body + JetBrains Mono for pull-quotes / specs.
+- Overwrite the four retired `openclaw-{gardening,dogs,boardgames,coffee}`
+  child themes (currently `Template: twentytwentyfive` shells) in place —
+  keeps the docker-compose bind-mounts intact. Result: five child themes
+  of `openclaw-base` (one per active subsite), each overriding just the 6
+  semantic color slots + font families:
+  - `openclaw-gardening` — **Rootstock**. Botanical editorial: cream bg,
+    pale sage surface, deep forest primary, terracotta accent. Font pair:
+    Fraunces (display) + Lora (body).
+  - `openclaw-dogs` — **Kennelside**. Warm & tactile lifestyle: off-white
+    bg, biscuit surface, saddle-brown primary, mustard accent. Font pair:
+    Domine (display) + Nunito Sans (body).
+  - `openclaw-boardgames` — **Meeple**. Tactile tabletop/print: kraft-paper
+    bg, cream surface, deep-teal primary, mustard accent. Font pair:
+    Roboto Slab (display) + Work Sans (body).
+  - `openclaw-coffee` — **Crema**. Warm café/roastery: cream bg, pale-latte
+    surface, espresso-brown primary, brass accent. Font pair: Cormorant
+    Garamond (display) + Inter (body).
   - `openclaw-techtools` — Tech Tool Guide. Clean modern SaaS: white
     background, indigo primary, cyan accent. Font pair: Inter Tight +
     Space Grotesk.
-- Update `docker-compose.yml` volumes (both `wordpress` and `wpcli`):
-  bind-mount the parent theme dir + the five new child theme dirs;
-  remove the four retired child-theme mounts.
+- `docker-compose.yml` bind-mounts for the four pilot child themes are
+  already in place from the first-round build; no docker changes needed
+  when overwriting them in place.
 - Network-enable the parent + each child theme via wp-cli. Activate the
   appropriate child theme on each subsite.
 
@@ -2635,14 +2658,14 @@ Verification:
 - [ ] Deliberate failure recovery testing (Staatic error / git push
       error / GH Pages misconfig) — **owed to user**.
 
-## 11.5 Phase 6 Plan - Analytics-Aware Agent
+## 11.5 Phase Omega Plan - Analytics-Aware Agent
 
-Status: not started.
+Status: not started. **Deferred until every other phase is done AND the sites have real traffic to observe.** Analytics tuning without views is guesswork — the top/bottom-performer signal this phase relies on is undefined at zero traffic. Do not begin any Step Omega.* until (a) the sites are receiving measurable pageviews, and (b) Phases 4 and 5 (and any other in-flight phase) are fully closed out.
 
 Goal: feed measurable post performance back into topic and angle choices, so
 later articles lean toward what is actually working.
 
-### Step 6.1 - Choose analytics source
+### Step Omega.1 - Choose analytics source
 
 Status: not started.
 
@@ -2665,7 +2688,7 @@ Verification:
 - [ ] Smoke test: a one-liner that fetches pageviews for one known URL
   returns a non-error response with a numeric view count.
 
-### Step 6.2 - Build the analytics fetcher
+### Step Omega.2 - Build the analytics fetcher
 
 Status: not started.
 
@@ -2686,7 +2709,7 @@ Verification:
 - [ ] Forcing a failure (delete the key in env, or block network) returns
   `[]` plus a WARNING log line; no exception escapes.
 
-### Step 6.3 - Wire the signal into the generator
+### Step Omega.3 - Wire the signal into the generator
 
 Status: not started.
 
@@ -2711,7 +2734,7 @@ Verification:
 - [ ] Across 5 generated articles with analytics on, at least one has a
   topic or angle that visibly echoes a top-performer (qualitative check).
 
-### Step 6.4 - Multi-week observation
+### Step Omega.4 - Multi-week observation
 
 Status: not started.
 
@@ -2727,7 +2750,7 @@ Verification:
 - [ ] No analytics-side failure has ever blocked a publish (graceful-skip
   pattern from `images.py` is preserved here).
 
-### Step 6.5 - Documentation
+### Step Omega.5 - Documentation
 
 Status: not started.
 
@@ -2739,14 +2762,17 @@ Verification:
 - [ ] §12 decision log entry for the chosen source and how performance is
   surfaced to the generator.
 
-Phase 6 exit criteria:
+Phase Omega exit criteria:
 - The agent has run for 14+ analytics-informed days without scheduling
   regressions, and the weekly review documents whether the signal
   influenced topic choice and whether average traffic moved.
 
 ## 12. Decision Log
 
-- 2026-07-11: Phase reorder — analytics pushed to Phase 6; new Phase 5 = multisite + static export + GitHub Pages auto-commit. Rationale: distribution/hosting durability and free CDN matter more than per-post analytics tuning until the pipeline reliably produces publishable content at N-site scale. Analytics is more useful once there is meaningful traffic to observe, which requires the static-site distribution layer first.
+- 2026-07-15: Title-engagement rewrite of STYLE.md's Title Craft section (CTR was low). The two attention mechanics "information gap" and "intention-question test" (write down the exact question the title forces into the reader's head; no question → it's a label) are now MANDATORY on every title; added self-relevance ("your" + observed symptom) and loss-aversion (name the concrete cost of getting it wrong) as levers, plus Formula J (costly mistake / silent failure). Stress test (4 draft runs on Rootstock/gardening, local qwen provider) confirmed gap+question landed in every title but exposed over-rotation into tabloid gross-out ("Explosive Diarrhea"); added a dignity guardrail (magazine-cover test) to the gap mechanic and checklist, and EDITOR.md now explicitly runs the pre-submit title check and rewrites failing titles (hedge words / colon-tease / tabloid gap are defects, not "title intent").
+- 2026-07-15: `revise_article` degenerate-body guard. The local model's editor pass returned `body_html="..."` (750 words → 1) and the pipeline published it. Guard added in `generator.revise_article`: if the revised body is under max(150 words, 60% of the draft), the revision is discarded with a WARNING and the draft is kept.
+- 2026-07-15: Both cloud providers are currently billing-blocked: Anthropic API returns 400 "credit balance is too low" and OpenAI images return 400 "billing hard limit reached". The whole pipeline (generate + revise + subreddit_select) is running local-qwen-only with no working fallback, and Unsplash is the only cloud image source. Local-model compliance gaps observed while cloud is down: zero external links (min 1), keyphrase placement misses (Y2/Y6), em-dash leakage (code-stripped), and hallucinated citations (cited cat-vet bodies ISFM/AAFP in a perennials article — leaked from TOPIC.md's cat examples).
+- 2026-07-11: Phase reorder — analytics pushed to Phase Omega (originally numbered Phase 6; renamed 2026-07-17 to signal it is deferred until every other phase is done and the sites have real traffic to observe); new Phase 5 = multisite + static export + GitHub Pages auto-commit. Rationale: distribution/hosting durability and free CDN matter more than per-post analytics tuning until the pipeline reliably produces publishable content at N-site scale. Analytics is more useful once there is meaningful traffic to observe, which requires the static-site distribution layer first.
 - 2026-07-11: Phase 5 topology decisions (locked via AskUserQuestion): (a) 3-5 pilot subsites — prove the pattern before scaling; (b) monorepo `openclaw-sites` with per-subsite branches `site/<slug>`, each attached to its own custom domain via GH Pages branch-level custom-domain feature; (c) Staatic as static exporter (free, multisite-native, active as of May 2026); (d) network-default block theme (Twenty Twenty-Five) plus per-subsite child themes for structural overrides — mirrors the existing shared-style + per-site-persona split in `Instructions/*.md` + `website_memory/*.md`. Design-skill note: no dedicated WordPress-design skill exists in this Claude Code environment (checked 2026-07-11); theme JSON and pattern HTML will be authored via normal Edit/Write with Claude generating content.
 - 2026-07-11: Editor pass (`revise_article`) verified working end-to-end. Two-agent generate→revise pipeline is now the default publish path. `--skip-review` preserved for smoke tests and single-provider comparisons. Editor rules are externalized to `Instructions/EDITOR.md` (loaded by `generator._load_editor_guide`) so they can be tuned without code changes, matching the STYLE.md / TOPIC.md pattern.
 - 2026-06-09: Python agent - Anthropic SDK is first-class in Python and easy to schedule on Windows.
@@ -2857,18 +2883,19 @@ Phase 6 exit criteria:
   bypasses the pass; main.py logs the word-count delta.
 - 2026-06-29: Swapped site persona from AnimeFancast.com to catfancast.com to escape anime IP/character-copyright risk and lean fully into copyright-free evergreen content. Code unchanged — the agent is already site-agnostic (categories, site name, link candidates, and SEO plugin are all discovered from `/wp-json/` at runtime). All `Instructions/*.md` content rules updated: DESCRIPTION.md rewritten for real cats only; TOPIC.md restructured from anime title-anchors to five parallel domain-anchor inventories (breeds, behaviors, biology, health & care, history & culture) with a heavier ~92/8 evergreen bias; IMAGE_GENERATOR.md worked example replaced (Maine Coon piece) and the Agent Workflow §5 inverted from "copyrighted characters preferred" to a hard ban on copyrighted fictional cats with real-cat-only depictions; STYLE.md banned-phrase example tweaked; CLAUDE.md SEO routing example + TOPIC.md description line updated. Historical references to animefancast.com (verified post URLs, completed Phase 3 records, prior decision-log entries) intentionally preserved as audit trail. `.env` to be repointed by user when catfancast.com is live; first run against the new site picks up the new categories/site-name automatically. The `openclaw-seo-meta` mu-plugin / installable plugin at `demo/openclaw-seo-meta/` should be installed on catfancast.com when ready, otherwise Routing + Y1/Y3/Y7/Y8 will SKIP/WARN as documented in §9.
 - 2026-07-13: Phase 5 executed end-to-end. Full context in PLAN.md §11 Steps 5.1–5.8. Highlights of what changed vs. the July 11 plan: (a) subdomain suffix `.openclaw.local` → `.localhost` (hosts-file wildcards not supported on Windows; `.localhost` short-circuits to loopback for free in browsers/curl; a Python `openclaw/_localhost_dns.py` DNS shim closes the Python-side gap). (b) Repo topology "one private repo, branch-per-subsite, custom domain per branch" → "four public repos, one per subsite, free github.io URLs" (free-tier Pages doesn't work on private repos, user picked free URLs, cleaner 1:1 domain-to-repo mapping if custom domains land later). (c) Extensive Docker networking work landed to let Staatic crawl `<slug>.localhost:8088` from inside the container: `extra_hosts` on wordpress service, `network_mode: "service:wordpress"` on wpcli, a bind-mounted `apache/openclaw-multisite.conf` adding `Listen 8088` + `ServerAlias *.localhost`. (d) The user's `carterman82.github.io` repo has an account-level CNAME to `www.reggaefancast.com`, so all project Pages URLs 301-redirect there — transparent to internal-link rewriting, documented as fine.
-- 2026-07-13: Phase 5 pilot rework planned (Steps 5.9–5.11 added). User rejected the first-round niches (`gardening`/`dogs`/`boardgames`/`coffee`) as too broad for the "fancast" family; also noted `dogfancast.com` already exists (name collision) and the default WordPress look isn't good enough. Rework: (a) delete + rebuild the four pilots with narrow-fandom niches and **original** brand names (not `X-fancast`) — proposed set: **Redstone Register** (Minecraft), **Sprue & Codex** (Warhammer 40K), **Slipstream Journal** (Formula 1), **Clack Report** (Mechanical keyboards). (b) Add Tech Tool Guide as a dedicated `techtools.localhost` subsite (rebrand from the current "Software Tool Guide" localhost persona) and add it to `DEPLOYABLE_SLUGS`. (c) Build an `openclaw-base` parent theme in the catfancast/animefancast editorial-magazine style (sticky nav + wordmark, full-width hero, card grid, optional sidebar, footer) + five new child themes overriding six semantic color slots and a font pair each. Execution paused pending user approval of Steps 5.9–5.11.
+- 2026-07-13: Phase 5 pilot rework planned (Steps 5.9–5.11 added). User rejected the first-round brand names (`Garden Fancast` / `Dog Fancast` / `Board Game Fancast` / `Coffee Fancast`) as uninspired formulaic `X Fancast` templates with no personality; `dogfancast.com` also collides with an existing production site. Rework: (a) rebrand the four pilots away from the `X Fancast` pattern (see 2026-07-15 update below for the twice-revised final naming); (b) Add Tech Tool Guide as a dedicated `techtools.localhost` subsite (rebrand from the current "Software Tool Guide" localhost persona) and add it to `DEPLOYABLE_SLUGS`; (c) Build an `openclaw-base` parent theme in the catfancast/animefancast editorial-magazine style (sticky nav + wordmark, full-width hero, card grid, optional sidebar, footer) + five new child themes overriding six semantic color slots and a font pair each. Execution paused pending user approval of Steps 5.9–5.11.
+- 2026-07-15: Step 5.9 scope clarified twice in one day. First revision (morning) swapped the four hobby niches for narrow fandoms — proposed **Redstone Register / Sprue & Codex / Slipstream Journal / Clack Report** (Minecraft / W40K / F1 / mechanical keyboards), then **Deepslate / Bolter & Brush / Purple Sector / Thock** for the same fandom set after the first names were rejected. Second revision (afternoon) walked BOTH fandom sets back: the user clarified that the four original hobby niches (gardening, dogs, board games, coffee) are fine — only the `X Fancast` naming pattern was the problem. Final Step 5.9 scope: keep the four hobby niches + their slugs + their blog_ids + their env-var prefixes + their GH deploy repos entirely intact, and change only (a) `blogname` per subsite to the user-picked originals **Rootstock / Kennelside / Meeple / Crema**, (b) persona files to match, (c) each subsite's active child theme from the `openclaw-base` interim (activated 2026-07-15 morning as the placeholder look) to a proper `openclaw-base` child with a unique brand-appropriate palette + font pair.
 - 2026-07-13: Resumed Phase 3.8 (finish steps 3.8.1/3.8.5-3.8.7) and added Phase 3.9 (local image generation) in the same session, after the user pointed at two live LAN endpoints: Qwen3.6 via LM Studio (`http://192.168.0.200:1234/v1`) and Flux via the Draw Things app's HTTP API (`http://192.168.0.200:7860`). Draw Things exposes an Automatic1111-compatible `POST /sdapi/v1/txt2img` (confirmed via live GET-root probing plus WebSearch — `GET /` returns the loaded model's default params, not a generation call). Image fallback chain designed as local Flux -> OpenAI `gpt-image-2` -> Unsplash, mirroring the text router's "never raises, return None, try next" contract exactly (no new exception types needed). Chose `1024x576` (16:9, matches the generator's hard landscape rule) and a fixed negative prompt banning text/watermark/logo/signature, since Draw Things' API supports a negative prompt unlike OpenAI's. `LOCAL_IMAGE_TIMEOUT_SECONDS=300.0` (vs. 600.0 for text) as a starting guess for local Flux inference; to be revisited once real latency is observed. **Incident**: a single test `POST` against the Draw Things endpoint left both port 7860 and the unrelated port 1234 (LM Studio) refusing new connections, while the host still answered ping — read as the GPU/host getting pinned rendering the test image, not a code or network-config bug. User chose to check the machine themselves rather than have live verification continue; all code/config/doc work for both Phase 3.8's remaining steps and the new Phase 3.9 was completed regardless (nothing in either required the host to be up), with live verification (Step 3.8.1's tool-call round-trip, Step 3.8.5's 5-run quality gate, and Phase 3.9 Step 3.9.5) deferred until the user confirms the host is responsive again.
 - 2026-07-14: Live verification of Phase 3.8/3.9 against the LAN host, once confirmed responsive. **Bug found and fixed**: `_generate_with_local` in `generator.py` (and the `smoke-local-toolcall.py` script) called the OpenAI-compatible endpoint with `tool_choice={"type":"function","function":{"name":tool_name}}`; this LM Studio server version rejects that with HTTP 400 ("Supported string values: none, auto, required"). Both call sites fixed to `tool_choice="required"` — equivalent here since only one tool is ever offered, and the pre-existing `call_name != tool_name` check still guards against a wrong tool. This would have silently broken the entire local-text primary path (100% fallback to Claude) had it shipped unverified — confirms the value of Step 3.8.1's "prove it before trusting it" gate. After the fix: `smoke-local-toolcall.py` PASS at 2.81s latency; `smoke-local-image.py` PASS at 109.39s latency (909KB landscape PNG, visually confirmed on-topic and uncorrupted). Full-pipeline testing (3 `--site localhost --draft` runs) showed local `generate`/`revise` succeeding 2/3 and 2/3 respectively, with the misses sharing one signature: `LocalProviderError: model returned no tool call (content preview: '' or '\n\n')`. Working theory: Qwen3.6 is a reasoning/thinking model, and its internal reasoning tokens occasionally consume the full `MAX_TOKENS=12000` budget on the large article-generation/revision prompts before it emits the tool call — the tiny 2-field smoke-test schema never triggers this. Not root-caused or fixed in this session (the router's fallback-to-Claude already absorbs it correctly per the fallback design); left as an open item for Step 3.8.5's formal 5-run quality gate to quantify and potentially address (e.g. raising `MAX_TOKENS` or disabling extended thinking on the local server). One run also stalled ~9.5 hours mid-request (`ConnectionResetError` after a long hang) — traced to the host machine sleeping mid-request, not a code or config defect; re-ran cleanly once the machine was awake. Both-flags-disabled run confirmed pre-3.8/3.9 behavior is unchanged (`provider=claude` both stages, `source=OpenAI` image). Phase 3.9 exit criteria met in full; Phase 3.8 Step 3.8.1 complete; Step 3.8.5's formal 5-run gate remains open, informed by (but not satisfied by) this session's 3 runs.
 - 2026-07-14 (continuation): Qwen "no tool call" failure escalated from the earlier 2/3 rate to **3-for-3** on a single `--site localhost` run — `subreddit_select` (content preview `''`, ~18s), `generate` (`'\n\n'`, ~2m40s), `revise` (`''`, ~2m20s). All three stages completed with HTTP 200 and non-trivial latency (Qwen is spending compute) but returned empty `tool_calls`. Every stage fell back to Claude, so the run still published — but with zero benefit from having Qwen enabled. Because `scripts/smoke-local-toolcall.py` passed the same day at 2.81s using a trivial 2-field schema, the failure is not a transport or auth issue and cannot be reproduced by the current smoke test. **Working hypothesis** (to be falsified, not assumed): Qwen3.6 has a hybrid reasoning mode; if LM Studio serves it with thinking enabled, Qwen burns tokens on `<think>…</think>` before ever emitting a tool call, hits `MAX_TOKENS=12000`, and returns empty content + no `tool_calls`. Alternative candidates to rule out: prompt-length pressure (STYLE.md ~51k + TOPIC.md ~37k + IMAGE_GENERATOR.md ~10k + website_memory ~8k on `generate`), tool-schema complexity (`submit_article` has 15 required fields vs. smoke's 2), or LM Studio serving-side settings drift since 3.8.1's PASS. **Plan**: three new Phase 3.8 steps (3.8.5-3.8.7) added to run this to ground before the formal quality gate (renumbered 3.8.8) can be measured — reproduce the failure outside the publish pipeline with the real production schemas + prompts (3.8.5), persist the full raw response body on every future no-tool-call incident so scheduled runs leave a forensic trail instead of a lossy 200-char preview (3.8.6), and expose four new `.env` tuning knobs — `LOCAL_MODEL_TEMPERATURE`, `LOCAL_MODEL_TOP_P`, `LOCAL_MODEL_MAX_TOKENS`, `LOCAL_MODEL_DISABLE_THINKING` — so thinking can be turned off (and other levers pulled) without a code change (3.8.7). Previously-pending steps renumbered: quality gate → 3.8.8, regression check → 3.8.9, docs → 3.8.10. The router's fallback is doing exactly what it was designed to do, so this is not a user-visible outage; it is a "primary path is currently 0% effective" defect that Steps 3.8.5-3.8.7 need to close before the primary/fallback split is worth measuring.
 - 2026-07-14 (Steps 3.8.5-3.8.7 resolution): **Root cause confirmed: thinking-mode token exhaustion, and it's non-deterministic.** `scripts/smoke-local-toolcall.py` was extended with a `--stages` flag reusing the real `subreddit_select`/`generate`/`revise` schemas and prompts, dumping full diagnostics (including LM Studio's `message.reasoning_content` field, which turned out to be the key signal) to `logs/qwen-smoke-<stage>.json`. Observed `reasoning_content` length ranged from 600 to ~52,700 chars across calls with similar prompt shapes — when it runs long, `completion_tokens` hits the ceiling, `finish_reason=length`, and both `content` and `tool_calls` come back empty, exactly the field-level signature of the production fallbacks. Length did not track cleanly with prompt size or schema complexity (the short-prompt/small-schema `subreddit_select` stage failed in production while the long-prompt/large-schema `generate`/`revise` stages sometimes passed in isolation), ruling out those two alternative hypotheses. Two suppression mechanisms were tested against this LM Studio build: the plan's originally-specified `extra_body={"chat_template_kwargs":{"enable_thinking":False}}` is silently ignored (identical behavior with the flag true/false); `extra_body={"reasoning_effort":"none"}` does suppress `reasoning_content` (confirmed empty) but reliably breaks `tool_choice="required"` grammar enforcement — 0/4 trials produced a tool call when present, the model just answers in prose. A third option, Qwen3's native `/no_think` inline suffix, partially suppressed reasoning and preserved tool-calling but was unreliable (~40-60% success across repeated trials) and was not adopted. **Decision**: since no suppression mechanism is both effective and safe, `LOCAL_MODEL_DISABLE_THINKING` (Step 3.8.7) ships defaulting to **`false`**, deviating from the plan's original `true` default; it's wired as an opt-in escape hatch using the `reasoning_effort` mechanism for a future LM Studio/model build that might handle it better. The practical fix that did ship: `LOCAL_MODEL_MAX_TOKENS` (new `.env` knob, default 12000) threaded through both `generator.py::_generate_with_local` and `trends.py::_select_subreddits_local`, which also fixed a pre-existing bug where `trends.py` hardcoded `_SUBREDDIT_SELECT_MAX_TOKENS=2048` — below even the low end of observed reasoning lengths, so that stage was essentially guaranteed to fail regardless of the thinking-mode question. Step 3.8.6 shipped `openclaw/_local_diagnostics.py::dump_fallback_response`, called from both call sites before every fallback-triggering raise, writing `logs/qwen-fallback-YYYY-MM-DD-HHMMSS-<stage>.json` sidecars with the full raw response (verified live: three real dumps captured from a `--site localhost --draft` run, each showing `finish_reason=length`, `completion_tokens` pinned near 12000, and a populated `reasoning_content`). **Net outcome**: with all three 3.8.7 knobs in place, a full end-to-end run (`logs/_e2e-run-1.log`) still fell back on all three stages (subreddit_select, generate, revise) — the router/fallback contract held and the post published cleanly via Claude, but the "local as primary" goal was not achieved in this session. Step 3.8.8's quality gate (4-of-5 local successes) remains blocked; next options are a future LM Studio/model build with working thinking-mode control, or formally downgrading Qwen3.6 to advisory-only and keeping Claude as primary.
 - 2026-07-14 (Step 5.10 execution): Tech Tool Guide subsite (`techtools`, blog_id 6) landed end-to-end. Locked-in choices: (a) migrate all 29 published posts from localhost primary to techtools rather than fresh-start (preserves the editorial archive; ~10 categories carried over automatically via WXR); (b) flip localhost primary to `enabled=false` (Option B — dedicated subsite means primary becomes admin/hub only). Three multisite gotchas discovered in flight, worth remembering for Step 5.9: (1) `wp site create` doesn't grant per-blog roles even to network super-admins — must follow up with `wp user add-role openclaw-agent administrator --url=<subsite>` before REST auth returns non-empty roles (and `?context=edit` is required on `/users/me` to see the roles array at all); (2) the network's default 1500 KB `fileupload_maxk` silently drops attachment imports when featured images exceed 1.5 MB — bumped to 10240 KB via `wp network meta update 1 fileupload_maxk`; (3) even after bumping the limit, the WordPress Importer's `wp_safe_remote_get` fetch of `http://localhost:8088/wp-content/uploads/...` returns an empty string from inside the same PHP process (Apache self-loopback appears to deadlock synchronously), so *no* attachments landed. Worked around with `scripts/migrate-techtools-featured-images.sh` — an idempotent wp-cli loop that reads each imported post's `_thumbnail_id` (still pointing at the primary blog's stale attachment ID), reads the primary attachment's local file path via GUID lookup, then runs `wp media import <local path> --post_id=<pid> --featured_image --url=<subsite>` (no HTTP fetch — direct file copy into `wp-content/uploads/sites/6/`, thumbnails auto-generated, `_thumbnail_id` re-pointed atomically). All 29 featured images migrated in one pass with alt text preserved. This same script will apply verbatim to any future primary→subsite migration and is worth saving in `scripts/` for that reason.
-- 2026-07-14 (Step 5.11 execution — parent theme + techtools child): Shipped `openclaw-base` parent theme and `openclaw-techtools` child theme; deferred the other four child themes (redstone/sprueandcodex/slipstream/clack) to Step 5.9's companion work since those subsites don't exist yet. User-driven brief adjustments before writing files: (a) enable category navigation in the header (originally optional; software sites benefit from browse-by-category); (b) add a 6-tile "Explore" category-discovery section between hero and grid, sorted by post count, meta cats excluded; (c) implement `[openclaw_related_posts]` with same-category → same-tag → most-recent priority, not just chronological — "popular" tier deferred until Phase 6 analytics land; (d) auto-inject a TOC on articles with ≥3 H2s via `the_content` filter (assigns stable `id="openclaw-h2-<slug>"` anchors so links survive re-runs, works retroactively on migrated posts, skippable per-post via `_openclaw_disable_toc=1` meta); (e) 16:9 image sizes across the board (hero 1600×900, card 480×270, thumb 240×135) — matches AI-generated featured images better than the plan's original 3:2; (f) small personality touches: 12px rounded cards, translateY-2 + shadow on hover, category chips get a leading colored dot. Dropped from original plan: sticky nav, full-bleed hero overlay text, sidebar template, newsletter part, author-card part, drop-cap — reference sites (catfancast/animefancast, re-fetched) don't actually have these. Verification: local `techtools.localhost:8088` home renders openclaw-hero-card + openclaw-explore + openclaw-card + openclaw-topbar (0 fatals); a spot-checked single post has 12 auto-injected `openclaw-h2-*` anchors + 2 TOC nav elements + 3 related-post cards + a category chip; Staatic re-export produced 352 files in 21s with 0 residual `techtools.localhost:8088` refs + 67 correctly rewritten `carterman82.github.io/openclaw-techtools/` refs on the home page alone. Note on implementation: original plan called for both header.html + a shortcode-in-editor category-nav pattern; landed as an inline `wp:categories` block wrapped in `<style>`-scoped CSS rules inside `parts/header.html` so the wp-cli export can serialize it cleanly without needing a separate custom block. Skipped writing patterns for hero-card + footer-columns because they're already inlined in `templates/index.html` and `parts/footer.html`; the only editor-discoverable patterns shipped are `card-grid` and `category-explorer`.
+- 2026-07-14 (Step 5.11 execution — parent theme + techtools child): Shipped `openclaw-base` parent theme and `openclaw-techtools` child theme; deferred the other four child themes to Step 5.9's rebrand+restyle pass (see 2026-07-15 entries for how that scope evolved). User-driven brief adjustments before writing files: (a) enable category navigation in the header (originally optional; software sites benefit from browse-by-category); (b) add a 6-tile "Explore" category-discovery section between hero and grid, sorted by post count, meta cats excluded; (c) implement `[openclaw_related_posts]` with same-category → same-tag → most-recent priority, not just chronological — "popular" tier deferred until Phase Omega analytics land; (d) auto-inject a TOC on articles with ≥3 H2s via `the_content` filter (assigns stable `id="openclaw-h2-<slug>"` anchors so links survive re-runs, works retroactively on migrated posts, skippable per-post via `_openclaw_disable_toc=1` meta); (e) 16:9 image sizes across the board (hero 1600×900, card 480×270, thumb 240×135) — matches AI-generated featured images better than the plan's original 3:2; (f) small personality touches: 12px rounded cards, translateY-2 + shadow on hover, category chips get a leading colored dot. Dropped from original plan: sticky nav, full-bleed hero overlay text, sidebar template, newsletter part, author-card part, drop-cap — reference sites (catfancast/animefancast, re-fetched) don't actually have these. Verification: local `techtools.localhost:8088` home renders openclaw-hero-card + openclaw-explore + openclaw-card + openclaw-topbar (0 fatals); a spot-checked single post has 12 auto-injected `openclaw-h2-*` anchors + 2 TOC nav elements + 3 related-post cards + a category chip; Staatic re-export produced 352 files in 21s with 0 residual `techtools.localhost:8088` refs + 67 correctly rewritten `carterman82.github.io/openclaw-techtools/` refs on the home page alone. Note on implementation: original plan called for both header.html + a shortcode-in-editor category-nav pattern; landed as an inline `wp:categories` block wrapped in `<style>`-scoped CSS rules inside `parts/header.html` so the wp-cli export can serialize it cleanly without needing a separate custom block. Skipped writing patterns for hero-card + footer-columns because they're already inlined in `templates/index.html` and `parts/footer.html`; the only editor-discoverable patterns shipped are `card-grid` and `category-explorer`.
 
 ## 13. Open Questions
 
 - Theme: **superseded 2026-07-13**. Step 5.11 will replace the Twenty Twenty-Five parent + palette-only child theme approach with a dedicated `openclaw-base` parent theme in the catfancast/animefancast editorial-magazine style.
-- Version control remote: Openclaw's main repo lives at `github.com/carterman82/openclaw`. First-round Phase 5 static exports live in four sibling repos (`openclaw-{gardening,dogs,boardgames,coffee}`); those repos will be archived/deleted as Step 5.9 rebuilds them under the new brand slugs (`openclaw-{redstone,sprueandcodex,slipstream,clack}`).
-- Analytics source for Phase 6 - Jetpack Stats vs Google Analytics 4 vs Plausible vs the site's existing analytics. Decide in §11.5 Step 6.1.
+- Version control remote: Openclaw's main repo lives at `github.com/carterman82/openclaw`. Phase 5 static exports live in five sibling repos: `openclaw-{gardening,dogs,boardgames,coffee}` (the four pilots — rebranded in Step 5.9 to Rootstock/Kennelside/Meeple/Crema without changing repo names) plus `openclaw-techtools`.
+- Analytics source for Phase Omega - Jetpack Stats vs Google Analytics 4 vs Plausible vs the site's existing analytics. Decide in §11.5 Step Omega.1.
 - ~~Custom-domain source for Phase 5 pilot subsites~~ — RESOLVED 2026-07-13: chose free `carterman82.github.io/openclaw-<slug>/` URLs.
 - ~~Media handling for static export~~ — RESOLVED 2026-07-13: Staatic 1.12.5 bundles `/wp-content/uploads/` into per-subsite exports; verified in Step 5.4.

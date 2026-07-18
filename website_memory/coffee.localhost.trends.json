@@ -1,4 +1,38 @@
 {
-  "reddit_subreddits": ["Coffee", "espresso", "pourover", "roasting", "coffeestations"],
-  "google_suggest_seeds": ["how to brew", "best coffee grinder", "espresso troubleshooting", "coffee bean origin"]
+  "reddit_subreddits": [
+    "Coffee",
+    "espresso",
+    "pourover",
+    "roasting",
+    "coffeestations",
+    "jamesHoffmann",
+    "burrgrindercollective",
+    "GaggiaClassic",
+    "superautomaticespresso",
+    "Baristas",
+    "barista",
+    "specialtycoffee",
+    "aeropress",
+    "moka_pot",
+    "chemex",
+    "coldbrew",
+    "decaf",
+    "cafe",
+    "SwissWater",
+    "TurkishCoffee"
+  ],
+  "google_suggest_seeds": [
+    "how to brew",
+    "best coffee grinder",
+    "espresso troubleshooting",
+    "coffee bean origin",
+    "why is my espresso",
+    "how to pull a",
+    "best pour over",
+    "how to grind for",
+    "what is a",
+    "best beans for",
+    "how to clean",
+    "best entry level espresso"
+  ]
 }

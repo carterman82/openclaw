@@ -1,4 +1,38 @@
 {
-  "reddit_subreddits": ["boardgames", "BoardgamesDesign", "SoloBoardGaming", "gamedeals", "SmallGaming"],
-  "google_suggest_seeds": ["best board game for", "board game strategy", "how to play", "board games like"]
+  "reddit_subreddits": [
+    "boardgames",
+    "SoloBoardGaming",
+    "BoardgamesDesign",
+    "AskBoardgames",
+    "HeavyEuros",
+    "printandplay",
+    "tabletopgamedesign",
+    "boardgamedeals",
+    "gamecollecting",
+    "boardgamescirclejerk",
+    "rpg",
+    "DnD",
+    "wargaming",
+    "Warhammer",
+    "CardGames",
+    "mtgfinance",
+    "Netrunner",
+    "MagicArena",
+    "gamedeals",
+    "tabletopgamesocial"
+  ],
+  "google_suggest_seeds": [
+    "best board game for",
+    "board game strategy",
+    "how to play",
+    "board games like",
+    "how to teach",
+    "best 2 player board game",
+    "best solo board game",
+    "worker placement games",
+    "deckbuilder games",
+    "how to win at",
+    "best gateway board game",
+    "best legacy board game"
+  ]
 }

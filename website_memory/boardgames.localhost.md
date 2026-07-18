@@ -1,8 +1,8 @@
-# Board Game Fancast — Site Description for Content Generation
+# Meeple — Site Description for Content Generation
 
 ## What this site is
 
-**Board Game Fancast** is a tabletop-gaming editorial site for players who
+**Meeple** is a tabletop-gaming editorial site for players who
 already own a shelf of games and want to think about them more carefully.
 It covers modern hobby board games, classic gateway titles, mechanics,
 strategy, and the history of the medium — with the voice of a lifelong
@@ -87,7 +87,7 @@ concrete thing, not in producing generic "board games are back!" content.
   framing only. If a game is on the site, it's because someone will still
   want to know about it in three years.
 
-- **RPGs, wargames, or video games**. Board Game Fancast is about hobby
+- **RPGs, wargames, or video games**. Meeple is about hobby
   board games and their close cousins (deck builders, roll-and-writes,
   narrative campaign games). D&D, Warhammer 40K, chess opening theory,
   and video-game articles belong on other sites.
@@ -109,6 +109,16 @@ concrete thing, not in producing generic "board games are back!" content.
 - **Generic explainers with no named anchor**. "Why Board Games Are Fun"
   or "The Rise of Modern Board Games" without specific titles, designers,
   and dates has no place here.
+
+- **Creator-facing advice**. Meeple's reader is a player and backer, not
+  someone launching their own game. "Why Your Kickstarter Fails Before It
+  Launches" — funding-percentage thresholds, campaign-page advice, backer-
+  acquisition strategy — is written for a designer/publisher audience and
+  belongs on a game-industry site. When covering Kickstarter, write it from
+  the reader's side of the table: what changed for backers and players
+  (the Kingdom Death: Monster effect on production expectations, why
+  Gamefound emerged as a competitor, how stretch-goal bloat affects the
+  game you actually receive), never "how to run a successful campaign."
 
 ## Audience
 
@@ -133,6 +143,52 @@ Humor is welcome when it's earned — a wry aside about analysis paralysis
 lands; a laugh-track "board games amirite" quip doesn't. When a beloved
 game has a real flaw, name it. When a critically panned game does one
 thing well, name that too.
+
+## Opening hooks must stay inside the hobby
+
+A recurring failure mode: opening an article with an unrelated trivia fact
+from a completely different domain (e.g. "Falls from six stories kill more
+cats than falls from twenty" used to open a Ticket to Ride strategy piece).
+This forces the reader to bridge two unrelated ideas before the article even
+starts, and it isn't a board-game fact. Hooks must come from the game
+itself, its design history, or a real player's-table moment — a surprising
+rule interaction, a designer's stated intent, a common misplay. If the hook
+doesn't name a game, designer, or mechanic by the second sentence, rewrite
+it.
+
+## Length discipline
+
+A prior draft targeted 1800-2400 words and came back at ~5600 words — more
+than double the assigned target, because a strategy deep-dive on a single
+game invites endless additional sub-sections (more edge cases, more matchup
+breakdowns, more "another thing to consider"). Resist that pull. When you
+hit the assigned word-count target, stop — wrap up with a concise close
+rather than opening a new sub-topic. A tight article that respects its
+target beats a sprawling one that technically covers more ground; readers
+don't finish 5000-word blog posts.
+
+## Title variety
+
+Don't reuse the same rhetorical formula back-to-back across articles (e.g.
+"Why Your Family Plays [Game] Wrong" used for both Catan and Carcassonne in
+a row). If the last 1-2 published articles used a "you're playing it wrong"
+framing, pick a different one for this article — designer profile, matchup
+comparison, mechanic explainer, historical angle — even if "wrong" would
+technically fit the new game too.
+
+## Accuracy guardrail: probability and math claims
+
+Meeple's core value proposition is precision — a strategy article with wrong
+numbers is worse than no article, because it actively misleads a reader who
+trusts the site's math. Verify any stated probability, percentage, or
+expected-value figure before publishing; do not present a plausible-sounding
+number as fact if it hasn't actually been calculated correctly.
+
+Confirmed reference (two six-sided dice, sum probabilities — relevant to
+Catan and any other dice-sum mechanic): 2 and 12 = 2.8% each, 3 and 11 =
+5.6% each, 4 and 10 = 8.3% each, **5 and 9 = 11.1% each**, **6 and 8 = 13.9%
+each**, 7 = 16.7%. A prior draft stated 6/8 at 15.2% and 5/9 at 13.9% — both
+wrong. Get this table right every time it's used.
 
 ## Entity checklist for content
 

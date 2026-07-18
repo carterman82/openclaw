@@ -24,6 +24,7 @@ remote WP sites (`--site catfancast`).
 from __future__ import annotations
 
 import logging
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -31,10 +32,51 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 _PROJECT_ROOT: Path = Path(__file__).resolve().parent.parent
+
+
+def _resolve_git_exe() -> str:
+    """Find git.exe by absolute path.
+
+    Task Scheduler runs this script with a PATH that doesn't include the
+    user-profile Git install directory (unlike an interactive shell), so
+    `subprocess.run(["git", ...])` fails with WinError 2 on every scheduled
+    run even though `docker` (machine-wide PATH) resolves fine. Resolve once
+    at import time and use the absolute path everywhere.
+    """
+    found = shutil.which("git")
+    if found:
+        return found
+    candidates = [
+        Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "cmd" / "git.exe",
+        Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Git" / "cmd" / "git.exe",
+        Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Git" / "cmd" / "git.exe",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    logger.warning(
+        "Could not resolve git.exe via PATH or common install locations; "
+        "falling back to bare 'git' (will likely fail under Task Scheduler)."
+    )
+    return "git"
+
+
+_GIT_EXE: str = _resolve_git_exe()
 _EXPORT_ROOT: Path = _PROJECT_ROOT / "staatic-exports"
 _WORKTREE_ROOT: Path = _PROJECT_ROOT / ".gh-worktree"
 _GH_OWNER = "carterman82"
 _GH_REPO_PREFIX = "openclaw-"
+
+# Custom domain for each pilot subsite on GitHub Pages.
+# A CNAME file with this value is written into the worktree on every deploy
+# so Staatic republishes can't wipe it.  Update here when subdomains change.
+_SLUG_TO_DOMAIN: dict[str, str] = {
+    "gardening":  "rootstock.reggaefancast.com",
+    "dogs":       "kennelside.reggaefancast.com",
+    "boardgames": "meeple.reggaefancast.com",
+    "coffee":     "crema.reggaefancast.com",
+    "techtools":  "techtools.reggaefancast.com",
+}
 
 # Only the pilot subsites that live on the local multisite deploy to GitHub.
 # Other slugs (catfancast, localhost as primary) are skipped by the wiring in
@@ -89,7 +131,7 @@ def trigger_staatic_export(slug: str) -> bool:
 def _run_git(args: list[str], cwd: Path) -> tuple[bool, str]:
     try:
         r = subprocess.run(
-            ["git", *args],
+            [_GIT_EXE, *args],
             cwd=str(cwd),
             capture_output=True,
             text=True,
@@ -160,6 +202,9 @@ def commit_and_push(slug: str, post_title: str) -> bool:
     if worktree is None:
         return False
     _sync_export_into_worktree(export_dir, worktree)
+    domain = _SLUG_TO_DOMAIN.get(slug)
+    if domain:
+        (worktree / "CNAME").write_text(domain + "\n")
     ok, _ = _run_git(["add", "-A"], cwd=worktree)
     if not ok:
         logger.warning("git add failed for %r.", slug)

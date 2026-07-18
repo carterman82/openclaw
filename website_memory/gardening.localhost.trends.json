@@ -1,4 +1,38 @@
 {
-  "reddit_subreddits": ["gardening", "houseplants", "vegetablegardening", "IndoorGarden", "SavageGarden"],
-  "google_suggest_seeds": ["how to grow", "why is my", "best plants for", "when to plant"]
+  "reddit_subreddits": [
+    "gardening",
+    "houseplants",
+    "vegetablegardening",
+    "IndoorGarden",
+    "proplifting",
+    "plantclinic",
+    "WhatsThisPlant",
+    "PlantIdentification",
+    "Permaculture",
+    "composting",
+    "Hydroponics",
+    "Aquaponics",
+    "Microgreens",
+    "succulents",
+    "orchids",
+    "bonsai",
+    "NoLawns",
+    "Landscaping",
+    "GardeningUK",
+    "mycology"
+  ],
+  "google_suggest_seeds": [
+    "how to grow",
+    "why is my",
+    "best plants for",
+    "when to plant",
+    "how to prune",
+    "how to propagate",
+    "best soil for",
+    "how to fertilize",
+    "companion plants for",
+    "how to get rid of",
+    "how much water for",
+    "is it too late to plant"
+  ]
 }

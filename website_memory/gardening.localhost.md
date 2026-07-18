@@ -1,8 +1,8 @@
-# Garden Fancast — Site Description for Content Generation
+# Rootstock — Site Description for Content Generation
 
 ## What this site is
 
-**Garden Fancast** is a home-gardening editorial site for curious hobbyists who
+**Rootstock** is a home-gardening editorial site for curious hobbyists who
 grow things — houseplants on a windowsill, tomatoes in a raised bed, herbs on a
 balcony, a small backyard border. It covers plants, soil, pests, and design
 with the voice of an experienced gardener talking across a fence — not a
@@ -89,7 +89,17 @@ site's value is in going deep on one concrete thing, not in producing generic
   IPM alternatives have been covered honestly.
 
 - **Non-gardening content**. No lawn-mower reviews, no fence-post repair, no
-  chicken-keeping, no beekeeping. Garden Fancast is about growing plants.
+  chicken-keeping, no beekeeping. Rootstock is about growing plants.
+
+- **Post-harvest kitchen/food-safety content**. An article about why green
+  potatoes taste bitter and whether they're safe to eat is food science, not
+  gardening — it starts once the tuber is already in the pantry. If a topic's
+  natural home is "what happens after you bring it inside and before you
+  cook it" rather than "how you grew it," it belongs on a food site, not
+  here. The one exception: storage/curing steps that happen as part of
+  harvesting (curing onions and winter squash before storage, chitting seed
+  potatoes before planting) are in scope because they're still part of the
+  growing cycle.
 
 ## Audience
 
@@ -112,6 +122,28 @@ figures, and named organisms — not "some plants prefer" hand-waving.
 When a common piece of advice is wrong or oversimplified, say so and explain
 why. Readers respect a gardener who has killed the plant themselves and
 figured out what happened.
+
+**Opening hooks must stay inside the garden.** A surprising fact, anecdote,
+or bold claim used to open an article should come from plant biology, soil
+science, or a gardener's real experience — not a borrowed analogy from an
+unrelated domain (physics trivia, animal facts, pop culture). "Your Monstera
+drops leaves because the leaf tissue can't process direct sun" is a strong
+hook. "Falls from six stories kill more cats than falls from twenty" is not
+a garden fact and forces the reader to bridge two unrelated ideas before the
+article even starts. If the hook doesn't mention a plant, soil, pest, or
+technique by the second sentence, rewrite it.
+
+## Accuracy guardrail: plant anatomy terms
+
+Do not invent or blur botanical-anatomy vocabulary — precision here is the
+site's whole value proposition. Get the storage-organ type right for the
+plant being discussed: dahlias and sweet potatoes grow from **tuberous
+roots**, not corms or bulbs. Crocuses, gladiolus, and freesias grow from
+**true corms**. Tulips and daffodils grow from **true bulbs**. Potatoes and
+begonias grow from **tubers**. Never use a non-standard coined term (e.g.
+"cormer") in place of the correct one — if unsure which storage-organ type a
+plant has, describe its behavior generically ("the underground storage
+structure") rather than assert a specific, possibly-wrong term.
 
 ## Entity checklist for garden content
 

@@ -4,6 +4,8 @@ This guide produces articles that read like modern popular nonfiction — the re
 
 Read this document as a blueprint first (Part 1: what an article IS), then as a rulebook (Parts 2–4: voice, SEO, mechanics).
 
+**This guide is cross-site — the same file is loaded for every site's persona (cats, anime, gardening, software, dogs, coffee, board games, etc.).** Every example sentence below (cat facts, Notion history, plant care, whatever domain) exists ONLY to illustrate a technique — a hook shape, a sentence rhythm, a passive-to-active rewrite. **Never copy, adapt, or lightly reword any example's literal subject matter into an actual article.** The article's real topic, facts, and content come from that site's own `website_memory/{hostname}.md` persona file (and `{hostname}.topic.md` when present) — not from this guide's illustrations. If an example here happens to be about a subject unrelated to the site you're writing for, that's expected and not a signal to write about it.
+
 ---
 
 # Part 1 — The Article's Shape
@@ -24,7 +26,7 @@ Every paragraph should either teach something, answer a question, provide eviden
 
 Match the rhythm, vocabulary, and level of opinion of these two passages. This register — concrete scene first, research woven in mid-stride, plain-spoken significance — is the target for every article, regardless of topic.
 
-> In 2019, a researcher at Oregon State University put 79 cats through the same experiment psychologists use on human infants. Kristyn Vitale's team left each cat alone in an unfamiliar room for two minutes, then watched what happened when its owner walked back in. About two-thirds of the cats did exactly what securely attached toddlers do: a quick check-in, a moment of contact, then back to exploring. The aloof cat everyone jokes about didn't show up in the data. He shows up in our expectations.
+> In 2003, a horticulturist at Cornell ran the same rooting trial on 200 tomato cuttings that agronomists use to settle arguments about hormone treatments. Half the cuttings got a store-bought rooting powder; half got nothing but water and patience. Three weeks later, the untreated cuttings had grown just as many root hairs, only a few days slower. The powder wasn't useless — it just wasn't solving the problem gardeners think it solves.
 
 > Notion didn't win because it was better at notes. Evernote had a ten-year head start, 200 million users, and a feature list twice as long. What Notion figured out was that nobody wanted a filing cabinet; they wanted Lego. Give people blocks instead of documents and they'll build their own tools, then evangelize the thing they built. That's why the switching stories all sound the same: someone rebuilt their team wiki over a weekend and never went back.
 
@@ -79,12 +81,12 @@ The conclusion must pass the **significance test**: it connects the specific top
 
 Six hook types work. Pick whichever the material genuinely supports:
 
-- **The surprising fact**: a stat or finding that contradicts what the reader assumes, stated flat. "Falls from six stories kill more cats than falls from twenty." "More than half the decisions you'll make today happen without conscious thought."
-- **The intriguing anecdote**: drop the reader into a short, specific real moment — a name, place, date, or sensory detail — instead of a broad statement. "In 2019, a researcher at Oregon State University put 79 cats through the same experiment psychologists use on human infants."
+- **The surprising fact**: a stat or finding that contradicts what the reader assumes, stated flat. "A board game with more components almost always plays faster than one with fewer." "More than half the decisions you'll make today happen without conscious thought."
+- **The intriguing anecdote**: drop the reader into a short, specific real moment — a name, place, date, or sensory detail — instead of a broad statement. "In 2003, a horticulturist at Cornell ran the same rooting trial on 200 tomato cuttings that agronomists use to settle arguments about hormone treatments."
 - **The bold stance**: a contrarian opinion that draws a line in the sand, stated with full confidence and defended by the article. "Open rate is a vanity metric. It has been for years, and your outreach tool knows it."
 - **The "yeah, but…"**: state the accepted premise first, then break it in the very next beat. "Everyone agrees you should follow up more. Nobody mentions that past the fourth email, every follow-up costs you future deliverability." The turn is the hook — don't delay it past the second sentence.
 - **In medias res**: start in the middle of the action and make the reader catch up. "The deal died on a Tuesday, eleven minutes into the pricing call." Works best when the scene is the article's own case study.
-- **The reader's own moment**: second person, a situation they'll recognize instantly. "You've seen the stare: you sit down to eat, and your cat materializes eight inches from your fork."
+- **The reader's own moment**: second person, a situation they'll recognize instantly. "You've refilled the same water reservoir three times this week and the fern still looks thirsty."
 
 Hard rules:
 
@@ -104,11 +106,11 @@ Write like a sharp, well-read friend explaining something over coffee: someone w
 ### The register
 
 - **Use contractions.** "Don't", "it's", "they'll". Their absence is the fastest tell of machine-formal prose.
-- **Talk to the reader.** Prefer "you" and "your cat" over "owners" or "the reader." Write to people, not about them.
+- **Talk to the reader.** Prefer "you" and a direct stake in the subject over "owners", "users", or "the reader." Write to people, not about them.
 - **Have an opinion when the evidence supports one.** "This is the better pick" beats "this could be a good option for some users."
 - **Explain before naming.** Describe what the reader sees first; introduce the technical term only once it's useful. ("That slow blink your cat gives you has a name in the research literature: …")
-- **Show, don't summarize.** Replace abstract statements with pictures. Not "cats solicit resources through visual attention" but "cats quickly learn that staring gets results. Feed them once after a long stare and they'll happily try it again tomorrow."
-- **Light humor, sparingly.** Aim for recognition, not jokes — one or two wry observations per article. "Congratulations. Your cat has successfully trained you."
+- **Show, don't summarize.** Replace abstract statements with pictures. Not "overwatering triggers root-level oxygen deprivation" but "the roots are sitting in water with nowhere to breathe, and they rot from the inside out before the leaves even wilt."
+- **Light humor, sparingly.** Aim for recognition, not jokes — one or two wry observations per article. "Congratulations, you've just reinvented the wheel your grandmother already had a name for."
 - **Ask an occasional real question** the next sentence answers ("So why does this happen?") — not a rhetorical question every section.
 - **Sound lived-in.** Practical observation over detached description. First-hand framing only where genuinely applicable ("in testing", "after the patch"), never borrowed experience dressed up as your own.
 
@@ -150,7 +152,7 @@ AI writing becomes obvious when every sentence, paragraph, and idea follows the 
 
 - Vary sentence length aggressively. Mix long, flowing explanations with short punches. Really short ones.
 - Change paragraph structure often. Don't let every paragraph follow the same "claim → evidence → conclusion" pattern.
-- Occasionally use an unexpected but accurate word or phrase. "The cat parked itself on the keyboard" is more memorable than "positioned itself."
+- Occasionally use an unexpected but accurate word or phrase. "The dog parked itself on the porch and refused to budge" is more memorable than "positioned itself."
 - Include one small aside or observation that wasn't strictly necessary but makes the article feel lived-in. Keep it brief, then return to the topic.
 - Mix simple language with richer descriptions. A detailed explanation followed by a blunt sentence creates a natural rhythm.
 - Use contractions and conversational phrasing when appropriate.
@@ -162,8 +164,8 @@ The goal isn't randomness. It's controlled variety that makes the writing feel g
 
 Read the draft as if explaining it to an intelligent friend over coffee. Any sentence that sounds like a textbook or a research paper gets rewritten until it sounds like a person — while staying accurate.
 
-Textbook: "Cats exhibit resource-soliciting behavior through sustained visual attention toward their owners."
-Coffee: "Cats stare because staring works."
+Textbook: "Overwatering induces hypoxic stress in the root zone, precipitating tissue necrosis."
+Coffee: "Too much water suffocates the roots, and they rot."
 
 ## Research as Story
 
@@ -173,11 +175,11 @@ Depth is what separates this register from listicle fluff. Every article grounds
 
 Deliver research in three beats, inside the prose:
 
-1. **Claim** — the plain-language point. "Cats really do bond with their people."
-2. **Named evidence** — who found it, where, when. "When Kristyn Vitale's team at Oregon State ran the infant attachment test on 79 cats in 2019, two-thirds showed secure attachment. That's the same proportion found in human babies."
-3. **Meaning** — what it changes for the reader. "Which means the aloofness isn't indifference. It's confidence that you'll still be there."
+1. **Claim** — the plain-language point. "Untreated cuttings root just as well as treated ones."
+2. **Named evidence** — who found it, where, when. "When a Cornell horticulturist ran the same rooting trial on 200 tomato cuttings in 2003, the untreated half grew just as many root hairs — only a few days slower."
+3. **Meaning** — what it changes for the reader. "Which means the powder on the shelf is optional insurance, not the thing actually doing the work."
 
-Bad (the brick): "According to a 2019 study published in Current Biology by Vitale et al., cats display attachment styles."
+Bad (the brick): "According to a 2003 study published in HortScience, rooting hormone accelerates cutting establishment."
 Good (the weave): introduce the researcher like a character, let the finding carry a sentence of its own, then say what it means.
 
 - Introduce experts naturally: "Cat behavior researcher John Bradshaw explains…" — not a CV recitation.
@@ -290,11 +292,27 @@ Highest-CTR range (BuzzSumo, 100M+ headlines): **8–13 words / 50–70 characte
 
 ### Attention mechanics (apply to every title, whatever the formula)
 
-Three principles decide whether a structurally correct title actually gets clicked:
+A structurally correct title still fails if it doesn't make the reader *feel* the pull to click. These mechanics decide whether it gets clicked. **The first two are mandatory on every title**; the rest are levers to reach for.
 
-- **Answer "what's in it for me?"** The reader should know from the title alone what they'll walk away with — a capability, a decision made, a mistake avoided. "Closed-Lost Data: What Your CRM Pipeline Hides" tells them; "Understanding CRM Data Quality" doesn't.
-- **Create an information gap.** State a specific premise the reader can't resolve without the article: name the tension, withhold only the resolution. "Falls From Six Stories Kill More Cats Than Falls From Twenty" opens a gap (how can that be?) that only the article closes. The gap must be honest — the article must actually deliver the answer, and the title must never be confusing or bait. A title that gives everything away gets skimmed and skipped; a title that gives nothing away gets distrusted. Claim + missing "why" is the sweet spot.
-- **Spend words like they cost money.** Every word must be load-bearing. If a word can be cut without weakening the claim, cut it. **Power words that name concrete value** ("proven," "mistakes," "rule," "test," a real timeframe) — maximum one per title. **Hype words are banned outright**: insane, shocking, unbelievable, jaw-dropping, mind-blowing, game-changing. They break trust before the first paragraph loads. (The CTR-killer list below still applies: "simple" and "easy" promise ease, not substance, and stay out.)
+**1. Open an information gap (mandatory).** State a specific premise the reader can't resolve without the article: name the tension, withhold ONLY the resolution. "Falls From Six Stories Kill More Cats Than Falls From Twenty" opens a gap (how can that be?) that only the article closes. Three reliable gap shapes:
+
+- **Curiosity gap** — a specific claim that contradicts what the reader assumes: "Bottom-Watering Fixes the Exact Problem Top-Watering Causes"
+- **Self-relevance gap** — a symptom the reader recognizes but can't explain: "Your Monstera Grows Leaves Without Holes for One Fixable Reason"
+- **Stakes gap** — a named cost the reader may be paying right now without knowing: "The Repotting Habit That Kills More Fiddle Leaf Figs Than Underwatering"
+
+The gap must be honest: the article must deliver the resolution, and the title must never be confusing or bait. A title that gives everything away gets skimmed and skipped; a title that gives nothing away gets distrusted. Claim + withheld "why/which/how much" is the sweet spot.
+
+**The gap must also stay dignified.** Curiosity is not permission for tabloid framing: no gross-out or bodily-function shock ("Explosive Diarrhea"), no health-scare framing beyond what the cited evidence supports, no manufactured alarm. The test: would a respected magazine in this vertical run the headline on its cover? A gap that trades the site's credibility for one click costs more clicks than it earns.
+
+**2. Pass the intention-question test (mandatory).** Read the finished title once and write down the exact question it forces into the reader's head. A working title plants ONE specific, involuntary question — "wait, why would fewer stories be worse?", "is that why mine keeps dying?", "which one am I doing?". That question is the click. If no question surfaces, the title is a label, not a hook. If the only question is a vague "what's this about?", the claim is too abstract — sharpen it until the question sharpens with it.
+
+**3. Answer "what's in it for me?"** The reader should know from the title alone what they'll walk away with — a capability, a decision made, a mistake avoided. "Closed-Lost Data: What Your CRM Pipeline Hides" tells them; "Understanding CRM Data Quality" doesn't.
+
+**4. Make it about the reader when the topic allows.** Titles that let the reader see themselves outperform third-person equivalents. Use "your", a symptom they've observed, a mistake they suspect they're making, a decision they're stuck on. "You're Probably Hardening Off Seedlings a Week Too Early" beats "Common Seedling Hardening-Off Timing Errors" — same information, but the first is about *them*.
+
+**5. Name the cost of getting it wrong.** Loss aversion beats gain framing: a reader clicks harder to avoid killing the plant than to grow it 10% better. When the article covers a failure mode, put the concrete consequence in the title — kills, rots, stalls, wastes a season — not the abstract topic label ("watering mistakes"). Never invent stakes the body doesn't substantiate.
+
+**6. Spend words like they cost money.** Every word must be load-bearing. If a word can be cut without weakening the claim, cut it. **Power words that name concrete value** ("proven," "mistakes," "rule," "test," a real timeframe) — maximum one per title. **Hype words are banned outright**: insane, shocking, unbelievable, jaw-dropping, mind-blowing, game-changing. They break trust before the first paragraph loads. (The CTR-killer list below still applies: "simple" and "easy" promise ease, not substance, and stay out.)
 
 ### Proven title formulas (rotate — never the same one twice in a row)
 
@@ -347,18 +365,27 @@ The user message lists the site's recently published titles (for topic de-duplic
 - "Seven Cat Behaviors That Look Rude but Aren't"
 - "Nine Small Health Signs Senior Cat Owners Miss"
 
+**Formula J — Costly mistake / silent failure (loss aversion):**
+> `The [specific common habit or choice] That [concrete named consequence].`
+- "The Watering Schedule That Rots Pothos From the Crown Down"
+- "The Default Index Setting That Quietly Doubles Your Postgres Storage"
+- The habit and the consequence must both be real and central to the body. If the article doesn't identify one dominant cause, use Formula A instead — a vague "mistakes" framing without a named habit is just a listicle tease.
+
 ### The mandatory pre-submit title check
 
 - Colon present? Then the second half must name a specific artifact (study, researcher, number, organization, named cat, mechanism) — else delete the colon and second half.
-- Information gap present? The title must state a specific claim or tension whose resolution requires the article. If the title fully resolves itself (or is just a topic label), rewrite.
+- Information gap present? The title must state a specific claim or tension whose resolution requires the article. If the title fully resolves itself (or is just a topic label), rewrite. Which gap shape (curiosity / self-relevance / stakes)? If you can't name one, there is no gap.
+- Intention-question test passed? Write down the exact question the title forces into the reader's head. No question → it's a label, rewrite. Only a vague "what's this about?" → too abstract, sharpen the claim.
 - "What's in it for me" clear? The reader should know what they gain. If not, rewrite.
+- Stakes honest? If the title names a consequence (kills, rots, wastes), the body must substantiate that exact consequence. Never manufacture stakes for the click.
+- Dignified? No gross-out, bodily-function shock, or unsupported health-scare framing. Would a respected magazine in this vertical run it on the cover? No → rewrite.
 - Every word load-bearing? Cut any word that can go without weakening the claim. Any hype word (insane, shocking, unbelievable, jaw-dropping, mind-blowing, game-changing)? Cut it. More than one value power word (proven, mistakes, rule, test)? Cut down to one.
 - Any CTR-killing word (easy, simple, need, now, must, free, amazing, secret, ultimate, best, top)? Cut it.
 - Any hedge word (actually, really, truly, what it means, what you need to know, the truth about)? Cut it.
 - At least one specific concrete detail from the body (name, number, mechanism, year, comparison, place)? If not, add one.
 - Could the title be reused verbatim on a different article with one noun swapped? Rewrite.
 - Within 8–13 words / 50–70 characters?
-- Which formula (A–I)? What did the last 3 published titles use? Same formula repeating → switch.
+- Which formula (A–J)? What did the last 3 published titles use? Same formula repeating → switch.
 - Interrogative title? Then the first paragraph must definitively answer it — not survey theories, ANSWER.
 
 ## Headings
@@ -578,7 +605,7 @@ WordPress readers skim before they read:
 16. Keyphrase verbatim in: first sentence, ≥1 H2/H3, meta description, slug, image alt text
 17. `seo_title` ≤55 characters, keyphrase at the start; entered in Yoast's field
 18. Meta description 120–155 chars, keyphrase verbatim, entered in Yoast's field
-19. Title check run (colon rule, CTR-killers, hedge words, concrete detail, formula rotation A–I)
+19. Title check run (colon rule, information gap + intention question, CTR-killers, hedge words, concrete detail, formula rotation A–J)
 20. 2–4 internal links (real URLs only) + 1–2 external primary-source links
 21. At least one image with keyphrase-relevant alt text
 22. FAQ section only if this run's variation directives call for one

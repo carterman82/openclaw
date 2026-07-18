@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import logging
 import os
@@ -317,6 +318,65 @@ def _enforce_external_link_attrs(body_html: str, wp_host: str) -> tuple[str, int
 _MIME_TO_EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
 
 
+# Match runs of anything that isn't a letter, number, or whitespace so we can
+# collapse things like "Soil & Composting" -> "soil composting" before feeding
+# to Unsplash's search endpoint (which returns 0 results on the raw string).
+_UNSPLASH_QUERY_STRIP_RE = re.compile(r"[^\w\s]+", re.UNICODE)
+
+
+def _clean_unsplash_query(q: str) -> str:
+    collapsed = _UNSPLASH_QUERY_STRIP_RE.sub(" ", q)
+    return " ".join(collapsed.split()).lower()
+
+
+def _build_unsplash_query_ladder(article: dict) -> list[str]:
+    """Return an ordered, de-duplicated list of Unsplash queries to try.
+
+    Progressively broader — the specific `unsplash_query` from the model
+    (which is often too niche for stock photography, e.g. "soil test report
+    lime bag" -> 0 results) first, then focus_keyphrase, then just the head
+    of it, then category, then category head, then first tag. Each subsequent
+    query drops specificity so we eventually hit something the Unsplash
+    library actually contains.
+    """
+    raw_candidates: list[str] = []
+    for key in ("unsplash_query", "focus_keyphrase"):
+        value = article.get(key)
+        if isinstance(value, str) and value.strip():
+            raw_candidates.append(value)
+
+    keyphrase = article.get("focus_keyphrase") or ""
+    if isinstance(keyphrase, str):
+        kp_words = keyphrase.strip().split()
+        if len(kp_words) >= 2:
+            raw_candidates.append(" ".join(kp_words[:2]))
+        if len(kp_words) >= 1:
+            raw_candidates.append(kp_words[0])
+
+    category = article.get("category") or ""
+    if isinstance(category, str) and category.strip():
+        raw_candidates.append(category)
+        cat_words = _clean_unsplash_query(category).split()
+        if cat_words:
+            raw_candidates.append(cat_words[0])
+
+    tags = article.get("tags") or []
+    if isinstance(tags, list) and tags:
+        for tag in tags[:2]:
+            if isinstance(tag, str) and tag.strip():
+                raw_candidates.append(tag)
+
+    seen: set[str] = set()
+    ladder: list[str] = []
+    for raw in raw_candidates:
+        cleaned = _clean_unsplash_query(raw)
+        if not cleaned or cleaned in seen:
+            continue
+        seen.add(cleaned)
+        ladder.append(cleaned)
+    return ladder
+
+
 def _fetch_and_attach_image(article: dict) -> tuple[dict | None, int | None, str]:
     """Generate via local Flux, fall back to OpenAI, then Unsplash, then no image.
 
@@ -351,12 +411,22 @@ def _fetch_and_attach_image(article: dict) -> tuple[dict | None, int | None, str
         logger.warning("Article has no image_prompt; falling back to Unsplash.")
 
     if not image:
-        unsplash_q = article.get("unsplash_query") or article.get("focus_keyphrase")
-        if unsplash_q:
-            logger.info("Searching Unsplash (query=%r).", unsplash_q)
-            image = find_unsplash_image(unsplash_q)
-            if image:
-                source = f"Unsplash ({image['attribution']['photographer_name']})"
+        ladder = _build_unsplash_query_ladder(article)
+        if not ladder:
+            logger.warning("No Unsplash query candidates on article; skipping Unsplash.")
+        else:
+            logger.info("Unsplash query ladder: %s", ladder)
+            for idx, query in enumerate(ladder, start=1):
+                logger.info(
+                    "Searching Unsplash (%d/%d, query=%r).", idx, len(ladder), query,
+                )
+                image = find_unsplash_image(query)
+                if image:
+                    source = (
+                        f"Unsplash ({image['attribution']['photographer_name']}, "
+                        f"query={query!r})"
+                    )
+                    break
 
     if not image:
         logger.warning(
@@ -423,6 +493,32 @@ def _roll_variation_directives() -> str:
 def _pick_random_category(wp_categories: tuple[str, ...]) -> str:
     selectable = [c for c in wp_categories if c.lower() != "uncategorized"]
     return random.choice(selectable or list(wp_categories))
+
+
+def _normalize_title(title: str) -> str:
+    return re.sub(r"[^a-z0-9\s]", "", title.lower()).strip()
+
+
+def _find_duplicate_title(title: str, recent_titles: list[str]) -> str | None:
+    """Return the colliding recent title if `title` is an exact or near-exact repeat.
+
+    The LLM is instructed not to repeat a recent topic, but local models are
+    unreliable at honoring that soft instruction (observed: the same title
+    reproduced verbatim across two separate runs). This is the hard backstop.
+    """
+    normalized = _normalize_title(title)
+    if not normalized:
+        return None
+    for existing in recent_titles:
+        existing_normalized = _normalize_title(existing)
+        if not existing_normalized:
+            continue
+        if normalized == existing_normalized:
+            return existing
+        ratio = difflib.SequenceMatcher(None, normalized, existing_normalized).ratio()
+        if ratio >= 0.80:
+            return existing
+    return None
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -560,6 +656,37 @@ def main(argv: list[str] | None = None) -> int:
                 trending_signals=trending_signals,
                 variation_directives=variation_directives,
             )
+
+            if recent_titles and not args.topic:
+                collision = _find_duplicate_title(article["title"], recent_titles)
+                if collision:
+                    logger.warning(
+                        "Generated title %r is a near-duplicate of existing post %r; "
+                        "regenerating once.",
+                        article["title"],
+                        collision,
+                    )
+                    article = generate_article(
+                        topic=args.topic,
+                        category=category,
+                        recent_titles=recent_titles,
+                        categories=wp_categories,
+                        site_name=site_name or None,
+                        site_host=site_host,
+                        internal_link_candidates=link_candidates,
+                        trending_signals=trending_signals,
+                        variation_directives=variation_directives,
+                    )
+                    collision = _find_duplicate_title(article["title"], recent_titles)
+                    if collision:
+                        logger.error(
+                            "Regenerated title %r still collides with existing post %r; "
+                            "aborting without publishing.",
+                            article["title"],
+                            collision,
+                        )
+                        return 1
+
             word_count = len(_strip_html(article["body_html"]).split())
             logger.info(
                 "Claude returned (title=%r, category=%r, words=~%d, slug=%r, keyphrase=%r).",

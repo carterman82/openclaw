@@ -11,6 +11,7 @@ from __future__ import annotations
 import base64
 import html
 import logging
+import time
 from typing import Final
 from urllib.parse import urlparse
 
@@ -26,16 +27,22 @@ OPENAI_IMAGE_MODEL: Final[str] = "gpt-image-2"
 OPENAI_IMAGE_SIZE: Final[str] = "1536x1024"
 OPENAI_IMAGE_QUALITY: Final[str] = "medium"
 
+# Draw Things (Flux) — Automatic1111-compatible endpoint at /sdapi/v1/txt2img.
+# Draw Things accepts only a subset of the A1111 schema and hard-fails (422) on
+# unknown keys, so we send the minimum needed for a clean single-pass Flux
+# generation. Verified against Draw Things /sdapi/v1/options key list on
+# 2026-07-15 with flux_2_klein_base_4b_i8x.ckpt loaded.
 LOCAL_IMAGE_TIMEOUT_SECONDS: Final[float] = 1200.0
 LOCAL_IMAGE_WIDTH: Final[int] = 1024
 LOCAL_IMAGE_HEIGHT: Final[int] = 576
-LOCAL_IMAGE_STEPS: Final[int] = 40
-LOCAL_IMAGE_HR_SCALE: Final[float] = 2.0
-LOCAL_IMAGE_HR_SECOND_PASS_STEPS: Final[int] = 20
-LOCAL_IMAGE_DENOISING_STRENGTH: Final[float] = 0.5
+LOCAL_IMAGE_STEPS: Final[int] = 30
+LOCAL_IMAGE_GUIDANCE_SCALE: Final[float] = 4.0
+LOCAL_IMAGE_MAX_ATTEMPTS: Final[int] = 3
+LOCAL_IMAGE_RETRY_BACKOFF_SECONDS: Final[float] = 8.0
 LOCAL_IMAGE_NEGATIVE_PROMPT: Final[str] = (
     "text, watermark, logo, signature, caption, subtitle, low quality, blurry"
 )
+_PNG_MAGIC: Final[bytes] = b"\x89PNG\r\n\x1a\n"
 
 ALLOWED_IMAGE_MIME: Final[frozenset[str]] = frozenset({
     "image/jpeg", "image/png", "image/webp", "image/gif",
@@ -125,57 +132,99 @@ def generate_local_image(prompt: str, alt_text: str) -> dict | None:
     images). Returns None on missing config, network error, malformed
     response, or failed validation — never raises, matching the other
     image-source functions' fallback-friendly contract.
+
+    Retries up to `LOCAL_IMAGE_MAX_ATTEMPTS` on transient errors (connection
+    reset, timeout, 5xx). 4xx responses (schema errors) fail immediately —
+    retrying wouldn't help and would just burn 1200s per attempt.
     """
     cfg = Config.load()
     if not cfg.LOCAL_IMAGE_ENABLED or not cfg.LOCAL_IMAGE_BASE_URL:
         return None
     base_url = cfg.LOCAL_IMAGE_BASE_URL.rstrip("/")
-    try:
-        resp = requests.post(
-            f"{base_url}/sdapi/v1/txt2img",
-            json={
-                "prompt": prompt,
-                "negative_prompt": LOCAL_IMAGE_NEGATIVE_PROMPT,
-                "width": LOCAL_IMAGE_WIDTH,
-                "height": LOCAL_IMAGE_HEIGHT,
-                "steps": LOCAL_IMAGE_STEPS,
-                "enable_hr": True,
-                "hr_scale": LOCAL_IMAGE_HR_SCALE,
-                "hr_second_pass_steps": LOCAL_IMAGE_HR_SECOND_PASS_STEPS,
-                "hr_upscaler": "Latent",
-                "denoising_strength": LOCAL_IMAGE_DENOISING_STRENGTH,
-            },
-            timeout=LOCAL_IMAGE_TIMEOUT_SECONDS,
-        )
-    except requests.RequestException as exc:
-        logger.warning("Local image generation request failed: %s", exc)
-        return None
-    if not resp.ok:
-        logger.warning(
-            "Local image generation returned %d: %s", resp.status_code, resp.text[:200],
-        )
-        return None
-    try:
-        images = resp.json().get("images") or []
-    except ValueError as exc:
-        logger.warning("Local image generation response was not JSON: %s", exc)
-        return None
-    if not images:
-        logger.warning("Local image generation returned no images.")
-        return None
-    try:
-        image_bytes = base64.b64decode(images[0])
-    except (ValueError, TypeError) as exc:
-        logger.warning("Local image generation returned invalid base64: %s", exc)
-        return None
-    if not _validate_image(image_bytes, "image/png"):
-        return None
-    return {
-        "image_bytes": image_bytes,
-        "mime_type": "image/png",
-        "alt_text": alt_text,
-        "attribution": None,
+    payload = {
+        "prompt": prompt,
+        "negative_prompt": LOCAL_IMAGE_NEGATIVE_PROMPT,
+        "width": LOCAL_IMAGE_WIDTH,
+        "height": LOCAL_IMAGE_HEIGHT,
+        "steps": LOCAL_IMAGE_STEPS,
+        "guidance_scale": LOCAL_IMAGE_GUIDANCE_SCALE,
+        "hires_fix": False,
     }
+    last_exc: Exception | None = None
+    for attempt in range(1, LOCAL_IMAGE_MAX_ATTEMPTS + 1):
+        started = time.monotonic()
+        try:
+            resp = requests.post(
+                f"{base_url}/sdapi/v1/txt2img",
+                json=payload,
+                timeout=LOCAL_IMAGE_TIMEOUT_SECONDS,
+            )
+        except requests.RequestException as exc:
+            last_exc = exc
+            elapsed = time.monotonic() - started
+            if attempt < LOCAL_IMAGE_MAX_ATTEMPTS:
+                backoff = LOCAL_IMAGE_RETRY_BACKOFF_SECONDS * attempt
+                logger.warning(
+                    "Local image request failed after %.1fs (attempt %d/%d): %s; retrying in %.1fs",
+                    elapsed, attempt, LOCAL_IMAGE_MAX_ATTEMPTS, exc, backoff,
+                )
+                time.sleep(backoff)
+                continue
+            logger.warning(
+                "Local image request failed after %.1fs (attempt %d/%d): %s",
+                elapsed, attempt, LOCAL_IMAGE_MAX_ATTEMPTS, exc,
+            )
+            return None
+        elapsed = time.monotonic() - started
+        if 500 <= resp.status_code < 600 and attempt < LOCAL_IMAGE_MAX_ATTEMPTS:
+            backoff = LOCAL_IMAGE_RETRY_BACKOFF_SECONDS * attempt
+            logger.warning(
+                "Local image returned %d after %.1fs (attempt %d/%d): %s; retrying in %.1fs",
+                resp.status_code, elapsed, attempt, LOCAL_IMAGE_MAX_ATTEMPTS,
+                resp.text[:200], backoff,
+            )
+            time.sleep(backoff)
+            continue
+        if not resp.ok:
+            logger.warning(
+                "Local image returned %d after %.1fs: %s",
+                resp.status_code, elapsed, resp.text[:200],
+            )
+            return None
+        try:
+            images = resp.json().get("images") or []
+        except ValueError as exc:
+            logger.warning("Local image response was not JSON after %.1fs: %s", elapsed, exc)
+            return None
+        if not images:
+            logger.warning("Local image returned no images after %.1fs.", elapsed)
+            return None
+        try:
+            image_bytes = base64.b64decode(images[0])
+        except (ValueError, TypeError) as exc:
+            logger.warning("Local image returned invalid base64 after %.1fs: %s", elapsed, exc)
+            return None
+        if not image_bytes.startswith(_PNG_MAGIC):
+            logger.warning(
+                "Local image bytes lack PNG magic after %.1fs (got %r); rejecting.",
+                elapsed, image_bytes[:8],
+            )
+            return None
+        if not _validate_image(image_bytes, "image/png"):
+            return None
+        logger.info(
+            "Local image generated in %.1fs (%d bytes, %dx%d, steps=%d).",
+            elapsed, len(image_bytes), LOCAL_IMAGE_WIDTH, LOCAL_IMAGE_HEIGHT, LOCAL_IMAGE_STEPS,
+        )
+        return {
+            "image_bytes": image_bytes,
+            "mime_type": "image/png",
+            "alt_text": alt_text,
+            "attribution": None,
+        }
+    if last_exc is not None:
+        logger.warning("Local image exhausted %d attempts: %s", LOCAL_IMAGE_MAX_ATTEMPTS, last_exc)
+    return None
 
 
 def _auth_header(access_key: str) -> dict[str, str]:
