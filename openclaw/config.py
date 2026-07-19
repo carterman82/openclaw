@@ -98,7 +98,13 @@ class Config:
     # logs/qwen-fallback-2026-07-15-173147-generate.json). Frequency and
     # presence penalties are the standard remedy; only applied to the local
     # provider, not to Claude.
-    LOCAL_MODEL_FREQUENCY_PENALTY: float = 0.3
+    # Step 3.8.10 (2026-07-18): bumped 0.3 -> 0.5. animefancast.com tuning run
+    # (4 articles) still showed verbatim/near-verbatim sentence and paragraph
+    # repetition scaling with article length, worst in the top length band
+    # combined with an FAQ section (repeated content re-pasted a third time
+    # in the FAQ answer). Raising frequency_penalty further discourages the
+    # model from reusing the same tokens/phrases within a single completion.
+    LOCAL_MODEL_FREQUENCY_PENALTY: float = 0.5
     LOCAL_MODEL_PRESENCE_PENALTY: float = 0.2
     # Step 3.8.9 (2026-07-15): frequency/presence penalties helped but weren't
     # enough - noon run had 2/3 sites still loop mid-body_html at the 12000
@@ -108,7 +114,11 @@ class Config:
     # frequency/presence), passed via extra_body since it's not a standard
     # OpenAI field. Default 1.15 is a common llama.cpp anti-loop value; 1.0
     # disables it entirely, values > 1.2 start hurting prose quality.
-    LOCAL_MODEL_REPETITION_PENALTY: float = 1.15
+    # Step 3.8.10 (2026-07-18): bumped 1.15 -> 1.22 for the same repetition-
+    # degeneration finding as the frequency_penalty change above. Kept below
+    # the last-resort _retry_local_hotter() value of 1.25 so that path still
+    # represents a genuine escalation over the default.
+    LOCAL_MODEL_REPETITION_PENALTY: float = 1.22
     # Default False: Step 3.8.5/3.8.7 (2026-07-14) found that the only
     # mechanism that actually suppresses thinking on this LM Studio build
     # (extra_body={"reasoning_effort":"none"}) also reliably breaks
@@ -153,13 +163,13 @@ class Config:
             LOCAL_MODEL_TOP_P=_parse_float(os.getenv("LOCAL_MODEL_TOP_P"), 0.9),
             LOCAL_MODEL_MAX_TOKENS=_parse_int(os.getenv("LOCAL_MODEL_MAX_TOKENS"), 12000),
             LOCAL_MODEL_FREQUENCY_PENALTY=_parse_float(
-                os.getenv("LOCAL_MODEL_FREQUENCY_PENALTY"), 0.3
+                os.getenv("LOCAL_MODEL_FREQUENCY_PENALTY"), 0.5
             ),
             LOCAL_MODEL_PRESENCE_PENALTY=_parse_float(
                 os.getenv("LOCAL_MODEL_PRESENCE_PENALTY"), 0.2
             ),
             LOCAL_MODEL_REPETITION_PENALTY=_parse_float(
-                os.getenv("LOCAL_MODEL_REPETITION_PENALTY"), 1.15
+                os.getenv("LOCAL_MODEL_REPETITION_PENALTY"), 1.22
             ),
             LOCAL_MODEL_DISABLE_THINKING=_parse_bool(
                 os.getenv("LOCAL_MODEL_DISABLE_THINKING"), False

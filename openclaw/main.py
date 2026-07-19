@@ -11,6 +11,7 @@ import random
 import re
 import sys
 from html import escape as html_escape
+from html import unescape as html_unescape
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
@@ -460,7 +461,12 @@ def _fetch_and_attach_image(article: dict) -> tuple[dict | None, int | None, str
 # Real randomness has to come from code, so we roll structural directives here
 # and inject them into the prompt.
 
-_LENGTH_BANDS: tuple[tuple[int, int], ...] = ((900, 1300), (1300, 1800), (1800, 2400))
+# Step 3.8.10 (2026-07-18): top band trimmed 1800-2400 -> 1600-2000. The
+# animefancast.com tuning run's worst content-repetition case (verbatim
+# paragraph duplication, FAQ answer re-pasting body content a third time)
+# came from the top band combined with an FAQ section — longer targets give
+# the local model more room to loop before it burns through max_tokens.
+_LENGTH_BANDS: tuple[tuple[int, int], ...] = ((900, 1300), (1300, 1700), (1600, 2000))
 
 _HOOK_TYPES: tuple[str, ...] = (
     "the surprising fact",
@@ -518,6 +524,43 @@ def _find_duplicate_title(title: str, recent_titles: list[str]) -> str | None:
         ratio = difflib.SequenceMatcher(None, normalized, existing_normalized).ratio()
         if ratio >= 0.80:
             return existing
+    return None
+
+
+# Step 3.8.10 (2026-07-18): animefancast.com tuning found the local model
+# collapsing into sentence/paragraph repeat loops in the back half of long
+# articles (e.g. "keeping the pilots small, keeping them weak, keeping them
+# dependent" repeated 7x verbatim in one draft) — sampling-parameter tuning
+# alone (repetition_penalty, frequency_penalty) did not stop it. This is a
+# hard backstop analogous to _find_duplicate_title.
+_REPEAT_MIN_SENTENCE_LEN = 25
+_REPEAT_SIMILARITY_THRESHOLD = 0.85
+_REPEAT_MAX_OCCURRENCES = 2
+
+
+def _find_repeated_content(body_html: str) -> str | None:
+    """Return an offending sentence if body_html shows repeat-loop degeneration.
+
+    Flags any sentence (or close paraphrase) that occurs more than
+    `_REPEAT_MAX_OCCURRENCES` times across the article.
+    """
+    text = html_unescape(_strip_html(body_html))
+    sentences = [
+        s.strip()
+        for s in re.split(r"(?<=[.!?])\s+", text)
+        if len(s.strip()) >= _REPEAT_MIN_SENTENCE_LEN
+    ]
+    if len(sentences) < 10:
+        return None
+    normalized = [re.sub(r"\s+", " ", s.lower()) for s in sentences]
+    for i, a in enumerate(normalized):
+        occurrences = 1
+        for j in range(i + 1, len(normalized)):
+            b = normalized[j]
+            if a == b or difflib.SequenceMatcher(None, a, b).ratio() >= _REPEAT_SIMILARITY_THRESHOLD:
+                occurrences += 1
+        if occurrences > _REPEAT_MAX_OCCURRENCES:
+            return sentences[i]
     return None
 
 
@@ -657,35 +700,40 @@ def main(argv: list[str] | None = None) -> int:
                 variation_directives=variation_directives,
             )
 
-            if recent_titles and not args.topic:
-                collision = _find_duplicate_title(article["title"], recent_titles)
-                if collision:
-                    logger.warning(
-                        "Generated title %r is a near-duplicate of existing post %r; "
-                        "regenerating once.",
-                        article["title"],
-                        collision,
-                    )
-                    article = generate_article(
-                        topic=args.topic,
-                        category=category,
-                        recent_titles=recent_titles,
-                        categories=wp_categories,
-                        site_name=site_name or None,
-                        site_host=site_host,
-                        internal_link_candidates=link_candidates,
-                        trending_signals=trending_signals,
-                        variation_directives=variation_directives,
-                    )
+            def _generation_problem(article: dict) -> str | None:
+                if recent_titles and not args.topic:
                     collision = _find_duplicate_title(article["title"], recent_titles)
                     if collision:
-                        logger.error(
-                            "Regenerated title %r still collides with existing post %r; "
-                            "aborting without publishing.",
-                            article["title"],
-                            collision,
-                        )
-                        return 1
+                        return f"title is a near-duplicate of existing post {collision!r}"
+                repeat = _find_repeated_content(article["body_html"])
+                if repeat:
+                    return f"body_html has repeat-loop degeneration (e.g. {repeat!r} repeated)"
+                return None
+
+            problem = _generation_problem(article)
+            if problem:
+                logger.warning(
+                    "Generated article has a problem (%s); regenerating once.", problem
+                )
+                article = generate_article(
+                    topic=args.topic,
+                    category=category,
+                    recent_titles=recent_titles,
+                    categories=wp_categories,
+                    site_name=site_name or None,
+                    site_host=site_host,
+                    internal_link_candidates=link_candidates,
+                    trending_signals=trending_signals,
+                    variation_directives=variation_directives,
+                )
+                problem = _generation_problem(article)
+                if problem:
+                    logger.error(
+                        "Regenerated article still has a problem (%s); aborting without "
+                        "publishing.",
+                        problem,
+                    )
+                    return 1
 
             word_count = len(_strip_html(article["body_html"]).split())
             logger.info(
