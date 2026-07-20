@@ -19,6 +19,22 @@ _category_cache: dict[str, int] | None = None
 _tag_cache: dict[str, int] = {}
 
 
+def reset_site_caches() -> None:
+    """Clear category/tag caches. Call after switching WP_BASE_URL in-process.
+
+    Each cache is a single unkeyed global scoped to whichever site was active
+    when it was first populated, so a process that activates more than one
+    site (e.g. a batch script looping over --site values without shelling out
+    per site) would otherwise silently reuse the first site's categories/tags
+    for every subsequent site. Normal `python -m openclaw post` runs are one
+    process per site and never hit this; multi-site batch tooling must call
+    this after each site switch.
+    """
+    global _category_cache
+    _category_cache = None
+    _tag_cache.clear()
+
+
 def _plain_text(value: str) -> str:
     return html.unescape(re.sub(r"<[^>]+>", " ", value)).strip()
 
@@ -322,48 +338,66 @@ def list_recent_posts_for_linking(limit: int = 30) -> list[dict]:
     return out[:limit]
 
 
-def list_recent_post_titles(limit: int = 50) -> list[str]:
-    """Return recent post titles (published + drafts) for topic de-duplication.
+def list_recent_post_titles(limit: int = 300) -> list[str]:
+    """Return post titles (published + drafts) for topic de-duplication.
 
-    Tries an authenticated request first so drafts are included — a draft
-    created seconds ago can still trigger the avoidance check. Falls back to
-    the public endpoint (published posts only) if auth fails.
+    Paginates the full catalog up to `limit` (default 300, well above any
+    current site's post count) rather than a single 100-post page, so the
+    generation prompt's avoidance list — see
+    `generator._build_avoidance_message` — covers every published topic on
+    the site, not just the most recent ~100. Tries an authenticated request
+    first so drafts are included — a draft created seconds ago can still
+    trigger the avoidance check. Falls back to the public endpoint
+    (published posts only) if auth fails.
     """
     cfg = Config.load()
     auth = (cfg.WP_USERNAME, cfg.WP_APP_PASSWORD)
-    per_page = max(1, min(limit, 100))
+    per_page = 100
 
     seen: dict[int, str] = {}
 
     for status in ("any", "publish"):
-        params: dict = {"per_page": per_page, "orderby": "date", "order": "desc"}
         use_auth = auth if status == "any" else None
-        if status == "any":
-            params["status"] = "any"
-        try:
-            resp = requests.get(
-                f"{cfg.WP_BASE_URL}/wp-json/wp/v2/posts",
-                params=params,
-                auth=use_auth,
-                timeout=90,
-            )
-        except requests.exceptions.Timeout:
+        page = 1
+        auth_failed = False
+        while len(seen) < limit:
+            params: dict = {"per_page": per_page, "page": page, "orderby": "date", "order": "desc"}
             if status == "any":
-                logger.warning(
-                    "Authenticated recent-titles fetch timed out; falling back to public endpoint (drafts will be excluded)."
+                params["status"] = "any"
+            try:
+                resp = requests.get(
+                    f"{cfg.WP_BASE_URL}/wp-json/wp/v2/posts",
+                    params=params,
+                    auth=use_auth,
+                    timeout=90,
                 )
-                continue
-            raise
-        if not resp.ok:
-            if status == "any":
-                continue  # auth failed — fall through to public fetch
-            resp.raise_for_status()
-        for post in resp.json():
-            pid = post.get("id")
-            rendered = post.get("title", {}).get("rendered", "")
-            title = _plain_text(rendered)
-            if pid and title and pid not in seen:
-                seen[pid] = title
-        break  # authenticated fetch succeeded; no need for the public fallback
+            except requests.exceptions.Timeout:
+                if status == "any":
+                    logger.warning(
+                        "Authenticated recent-titles fetch timed out; falling back to public endpoint (drafts will be excluded)."
+                    )
+                    auth_failed = True
+                    break
+                raise
+            if not resp.ok:
+                if status == "any":
+                    if page == 1:
+                        auth_failed = True  # auth failed outright — fall through to public fetch
+                    break  # ran past the last page (WP 400s past the end) — stop paging
+                resp.raise_for_status()
+            batch = resp.json()
+            if not batch:
+                break
+            for post in batch:
+                pid = post.get("id")
+                rendered = post.get("title", {}).get("rendered", "")
+                title = _plain_text(rendered)
+                if pid and title and pid not in seen:
+                    seen[pid] = title
+            if len(batch) < per_page:
+                break
+            page += 1
+        if not auth_failed:
+            break  # authenticated pass succeeded; no need for the public fallback
 
     return list(seen.values())[:limit]

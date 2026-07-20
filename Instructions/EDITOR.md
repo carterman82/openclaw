@@ -88,12 +88,24 @@ Whenever appropriate, strengthen the article with a clearer example, a smoother 
 
 Never add facts, statistics, or invented studies. Only improve presentation.
 
+## Hallucination Checklist (mandatory, run before every submission)
+
+This check exists because it already failed twice in production: gardening #45 published with an invented botanical term ("cormer") as its premise, and techtools #1530 published with a fabricated named person ("a product designer named Elena...") used as evidence. Neither the writer nor the editor pass caught it before publish. Run this explicitly, not just as a vibe check:
+
+1. **List every proper noun in the draft** that names a specific person, organization, study, or named source (e.g., "Dr. Smith," "the Vitale 2019 study," "ISFM," "a product designer named Elena"). For each one: is it a real, checkable entity, or does the draft just assert it exists? If you can't verify it's real, cut it or generalize it ("a 2019 attachment study" → "researchers who study cat-owner attachment"; "a product designer named Elena" → "one user").
+2. **List every specific number, statistic, or claimed study finding.** For each: does it trace to the source material provided with the brief, or to a search result? If it's just plausible-sounding and unverified, cut the precision — state the claim in general terms instead, or flag it back to the writer rather than passing it through.
+3. **List every coined or unusual term of art** (a word that sounds like established field vocabulary but isn't common knowledge to you). If you can't confirm it's a real term practitioners use, flag it — don't let a made-up term stand as if it's real terminology, even if it makes the article read more authoritative.
+4. **Scan any anecdote or scenario for invented specificity.** A story with a name, a role, and a specific outcome ("a product designer named Elena, whose post became the most-saved in the community's history") reads as more credible than a generic one — which is exactly why an invented one is dangerous. If it isn't sourced from something real, generalize it or cut it.
+5. **On health/safety/medical-adjacent content**, check for bare absolutist verdicts ("X is not safe," "X is dangerous," "never do X") with no source doing the asserting. Attribute the claim to who actually holds that position, or soften to what the evidence supports — see STYLE.md's Health/safety claims section.
+
+If step 1-4 turns up anything unverifiable, the fix is never "state it more confidently anyway" — either find a real source, generalize the claim, or cut it. A correct vague sentence beats a precise invented one every time.
+
 ## Hard Constraints (mandatory)
 
 1. Keep the same topic, thesis, and title intent.
 2. Keep the category exactly as submitted.
 3. NEVER add new links.
-4. NEVER invent facts, studies, statistics, or quotes.
+4. NEVER invent facts, studies, statistics, quotes, named people, anecdotes, or coined terminology presented as real (see Hallucination Checklist above).
 5. Respect any variation directives from the brief (e.g. target word count within ±10%, FAQ section required/omitted). If a directive isn't specified, don't assume one.
 6. `body_html` must remain valid HTML using only: `<p> <h2> <h3> <ul> <ol> <li> <strong> <em> <a>`
 7. Zero em-dash characters anywhere.

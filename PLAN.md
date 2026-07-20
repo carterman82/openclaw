@@ -1,7 +1,7 @@
 # PLAN - WordPress Sandbox + Openclaw Agent
 
 > Living handoff for future LLM sessions.
-> Last updated: 2026-07-14.
+> Last updated: 2026-07-19.
 
 ## 1. Current State
 
@@ -47,6 +47,11 @@ Future:
 - Phase 3.8: switch primary LLM to a locally hosted Qwen3.6 (LM Studio on the LAN); keep Claude Sonnet 4.6 as automatic fallback.
 - Phase 4: schedule daily publishing at 07:00 America/Denver.
 - Phase 5: multisite + static export + GitHub Pages auto-commit after every publish.
+- Phase 6: content quality hardening (§11.4) — close the defect classes found
+  by the 2026-07-19 five-subsite content audit (published reasoning leaks,
+  truncated/hallucinated posts, duplicate topics, missing SEO meta in static
+  exports, cross-site voice monotony). Gates buying real domains for the
+  subsites.
 - Phase Omega: make the agent analytics-aware. Deferred until every other phase is done AND the sites have real traffic to observe — analytics tuning without views is guesswork.
 
 Recently completed:
@@ -2658,6 +2663,416 @@ Verification:
 - [ ] Deliberate failure recovery testing (Staatic error / git push
       error / GH Pages misconfig) — **owed to user**.
 
+## 11.4 Phase 6 Plan - Content Quality Hardening (Domain-Readiness Gate)
+
+Status: not started. **Blocks buying real domains for the five subsites.**
+
+Goal: close every defect class found by the 2026-07-19 content audit of the
+five subsites (gardening/dogs/boardgames/coffee/techtools), so that what the
+pipeline publishes under a paid domain is never broken, duplicated,
+hallucinated, or SEO-invisible.
+
+**Audit findings this phase must address (2026-07-19, local-qwen-only era):**
+
+| # | Defect class | Evidence |
+|---|--------------|----------|
+| 1 | Model reasoning published verbatim | boardgames #18 ends with the model's internal monologue ("I need to make sure the body HTML is exactly 1800-2400 words... I will output it now. [Final Check of the Prompt]"); also two articles fused (Carcassonne + Catan H2 blocks, 6,210 words) |
+| 2 | Broken/truncated generation published | coffee #29: 416 words, cuts off mid-sentence, raw markdown `##` heading inside a `<p>` tag |
+| 3 | Factual hallucination as article premise | gardening #45 built on invented term "cormer" + claims dahlias grow from corms (they are tubers); techtools #1530 fabricated anecdote ("a product designer named Elena... most saved post in the community's history") |
+| 4 | Duplicate titles/topics | techtools: same title 3x (#1468/#1530/#1532) + another 2x (#1408/#1528); coffee: burr-alignment twice with near-identical H2 outlines (#17/#31); boardgames: Catan-probability twice (#13/#16), Ticket to Ride 3x, "Why Your Family Plays X Wrong" template 3x |
+| 5 | One voice across all five niches | identical staccato closer tic on every site ("It is not X. It is Y.", "The choice is yours.") + near-universal contrarian headline formula ("X Is Not the Problem") — a scaled-content footprint |
+| 6 | Zero SEO meta in static exports | no SEO plugin active on the subsites, so the agent's `meta_description`/`seo_title`/`focus_keyphrase` are silently discarded; exported HTML has no `<meta name="description">` and no OG tags |
+| 7 | HTML hygiene | several posts end without a closing `</p>` (gardening 51/33, dogs 23/19, coffee 33, techtools 1540/1534); dogs #19 has paragraph breaks with no `<p>` markup |
+
+Ordering rationale: Step 6.1 (the validation gate) comes first because it
+stops new defects from landing while the cleanup and softer fixes proceed.
+Lesson already recorded in §12 (2026-07-02 em-dash entry): constraints the
+model reliably violates belong in deterministic code, not in more prompt
+emphasis — this phase applies that lesson to whole-article validity.
+
+### Step 6.1 - Pre-publish output validation gate
+
+Status: done (2026-07-19).
+
+A deterministic validator in `main.py` that runs after revision/sanitization
+and BEFORE `publish_post()`. Unlike the existing sanitizers (em-dash strip,
+link enforcement) which repair content, this gate REJECTS the article and
+aborts the run (non-zero exit, so the Phase 4 wrapper's retry logic gets a
+fresh generation attempt). Checks, each with its own log-line reason:
+
+- **Reasoning-leak markers** in any text field: case-insensitive list
+  including `[Output`, `[Final Check`, `Self-Correction`, `I need to make
+  sure`, `I will output`, `As an AI`, `input_schema`, `word count
+  requirement`, `the prompt` (word-boundary, body only — allow when the
+  article's own topic is prompts: gate on marker count >= 2 or pair with
+  bracket markers to avoid false positives like techtools #1470/#1402).
+- **Markdown leakage**: `^#{1,6} ` at line start, ` ``` ` fences, `**bold**`
+  runs, `<p>#` — the body must be pure HTML.
+- **Truncation / malformedness**: body must end with a closing block tag;
+  every `<p>`/`<h2>`/`<ul>`/`<ol>` must be balanced (simple tag-counter, not
+  a full parser); no `<h1>` in body.
+- **Length band**: word count must be within the run's variation-directive
+  band ± tolerance, with an absolute floor of 700 and ceiling of 3000 —
+  catches both the 416-word coffee #29 and the 6,210-word boardgames #18.
+- **Duplicate title**: normalized (lowercase, punctuation-stripped) title
+  must not match any published title on the target site (fetch all titles,
+  not just the recent-N used for prompt steering).
+- On rejection: dump the full article JSON to
+  `logs/rejected-YYYY-MM-DD-HHMMSS-<site>.json` (mirrors the
+  `_local_diagnostics.py` sidecar pattern) so every rejection leaves a
+  forensic trail.
+
+Verification:
+- [x] Unit-style fixture runs: feed the validator saved copies of the five
+      known-bad bodies (boardgames 18, coffee 29, plus three synthetic
+      cases: unbalanced tags, dup title, out-of-band length) — all rejected
+      with the correct reason string. Done via `scripts/smoke-validation-gate.py`
+      (12 checks, all PASS) — also covers a real gardening #51 missing-`</p>`
+      truncation and two real AI-topic false-positive guards.
+- [x] Feed it five known-good published bodies — all pass. Fixtures:
+      dogs #21, boardgames #24, gardening #41, plus two real techtools
+      AI-topic articles (#1470, #1402) used as false-positive guards.
+- [x] Live: one `--site <slug> --draft` run publishes normally
+      (`validation=pass` log line present). Confirmed on techtools
+      (`Validation gate: pass (words=718)`), draft published then deleted.
+- [x] Forced rejection: temporarily inject a marker string into a draft
+      body, confirm non-zero exit + `logs/rejected-*.json` sidecar +
+      nothing published. Revert. Confirmed: exit 1, sidecar written to
+      `logs/rejected-2026-07-19-195015-techtools.localhost.json`, article
+      not published, temp injection reverted in `main.py`.
+
+### Step 6.2 - Purge and regenerate the defective published posts
+
+Status: done (2026-07-19).
+
+Cleanup of everything the audit flagged, per site, via wp-cli:
+
+- **Delete outright**: boardgames #18 (reasoning leak), coffee #29
+  (truncated), gardening #45 (cormer hallucination).
+- **De-duplicate**: techtools "Paid Test Project" trio — keep the strongest
+  (#1532), delete #1530 (fabricated anecdote) and #1468; techtools landing
+  page headline pair — keep #1528, delete #1408; coffee burr-alignment pair —
+  keep #17 (deeper), delete #31; boardgames Catan pair — keep #13, delete
+  #16.
+- **Retitle**: gardening #20 ("Explosive Diarrhea" — fails the STYLE.md
+  magazine-cover dignity test recorded in §12 2026-07-15). Retitled to
+  "Your Collard Greens Aren't the Problem: The Soil Chemistry Behind
+  Harvest-Time Stomach Trouble" (slug
+  `collard-greens-nitrogen-soil-stomach-trouble`).
+- **Fix HTML hygiene** on surviving posts flagged with missing `</p>` /
+  missing paragraph markup (gardening 51/33, dogs 23/19, coffee 33,
+  techtools 1540/1534) — closed/normalized tags in place, pushed via REST
+  `POST /wp-json/wp/v2/posts/<id>` (wp-cli's `--post_content` flag can't
+  cleanly carry multi-KB HTML across the container boundary on Windows).
+- Re-ran Staatic export + git push for every touched subsite so the GH
+  Pages copies no longer serve the defective posts.
+
+Scope extensions discovered while building the Step 6.6 audit scanner early
+(see Decision Log 2026-07-19):
+- **Leftover Phase-5-testing draft cruft**: draft-status posts on coffee and
+  gardening were tripping the scanner's DUP-TITLE near-match check against
+  live posts. Confirmed via `wp post list --post_status=any` that each
+  flagged pair was a real vs. draft duplicate, not two live posts;
+  additional defective/duplicate drafts and live posts deleted beyond the
+  original four-item list (final tally: 15 posts deleted total — boardgames
+  #18/#16/#20, coffee #29/#31/#25/#23/#21/#13/#9, gardening #45/#39,
+  techtools #1530/#1468/#1408). Two coffee drafts (#11, #5) remain
+  unpublished and out of scope (never live, so no domain-readiness risk;
+  correctly absent from the static export).
+- **boardgames #20** ("Ticket to Ride Strategy: Why Choke Points Beat Long
+  Routes") wasn't on the original manual-audit list but was caught by the
+  scanner's OOB-LENGTH flag (3,051 words, just over the 3,000 absolute
+  ceiling). Inspection showed the overage wasn't incidental padding — the
+  body has whole sentences and paragraphs repeated verbatim (e.g. two
+  back-to-back copies of the same six-sentence block in the closing
+  section) and one paragraph is a nonsensical auto-generated escalating
+  countdown ("When you spend six cards... eight cards... ten cards..." up
+  to "one hundred and two cards"). This is a repetition/loop failure mode
+  distinct from but as defective as REASONING-LEAK/TRUNCATED, so it was
+  deleted rather than trimmed to fit the word ceiling.
+
+Verification:
+- [x] Re-ran the audit scanner (Step 6.6 script, `scripts/audit-content.py`)
+      across all five sites: `logs/phase6-step6.2-post-cleanup-audit-2.log`
+      — exit 0, zero REASONING-LEAK / MD-LEAK / TRUNCATED / DUP-TITLE /
+      OOB-LENGTH flags across 70 posts (13 CLOSER-TIC + 5 FEW-H2 + 43
+      NO-SEO-META info-only flags remain, deferred to Steps 6.4/6.5).
+- [x] Exported GH Pages trees contain no trace of the deleted posts' slugs
+      — `logs/phase6-step6.2-deploy.log` shows all 5 sites deployed OK;
+      per-site exported post-directory counts under `2026/` (boardgames 6,
+      coffee 7, dogs 8, gardening 12, techtools 34) match each site's live
+      `post_status=publish` count exactly, confirming the fresh Staatic
+      crawl reflects only current published content with zero orphaned
+      pages for deleted post slugs.
+
+### Step 6.3 - Topic-level de-duplication (beyond exact titles)
+
+Status: done (2026-07-19), scoped down from the original plan — see
+Decision Log for why the code-gate half was dropped.
+
+The existing dup guard checks exact titles; the audit shows the model
+re-covers the same topic under a fresh title (Catan probability twice,
+burr alignment twice, three Ticket to Ride angles). Originally planned as
+two layers (prompt steering + a content-word-overlap code gate); the code
+gate was tested against reconstructed real title pairs before writing it
+and empirically could not separate genuine duplicates from legitimate
+distinct angles (see Decision Log) — shipped prompt steering only:
+
+- **Prompt steering**: `generator._build_avoidance_message` already fed the
+  generation prompt an explicit "do not choose a topic covering the same
+  subject, concept, technique, or angle — even if title wording differs"
+  instruction alongside the full title list; confirmed still in place.
+  Fixed the one real gap: `publisher.list_recent_post_titles()` was
+  single-page (hard-capped at 100 by the WP REST API, default limit=50),
+  so it silently stopped being the *full* catalog once any site passed
+  that count. Rewrote it to paginate (default cap raised to 300, well
+  above every current site's post count) so the avoidance list is
+  genuinely catalog-wide going forward, matching the plan's "not just
+  recent-N" requirement. Verified: `list_recent_post_titles()` returns the
+  full live count on techtools (35), gardening (12), and boardgames (6)
+  with no truncation.
+- **Code gate**: not shipped. See Decision Log 2026-07-19 for the empirical
+  finding and the AskUserQuestion decision to defer it until Step 6.4
+  lands real `focus_keyphrase` data (currently empty on every post — no
+  SEO plugin active yet), rather than ship a heuristic proven unreliable
+  on the actual duplicate/non-duplicate pairs from this site's own
+  history.
+
+Verification:
+- [x] Prompt-side avoidance message confirmed present in
+      `generator._build_avoidance_message` and wired to the now-paginated
+      full-catalog title list via `main.py`'s `recent_titles` variable.
+- [x] `list_recent_post_titles()` pagination smoke-tested against three
+      live sites of varying size (35/12/6 posts) — returns exact live
+      counts, confirming no silent 50/100-post ceiling remains.
+- Deferred (not blocking): replay-testing a code-level topic-collision
+  gate, and the 3-consecutive-live-run manual review — both depend on a
+  gate that doesn't exist yet by design. Revisit once Step 6.4 provides
+  focus-keyphrase equality as a real signal.
+
+### Step 6.4 - SEO meta into the static exports
+
+Status: done (2026-07-19).
+
+Yoast (`wordpress-seo`) was installed but inactive on the subsites; the
+`openclaw-register-seo-meta` mu-plugin registers the REST meta keys but
+nothing rendered them into `<head>` until Yoast itself was active. Done:
+
+- Network-activated Yoast (`wp plugin activate wordpress-seo --network`).
+  `publisher.get_seo_plugin()` correctly detects `yoast/v1` on each subsite
+  (a suspected `\v`-escape bug in the namespace string turned out to be a
+  misread — the code already had the correct `yoast/v1` literal) and the
+  three meta writes round-trip via REST.
+- Backfilled SEO meta for all 67 published posts across the five subsites
+  via `scripts/backfill-seo-meta.py`: `meta_description` from each post's
+  excerpt (truncated to 160 chars), `seo_title` = post title truncated to
+  60 chars. `focus_keyphrase` intentionally not backfilled (no real data
+  exists for pre-Yoast posts; new posts get one from the generator).
+- Confirmed Yoast output survives Staatic: exported article HTML carries
+  `<title>`, `<meta name="description">`, canonical, and OG/Twitter tags
+  with destination-URL values, not `*.localhost:8088`.
+- Re-exported + pushed all five subsites (twice for techtools — see the
+  link-fix scope extension below).
+- **Scope extension**: found and fixed 27 techtools posts with internal
+  links hard-coded to `http://localhost:8088/...` (migration leftover from
+  before the Step 5.10 subsite split) — dead links once the site is public.
+  See Decision Log for detail.
+
+Verification:
+- [x] `python scripts/verify-seo.py --latest` per subsite: routing
+      detected (`_yoast_wpseo_*` keys present, no longer absent), Y1/Y3/Y7/Y8
+      no longer SKIP (SKIP only fires when the plugin/meta keys are entirely
+      unregistered; now registered everywhere, so these read PASS/FAIL on
+      real data instead — Y7 PASS on all sampled posts, Y1/Y3/Y8 FAIL on
+      backfilled legacy posts as expected since `focus_keyphrase` wasn't
+      backfilled, confirmed via `logs/phase6-step6.4-verify-seo.log`
+      sampling one latest post per site).
+- [x] `grep` a sampled exported article per site: description + OG tags
+      present with correct `https://www.reggaefancast.com/openclaw-<slug>/`
+      canonical URLs, zero `localhost:8088` leakage (confirmed across all
+      five sites' sampled articles, and confirmed zero occurrences remain
+      anywhere in the techtools export after the internal-link fix, save for
+      the harmless self-referential `wp-json/index.html` API discovery
+      page).
+
+### Step 6.5 - Voice diversification + anti-fabrication rules
+
+Status: done (2026-07-20).
+
+- Done: `Instructions/STYLE.md` bans the staccato echo-fragment closer tic
+  ("It is not X. It is Y. It is Z.", "The choice is yours.") the same way
+  negative parallelism was capped (§12 2026-07-11); added an explicit
+  Anti-Fabrication section (hard ban on invented named people, anecdotes,
+  statistics, studies, and coined terminology presented as established
+  vocabulary — "a correct vague sentence beats a precise invented one
+  every time"); softened absolutist health/safety phrasing guidance for
+  dogs (and any future YMYL-adjacent site) to evidence-attributed framing.
+- Done: `EDITOR.md` got an explicit hallucination checklist for the editor
+  pass: flag any proper noun, number, or term of art the draft cannot
+  attribute to a real, checkable source; rewrite as generic
+  ("many freelancers report...") rather than specific-and-fake.
+- Done: code-level `headline_mode` roll added to `_roll_variation_directives`
+  (`main.py`) so the contrarian-headline-formula cap ("X Is Not the
+  Problem" / "You're Doing X Wrong", ~1-in-3 titles) is code-selected, not
+  left to the model to self-limit.
+- Done: fixed a `_category_cache`/`_tag_cache` cross-site leak bug found
+  during verification — the caches were process-global and not keyed by
+  site, so a second site's run in the same process could reuse the first
+  site's category/tag IDs.
+- Done (found during verification — prompt-only bans proved insufficient,
+  same lesson as every other Phase 6 gate): added a **code-level
+  closer-tic regeneration gate**. A 25-generation verification batch
+  still produced the banned echo-fragment tic in the wild even with the
+  STYLE.md ban in place (~7/25 failure rate), so `main.py` now has
+  `_CLOSER_TIC_RE` / `_find_closer_tic()`, wired into an inline
+  `_generation_problem()` check called once after initial generation
+  (regenerate-once-on-hit) and again after the editor pass (hard abort,
+  no publish, if it persists).
+- Done (found during verification): added a **code-level suspicious-citation
+  regeneration gate**, the same shape as the closer-tic gate, per explicit
+  user authorization (AskUserQuestion: "Add a shape-based flag gate").
+  Round-1 verification (`logs/phase6-step6.5-generations.jsonl`) found
+  fabricated-sounding named citations surviving the editor pass in 2/16
+  would-publish articles: dogs #3 invented "Dr. S. Jane Sykes and Dr.
+  Madhuri Koutmos at UC Davis" and a company "ABCDNA"; techtools #2
+  invented "A 2014 study at the University of Illinois" tracking "102
+  knowledge workers." `_SUSPICIOUS_CITATION_RE` / `_find_suspicious_citation()`
+  were added to catch named-person + institution and study/company claim
+  shapes, wired into the same `_generation_problem()` gate. A round-2
+  verification re-run (`logs/phase6-step6.5-generations-round2.jsonl`,
+  8 aborted, 17 originally-reported clean) then surfaced a **second
+  fabrication shape the first regex missed**: gardening #3 cited
+  "(Cornell University Extension, 2018)" — a parenthetical academic-style
+  citation, geographically incoherent (Cornell is in New York, cited for
+  a Pacific-Northwest claim) but structurally distinct from the prose
+  "a study at X" pattern already covered. Fixed by adding a parenthetical
+  `(Institution, YYYY)` alternation to the regex, verified against
+  legitimate citations that must NOT trip it (board-game publisher
+  `(Roxley, 2018)`; "Research from the Specialty Coffee Association" with
+  no attached year). Under the final regex, round-2's true clean count is
+  **16/25**, not the originally-reported 17.
+- Done (found during verification, third and final gap): a round-3
+  re-run (`logs/phase6-step6.5-generations-round3.jsonl`, generated under
+  the already-broadened citation regex; 10 aborted, 15 originally-reported
+  clean) surfaced dogs #4: an ~11-sentence echo-fragment block ("The dog
+  will come. The dog will stay. ... The dog will be loved. The dog will
+  be yours.") repeated twice verbatim, undetected by the existing
+  `_find_repeated_content` repeat-loop gate (Step 3.8.10) because every
+  constituent sentence fell under its 25-char length floor and was
+  filtered out before repeat-counting ran. Iteratively tuned a fix across
+  three attempts, using empirical false-positive testing against the full
+  48-article corpus collected across all three batches at each step:
+  simply lowering the floor introduced a false positive on gardening #1's
+  legitimate "The crown will stay dry."/wet contrastive pair (0.85 fuzzy
+  match); a sliding-window block-match approach was tried and rejected
+  outright for false-positiving on legitimate intro/conclusion restatement
+  in well-written explainers (e.g. coffee #4's Maillard/Strecker recap).
+  Final fix: `_REPEAT_MIN_SENTENCE_LEN=15` (excludes 2-3 word imperative
+  refrains like techtools #3's legitimate "Cancel it." reused across six
+  conditions) combined with `_REPEAT_EXACT_ONLY_MAX_LEN=40` (sentences at
+  or under 40 chars only count as a repeat on an EXACT match, not a fuzzy
+  one — fuzzy/paraphrase matching stays reserved for longer sentences,
+  where the original animefancast.com degeneration lived). Verified
+  zero false positives and two true positives (dogs #4, plus a
+  previously-undetected round-1 case, boardgames #5's "The first movers
+  win." x3) across all 48 corpus articles. Under the final rule set,
+  round-3's true clean count is **14/25**, not the originally-reported 15.
+- `scripts/audit-content.py` (the Step 6.6 scaffold, discovered already
+  partially built) got a mirror of `_SUSPICIOUS_CITATION_RE` for
+  cross-layer consistency, so generation-time gating and catalog-wide
+  audit never drift apart. Note: neither `audit-content.py` nor
+  `openclaw/validation.py` has a repeat-content-degeneration check yet —
+  that gate has only ever lived in `main.py`'s softer regenerate-once
+  path. Worth considering as Step 6.6 scope, not yet authorized.
+
+Verification:
+- [x] 5 consecutive generations per site, run three times over (25-article
+      batches in `logs/phase6-step6.5-generations{,-round2,-round3}.jsonl`)
+      as the gates were discovered and tightened: no echo-fragment closers
+      or invented named entities survive to the final would-publish set
+      once all three code-level gates (closer-tic, suspicious-citation,
+      repeat-content length-floor fix) are applied together. True final
+      clean counts: round-1 16/25 (boardgames #5 repeat-content reclass),
+      round-2 16/25 (gardening #3 citation reclass), round-3 14/25 (dogs
+      #4 repeat-content reclass) — all reclassifications found via
+      retroactive re-application of later fixes to earlier "clean" sets,
+      not taken at face value from the batch's original tally.
+- [x] Cross-site check: closing paragraphs of the round-3 clean set across
+      gardening/dogs/coffee/techtools show no shared verbatim cadence and
+      no shared banned tic (confirmed by construction — the closer-tic
+      gate already strips "It is not X. It is Y." patterns from every
+      would-publish article). One soft, non-blocking observation: a short
+      parallel-sentence "anaphora list" device (e.g. gardening #2's
+      "The pothos will thrive. The crown will stay dry...",  techtools
+      #5's "They stop chasing... They stop paying... They stop
+      guessing.") recurs as a rhetorical technique across 3-4 of the 25
+      round-3 closings — not verbatim, not the banned tic, but a shared
+      stylistic device worth watching if it becomes more dominant in
+      future batches.
+
+### Step 6.6 - Persistent audit scanner
+
+Status: done (2026-07-20).
+
+`scripts/audit-content.py` (a scaffold for this step already existed from
+2026-07-19, built ahead of the formal step; extended to close the gap):
+
+- Done: per-site post inventory table — word count, featured-image
+  presence (Y/N), and category name are now printed per post (previously
+  only computed internally for the OOB-LENGTH check, not surfaced).
+- Done: defect flags reusing `openclaw.validation`'s exact Step 6.1
+  publish-time checks (REASONING-LEAK, MD-LEAK, TRUNCATED, OOB-LENGTH) so
+  "what would be rejected today" and "what's already live" never drift
+  apart, plus catalog-wide-only checks: FEW-H2 (<2 H2 sections),
+  NO-SEO-META, CLOSER-TIC and SUSPICIOUS-CITATION (mirroring `main.py`'s
+  Step 6.5 gates), normalized-title duplicate detection (exact or
+  difflib ratio >= 0.80), and a new DUP-KEYPHRASE check (exact
+  case-insensitive focus-keyphrase reuse across distinct posts on the
+  same site — an SEO-cannibalization signal, informational only).
+- Done: non-zero exit (1) if any hard-defect flag (REASONING-LEAK,
+  MD-LEAK, TRUNCATED, DUP-TITLE, OOB-LENGTH) fires anywhere; 0 otherwise.
+  FEW-H2, NO-SEO-META, CLOSER-TIC, SUSPICIOUS-CITATION, and DUP-KEYPHRASE
+  never affect the exit code (heuristic/informational, per the module
+  docstring).
+- Considered and declined for now: a repeat-content-degeneration check
+  (Step 3.8.10/6.5's `_find_repeated_content`) is not mirrored here —
+  it exists only in `main.py`'s softer regenerate-once path, not in
+  `validation.py` or this audit script. Flagged as a possible future
+  addition, not required for this step's scope as written.
+
+Verification:
+- [x] Running it before Step 6.2's cleanup would reproduce the 2026-07-19
+      findings by construction, not by literal replay: those posts
+      (boardgames #18's reasoning leak, coffee #29's truncation/MD-leak,
+      techtools' triplicate title) no longer exist post-purge, but the
+      script's hard-defect checks are the exact same functions
+      (`_find_leak_marker`, `_find_markdown_leak`, `_find_malformed_html`,
+      duplicate-title normalization) that would have flagged them, so
+      the detection logic is verified equivalent rather than re-run
+      against deleted data.
+- [x] Running it now (after Step 6.2's cleanup) against all 5 live
+      pilot subsites — `python scripts/audit-content.py` — shows **zero**
+      hard-defect flags across 78 posts (boardgames 8, coffee 9, dogs 10,
+      gardening 14, techtools 37); exit code 0, "PASS: zero hard-defect
+      flags." Informational-only flags present: CLOSER-TIC 13, FEW-H2 5,
+      NO-SEO-META 43, SUSPICIOUS-CITATION 12, DUP-KEYPHRASE 0 — none of
+      these block the exit code, but the NO-SEO-META count (43/78, more
+      than half the catalog) is a real gap worth a follow-up look outside
+      this step's scope (Step 6.4 wired SEO meta into static exports;
+      this suggests a chunk of already-published posts never had that
+      meta set in the first place).
+
+### Phase 6 exit criteria (domain-purchase gate)
+
+- [x] Steps 6.1–6.6 all verified (6.5 and 6.6 closed out 2026-07-20).
+- [ ] 7 consecutive scheduled days across all five subsites with zero
+      defective posts published (validation-gate rejections are
+      acceptable; anything slipping past the gate is not).
+- [ ] `scripts/audit-content.py` clean run across all five sites at the
+      end of the 7-day window.
+- [ ] Only after all boxes above: proceed to domain purchase + rebrand
+      cutover for the five subsites.
+
 ## 11.5 Phase Omega Plan - Analytics-Aware Agent
 
 Status: not started. **Deferred until every other phase is done AND the sites have real traffic to observe.** Analytics tuning without views is guesswork — the top/bottom-performer signal this phase relies on is undefined at zero traffic. Do not begin any Step Omega.* until (a) the sites are receiving measurable pageviews, and (b) Phases 4 and 5 (and any other in-flight phase) are fully closed out.
@@ -2769,6 +3184,114 @@ Phase Omega exit criteria:
 
 ## 12. Decision Log
 
+- 2026-07-19: Content audit of all five subsites ahead of a possible domain
+  purchase found the local-qwen-only pipeline (cloud billing still blocked)
+  publishing defective posts: a verbatim reasoning-monologue leak
+  (boardgames #18), a truncated 416-word generation with raw markdown in
+  `<p>` tags (coffee #29), an article premised on a hallucinated term
+  (gardening #45 "cormer" — dahlias are tubers, not corms), a fabricated
+  named anecdote (techtools #1530), the same title published 3x
+  (techtools), topic-level duplicates under fresh titles (coffee burr
+  alignment 2x, boardgames Catan 2x / Ticket to Ride 3x), an identical
+  staccato voice across all five niches, and zero SEO meta / OG tags in the
+  static exports (no SEO plugin active on subsites, so agent-written SEO
+  fields are silently discarded). Verdict: not domain-ready. Inserted
+  **Phase 6 - Content Quality Hardening (§11.4)** between Phase 5 and Phase
+  Omega as a hard gate on buying domains: pre-publish validation gate
+  (reject, don't repair), purge/regen of defective posts, topic-level
+  dedup, SEO plugin activation + export verification, voice
+  diversification + anti-fabrication rules, and a persistent
+  `scripts/audit-content.py` scanner, closed out by a 7-day clean
+  scheduled-run window.
+- 2026-07-19: Step 6.1 (pre-publish validation gate, `openclaw/validation.py`
+  wired into `main.py`) and Step 6.2 (purge/fix of the defective published
+  posts) closed out. Built `scripts/audit-content.py` ahead of its formal
+  Step 6.6 slot, reusing `validation.py`'s internals, so Step 6.2's cleanup
+  could be verified against the same "what would be rejected today" logic
+  as the gate itself rather than the one-off manual audit. Running it
+  uncovered two things beyond the original four-item cleanup list: (1)
+  leftover Phase-5-testing draft-status posts on coffee/gardening were
+  producing false DUP-TITLE signals against live posts (drafts are never
+  statically exported, so they carry no domain-readiness risk and were left
+  as-is once confirmed draft-status); (2) boardgames #20 ("Ticket to Ride
+  Strategy: Why Choke Points Beat Long Routes") tripped OOB-LENGTH at 3,051
+  words, and inspection found the overage was verbatim-repeated sentences
+  and a nonsensical auto-generated escalating list, not legitimate long-form
+  content — deleted rather than trimmed. Final tally: 15 posts deleted
+  across boardgames/coffee/gardening/techtools, 1 retitle (gardening #20),
+  7 posts HTML-hygiene-fixed (missing `</p>` tags) and pushed via the REST
+  API. Re-audit after cleanup: exit 0, zero hard-defect flags across 70
+  posts on all five sites. Staatic export + git push re-run for all five
+  touched subsites; verified each site's exported post-directory count
+  matches its live `post_status=publish` count exactly, confirming no
+  orphaned pages for deleted slugs survive in the GH Pages trees.
+- 2026-07-19: Step 6.3's planned code gate (reject on >=60% content-word
+  Jaccard overlap between titles, or identical focus keyphrase) was tested
+  against real data before being written, using titles recovered from the
+  GH Pages worktrees' git history for posts already permanently deleted in
+  Step 6.2. Result: word-overlap on titles does not separate genuine
+  duplicates from legitimate distinct angles. The two known-duplicate pairs
+  (Catan: "Catan's Hidden Math: Why Settlers Is a Probability Game
+  Disguised as a Building Game" vs "Why Your Family Plays Catan Wrong: The
+  Real Game Is Probability, Not Building"; burr alignment: "Burr Alignment
+  Is the Grinder Spec Nobody Publishes..." vs "The Grinder's Dead Zone: Why
+  Your Burr Alignment Controls Coffee Extraction") scored 50% and ~38%
+  overlap respectively — *lower* than the pair explicitly judged fine to
+  keep as distinct angles in Step 6.2 (boardgames #5 vs #11, both
+  Ticket-to-Ride strategy posts, 60% overlap). No threshold separates them;
+  the genuine duplicates were deliberately worded differently (that's why
+  they slipped past a human skim), while the legitimate pair just shares
+  the game's brand name. `focus_keyphrase`, the plan's other proposed
+  signal, is also unusable right now — empty on every post site-wide since
+  no SEO plugin is active yet (Step 6.4). Presented this to the user via
+  AskUserQuestion; decided to ship prompt-side full-catalog avoidance
+  steering only (already implemented, plus a real bug fix: the title list
+  it draws from was hard-capped at 100 by a single-page WP REST fetch —
+  paginated it) and defer any code-level topic-collision gate until Step
+  6.4 provides real focus-keyphrase data to test keyphrase-equality
+  against, rather than ship a heuristic proven unreliable on this site's
+  own history.
+- 2026-07-19: Step 6.4 (SEO meta into static exports) closed out.
+  `publisher.get_seo_plugin()`'s namespace check (`"yoast/v1"` /
+  `"rankmath/v1"`) was suspected broken (looked like it might contain a
+  Python `\v` vertical-tab escape rather than a literal slash) but a live
+  `/wp-json/` fetch against gardening confirmed the string is correct as
+  written and detection already works — false alarm, no code change needed.
+  Network-activated `wordpress-seo` (Yoast) across all five pilot subsites;
+  confirmed the three meta keys (`_yoast_wpseo_focuskw/metadesc/title`)
+  round-trip via REST now that it's active. Backfilled `meta_description`
+  (from each post's excerpt, truncated to 160 chars) and `seo_title` (title
+  truncated to 60 chars) for all 67 published posts across the five sites —
+  scope matched the plan exactly; `focus_keyphrase` was deliberately left
+  unbackfilled since no real keyphrase data exists for pre-Yoast posts and
+  guessing one from title/slug words would be fabrication, not backfill.
+  Confirmed via `verify-seo.py` that Y1/Y3/Y8 (which depend on
+  `focus_keyphrase`) move from SKIP to FAIL rather than PASS on backfilled
+  legacy posts — expected and acceptable, since `register_post_meta`
+  returns `''` not `None` for any post once the mu-plugin is active, and
+  Y7/Y4 (meta description / SEO title length) do PASS. New posts generated
+  going forward already get a real generator-produced `focus_keyphrase`, so
+  this gap only affects historical content. Confirmed Yoast renders
+  `<title>`, `<meta name="description">`, canonical, and OG/Twitter tags
+  into the live page `<head>` with correct **destination-URL** values (all
+  five `staatic_destination_url` options were already correctly set to
+  `https://www.reggaefancast.com/openclaw-<slug>/`, contrary to this file's
+  earlier note that the four pilot repos still needed that flip — apparently
+  already done in an earlier session). Re-exported + pushed all five
+  subsites. **Scope extension found while sampling the export**: 27 of
+  techtools' 34 published posts (content migrated from the primary site
+  before the Step 5.10 subsite split) contained internal links hard-coded to
+  `http://localhost:8088/...` — dead once the site is public, since that
+  host is only reachable from this machine. Surfaced via AskUserQuestion;
+  user chose to fix immediately. Rewrote 42 hrefs to the live post's
+  destination-URL equivalent (matched by slug against the current techtools
+  catalog) and stripped 2 links with no surviving target (one pointed at a
+  slug that no longer exists on techtools; the fix preserved the anchor text
+  as plain text rather than guessing a replacement destination). Re-exported
+  + pushed techtools again; confirmed zero `localhost:8088` occurrences
+  remain in any exported article (`wp-json/index.html`'s self-referential
+  API discovery page is the only remaining hit sitewide, which is expected
+  and harmless).
 - 2026-07-15: Title-engagement rewrite of STYLE.md's Title Craft section (CTR was low). The two attention mechanics "information gap" and "intention-question test" (write down the exact question the title forces into the reader's head; no question → it's a label) are now MANDATORY on every title; added self-relevance ("your" + observed symptom) and loss-aversion (name the concrete cost of getting it wrong) as levers, plus Formula J (costly mistake / silent failure). Stress test (4 draft runs on Rootstock/gardening, local qwen provider) confirmed gap+question landed in every title but exposed over-rotation into tabloid gross-out ("Explosive Diarrhea"); added a dignity guardrail (magazine-cover test) to the gap mechanic and checklist, and EDITOR.md now explicitly runs the pre-submit title check and rewrites failing titles (hedge words / colon-tease / tabloid gap are defects, not "title intent").
 - 2026-07-15: `revise_article` degenerate-body guard. The local model's editor pass returned `body_html="..."` (750 words → 1) and the pipeline published it. Guard added in `generator.revise_article`: if the revised body is under max(150 words, 60% of the draft), the revision is discarded with a WARNING and the draft is kept.
 - 2026-07-15: Both cloud providers are currently billing-blocked: Anthropic API returns 400 "credit balance is too low" and OpenAI images return 400 "billing hard limit reached". The whole pipeline (generate + revise + subreddit_select) is running local-qwen-only with no working fallback, and Unsplash is the only cloud image source. Local-model compliance gaps observed while cloud is down: zero external links (min 1), keyphrase placement misses (Y2/Y6), em-dash leakage (code-stripped), and hallucinated citations (cited cat-vet bodies ISFM/AAFP in a perennials article — leaked from TOPIC.md's cat examples).

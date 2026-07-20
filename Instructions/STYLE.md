@@ -196,6 +196,18 @@ Run this for every factual claim that isn't general knowledge (dates, numbers, q
 4. **If it can't be confirmed, never silently assert it.** Cut the claim, or soften it explicitly ("reportedly", "as of [date]") — and only if the softened version is still useful.
 5. **Never fabricate a specific number, date, or quote** to make a sentence sound more authoritative. A correct vague sentence beats a precise invented one every time.
 
+### Anti-Fabrication (hard ban, no exceptions)
+
+Two published incidents made this a hard rule instead of a guideline: gardening #45 built its entire premise on an invented term ("cormer") and a wrong botanical claim (dahlias grow from corms; they're tubers), and techtools #1530 invented a named person and a specific claim about them ("a product designer named Elena... the most-saved post in the community's history") to make a point land. Both read as confident and specific — which is exactly why they're dangerous; specificity is normally the credibility signal, but only when it's true.
+
+**Banned outright, with no real source to attribute it to:**
+- A named person who isn't a real, checkable, real-world figure (no invented "product designer named Elena," no invented quote attributed to a real name either).
+- An anecdote, scenario, or first-person-feeling story presented as if it happened, when it didn't.
+- A statistic, study, survey, or organization (e.g., a plausible-sounding acronym like "ISFM" or "AAFP" cited for a claim it never made) that cannot be traced to a real, checkable source.
+- A coined term presented as established vocabulary in the field ("cormer," or any other made-up noun dressed up as a real word practitioners use), when it isn't one.
+
+**When in doubt, go generic, not specific-and-fake.** "Many freelancers report..." or "a common pattern experienced gardeners describe..." is honest and still useful. A fabricated named source is not — the specificity is a lie, and it's the exact kind of error that costs a site's credibility once caught. If a claim needs a named source to feel complete and no real one is available, either search for a real one or cut the specificity and state the claim in general terms.
+
 ### E-E-A-T signals
 
 Demonstrate Experience, Expertise, Authority, Trustworthiness: concrete facts with dates and numbers attached, sourced information with the source named, specific examples over abstractions, a clear point of view where the evidence supports one. Generic synthesis reads as thin; specific, lived-in detail reads as credible.
@@ -208,6 +220,12 @@ An article that only tells the reader what works reads like an ad. Every article
 - **At least one dedicated passage per article** — a paragraph, or a short H2/H3 when the material earns it ("When a spreadsheet is still the right call", "Where this framework breaks down") — that takes the strongest exception seriously instead of waving at it. Don't reuse this guide's own vocabulary as the heading ("The Honest Limits of X" every time); phrase it in the article's language, and vary the phrasing across articles like title formulas.
 - **A limit is not a hedge.** Hedges weaken a claim ("results may vary", "this might not work for everyone" — banned). Limits sharpen it with specifics: "This sequencing works for lists under 1,000 prospects. Past that, deliverability math takes over and the bottleneck moves." State the scope with the same confidence as the claim itself.
 - **Steelman, don't strawman.** Pick the exception a smart skeptic would actually raise, not a soft one that's easy to knock down. If the counter-case sometimes wins, say so and say when.
+
+### Health/safety claims — no absolutist medical framing
+
+On any site that touches health, safety, diet, or medical-adjacent topics (dogs is the current example; treat any future YMYL-adjacent site the same way), do not state a categorical safety verdict as if it were settled fact: "Raw feeding is not safe. It is not natural." is banned as written — it's both an echo-fragment closer (see Banned structural patterns) and an absolutist claim the body almost never actually substantiates to that degree.
+
+Instead, attribute the position to the evidence or the body issuing it, and let the reader see the actual state of expert opinion: "Veterinary nutrition groups generally advise against raw feeding, citing bacterial contamination risk in home-prepared batches" is checkable, honest, and still useful for a decision. If the evidence is genuinely mixed or contested, say so rather than picking the more dramatic side. This is not the same as hedging every claim (still banned, see above) — a well-sourced, specific, attributed claim can be stated with full confidence. What's banned is stating a categorical verdict ("X is not safe," "X is dangerous," "never do X") as bare assertion with no source doing the asserting.
 
 ## The Original Contribution (mandatory)
 
@@ -343,6 +361,7 @@ The user message lists the site's recently published titles (for topic de-duplic
 > `Your [subject] isn't [X]. It's [correct read].`
 - "Your Cat Isn't Ignoring You. Vibrissae Fatigue Is Real."
 - "Your CRM Isn't Slow. Your Pipeline Has 40 Fields Nobody Fills In."
+- This formula (and its close cousins "X Is Not the Problem" / "You're Doing X Wrong") is the site's most over-used shape — use it ONLY when the run's variation directives say it's allowed for this article (roughly 1 article in 3), same as the FAQ rule below. When the directive says not to use it, pick a different formula from the list, not a reworded near-miss of E.
 
 **Formula F — Specific comparison (two named things, one difference):**
 > `[Named A] vs. [Named B]: [the actual load-bearing difference].`
@@ -570,6 +589,7 @@ WordPress readers skim before they read:
 ### Banned structural patterns
 
 - **The negative-parallelism reframe — HARD CAP at one per article.** "It's not just X. It's Y." / "This isn't about X; it's about Y." / "X isn't a bug. It's a feature." This is currently the single most recognizable AI cadence in published prose. One instance per article maximum, and only when the reframe is genuinely the point; zero is better.
+- **The echo-fragment closer — BANNED outright.** A short-sentence-fragment cadence that repeats the same clause shape 2-3 times to end a section or the article: "It is not X. It is Y. It is Z." / "Not a trend. A shift. A permanent one." / "The choice is yours." Zero per article, no exceptions. This is a second, distinct AI tic from the negative-parallelism reframe above — the reframe states one contrast once; this one chains short fragments for false gravity. End sections and articles with an actual sentence that says something, not a drumbeat.
 - "The result?" / "The catch?" / "The problem?" one-word-question-then-answer construction, more than once per article
 - The reflexive rule of three (exactly three adjectives / examples / clauses) — vary it; sometimes one, sometimes five
 - Every paragraph 3–4 sentences; every section the same length
@@ -605,7 +625,7 @@ WordPress readers skim before they read:
 16. Keyphrase verbatim in: first sentence, ≥1 H2/H3, meta description, slug, image alt text
 17. `seo_title` ≤55 characters, keyphrase at the start; entered in Yoast's field
 18. Meta description 120–155 chars, keyphrase verbatim, entered in Yoast's field
-19. Title check run (colon rule, information gap + intention question, CTR-killers, hedge words, concrete detail, formula rotation A–J)
+19. Title check run (colon rule, information gap + intention question, CTR-killers, hedge words, concrete detail, formula rotation A–J); Formula E only used if this run's variation directives allow it
 20. 2–4 internal links (real URLs only) + 1–2 external primary-source links
 21. At least one image with keyphrase-relevant alt text
 22. FAQ section only if this run's variation directives call for one
@@ -617,5 +637,7 @@ WordPress readers skim before they read:
 26. Connectors natural, not stuffed (no 30% floor; yellow Yoast transition score is fine)
 27. Burstiness: sentence lengths jagged; one tangent/aside present; no three consecutive paragraphs with the same internal shape
 28. Negative-parallelism reframe ("It's not just X. It's Y."): at most one, ideally zero
+29. Echo-fragment closer ("It is not X. It is Y. It is Z.", "The choice is yours."): zero, no exceptions
+30. Every named person, statistic, study, or coined term traced to a real source; none invented (Anti-Fabrication section); health/safety claims attributed to a source, not stated as bare absolutist verdicts
 
 If any check fails, improve the draft before submitting. Would a human editor publish this without edits? If not, it isn't done.

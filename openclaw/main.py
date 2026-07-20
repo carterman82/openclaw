@@ -33,9 +33,11 @@ from .publisher import (
     list_recent_post_titles,
     list_recent_posts_for_linking,
     publish_post,
+    reset_site_caches,
     upload_media,
 )
 from .trends import gather_trending_signals
+from .validation import dump_rejected_article, find_title_collision, validate_article
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +58,8 @@ def _activate_site(slug: str | None) -> None:
     """
     from dotenv import load_dotenv
     load_dotenv()  # ensure .env is read before we inspect os.environ
+
+    reset_site_caches()
 
     if not slug:
         return
@@ -479,30 +483,56 @@ _HOOK_TYPES: tuple[str, ...] = (
 
 _FAQ_PROBABILITY: float = 1 / 3
 
+# Step 6.5 (2026-07-19): the site's title corpus skewed heavily toward one
+# contrarian shape ("X Is Not the Problem", "Your X Isn't Y. It's Z." —
+# STYLE.md Formula E) because the model reaches for it by default whenever
+# it's available, not just when the material earns it. Capping it via a
+# prompt directive alone didn't work for the same reason FAQ inclusion
+# needed a code-level coin flip instead of a soft "use sometimes" note — the
+# model can't self-randomize. So the constraint is rolled in code, same
+# pattern as _FAQ_PROBABILITY.
+_CONTRARIAN_HEADLINE_PROBABILITY: float = 1 / 3
 
-def _roll_variation_directives() -> str:
-    """Roll random structural directives so articles vary in shape and length."""
+
+def _roll_variation_directives() -> tuple[str, tuple[int, int]]:
+    """Roll random structural directives so articles vary in shape and length.
+
+    Returns (directive_text, (low, high)) — the band is threaded through to
+    the Step 6.1 validation gate so it can check the final word count
+    against the same band the model was told to target.
+    """
     low, high = random.choice(_LENGTH_BANDS)
     hook = random.choice(_HOOK_TYPES)
     if random.random() < _FAQ_PROBABILITY:
         faq_line = "Include a short FAQ section near the end."
     else:
         faq_line = "Do NOT include an FAQ section in this article."
-    return (
+    if random.random() < _CONTRARIAN_HEADLINE_PROBABILITY:
+        headline_line = (
+            "This run's title MAY use the contrarian-reframe formula "
+            "(STYLE.md Formula E: \"Your X Isn't Y. It's Z.\" / \"X Is Not "
+            "the Problem\" / \"You're Doing X Wrong\") if the material "
+            "genuinely earns it."
+        )
+    else:
+        headline_line = (
+            "Do NOT use the contrarian-reframe formula (STYLE.md Formula E: "
+            "\"Your X Isn't Y. It's Z.\" / \"X Is Not the Problem\" / "
+            "\"You're Doing X Wrong\") for this article's title. Pick a "
+            "different formula (A, B, C, D, F, G, H, I, or J)."
+        )
+    directive = (
         "Variation directives for this article (assigned at random for this run; "
         f"follow them): target {low}-{high} words of body content. {faq_line} "
         f"Open with a hook of the {hook!r} type (see the style guide's Hook Craft "
-        "section)."
+        f"section). {headline_line}"
     )
+    return directive, (low, high)
 
 
 def _pick_random_category(wp_categories: tuple[str, ...]) -> str:
     selectable = [c for c in wp_categories if c.lower() != "uncategorized"]
     return random.choice(selectable or list(wp_categories))
-
-
-def _normalize_title(title: str) -> str:
-    return re.sub(r"[^a-z0-9\s]", "", title.lower()).strip()
 
 
 def _find_duplicate_title(title: str, recent_titles: list[str]) -> str | None:
@@ -511,20 +541,12 @@ def _find_duplicate_title(title: str, recent_titles: list[str]) -> str | None:
     The LLM is instructed not to repeat a recent topic, but local models are
     unreliable at honoring that soft instruction (observed: the same title
     reproduced verbatim across two separate runs). This is the hard backstop.
+    Delegates to validation.find_title_collision so this pre-generation check
+    (against the recent-N titles used for prompt steering) and the Step 6.1
+    post-generation gate (against the full site catalog) share one
+    definition of "duplicate."
     """
-    normalized = _normalize_title(title)
-    if not normalized:
-        return None
-    for existing in recent_titles:
-        existing_normalized = _normalize_title(existing)
-        if not existing_normalized:
-            continue
-        if normalized == existing_normalized:
-            return existing
-        ratio = difflib.SequenceMatcher(None, normalized, existing_normalized).ratio()
-        if ratio >= 0.80:
-            return existing
-    return None
+    return find_title_collision(title, recent_titles)
 
 
 # Step 3.8.10 (2026-07-18): animefancast.com tuning found the local model
@@ -533,7 +555,32 @@ def _find_duplicate_title(title: str, recent_titles: list[str]) -> str | None:
 # dependent" repeated 7x verbatim in one draft) — sampling-parameter tuning
 # alone (repetition_penalty, frequency_penalty) did not stop it. This is a
 # hard backstop analogous to _find_duplicate_title.
-_REPEAT_MIN_SENTENCE_LEN = 25
+#
+# Step 6.5 (2026-07-20): the original 25-char sentence-length floor was
+# too high to catch a different flavor of the same degeneration — dogs #4
+# in a verification batch ended with a ~12-sentence echo-fragment block
+# ("The dog will come. The dog will stay. The dog will be home. ... The
+# dog will be loved. The dog will be yours.") repeated twice verbatim,
+# entirely built from sub-25-char sentences that were filtered out before
+# the repeat check ever saw them. Lowered the floor to catch short
+# sentences too, but short sentences also legitimately recur two other
+# ways: (a) deliberate near-rhyme contrast (e.g. "The crown stays wet." /
+# "The crown stays dry." in a real "cause vs. fix" explainer — 0.85
+# similar, not degeneration) and (b) a short verdict/imperative reused as
+# a structural refrain across many different conditions in a decision
+# framework (e.g. "Cancel it." answering six different trigger conditions
+# in a SaaS-audit checklist). Fix for (a): below _REPEAT_EXACT_ONLY_MAX_LEN,
+# only a literal exact match counts as a repeat — fuzzy-paraphrase
+# matching stays reserved for longer sentences, where the original
+# animefancast.com failure mode lives. Fix for (b): raised the floor to
+# 15 chars, just enough to exclude 2-3 word imperatives like "Cancel it."
+# while still admitting the "[Subject] will/is [predicate]." shape that
+# made up the actual dogs #4 degenerate block. Verified against 48 clean
+# articles from three verification batches: this combination catches both
+# known true positives (dogs #4, boardgames #5's "The first movers win."
+# repeated 3x) with zero false positives.
+_REPEAT_MIN_SENTENCE_LEN = 15
+_REPEAT_EXACT_ONLY_MAX_LEN = 40
 _REPEAT_SIMILARITY_THRESHOLD = 0.85
 _REPEAT_MAX_OCCURRENCES = 2
 
@@ -541,8 +588,9 @@ _REPEAT_MAX_OCCURRENCES = 2
 def _find_repeated_content(body_html: str) -> str | None:
     """Return an offending sentence if body_html shows repeat-loop degeneration.
 
-    Flags any sentence (or close paraphrase) that occurs more than
-    `_REPEAT_MAX_OCCURRENCES` times across the article.
+    Flags any sentence that occurs more than `_REPEAT_MAX_OCCURRENCES` times
+    verbatim, or (for sentences longer than `_REPEAT_EXACT_ONLY_MAX_LEN`) as a
+    close paraphrase.
     """
     text = html_unescape(_strip_html(body_html))
     sentences = [
@@ -557,11 +605,89 @@ def _find_repeated_content(body_html: str) -> str | None:
         occurrences = 1
         for j in range(i + 1, len(normalized)):
             b = normalized[j]
-            if a == b or difflib.SequenceMatcher(None, a, b).ratio() >= _REPEAT_SIMILARITY_THRESHOLD:
+            if a == b:
+                occurrences += 1
+            elif (
+                len(a) > _REPEAT_EXACT_ONLY_MAX_LEN
+                and len(b) > _REPEAT_EXACT_ONLY_MAX_LEN
+                and difflib.SequenceMatcher(None, a, b).ratio() >= _REPEAT_SIMILARITY_THRESHOLD
+            ):
                 occurrences += 1
         if occurrences > _REPEAT_MAX_OCCURRENCES:
             return sentences[i]
     return None
+
+
+# Step 6.5 (2026-07-19): STYLE.md's prompt-only ban on the echo-fragment
+# closer tic ("It is not X. It is Y. It is Z.", "The choice is yours.") did
+# not hold up — a 25-generation verification batch across all 5 pilot sites
+# still produced it in 7/25 articles even after the editor pass. Same lesson
+# as _find_duplicate_title and _find_repeated_content: a soft instruction
+# isn't enough for a pattern this specific and memorized. Regex matches
+# scripts/audit-content.py's _CLOSER_TIC_RE so detection stays consistent
+# between the generation-time gate and the standalone audit scanner.
+_CLOSER_TIC_RE = re.compile(
+    r"(?:\bthe choice is yours\b"
+    r"|\bit is not [^.!?]{2,40}\. it is [^.!?]{2,40}\.)",
+    re.IGNORECASE,
+)
+
+
+def _find_closer_tic(body_html: str) -> str | None:
+    """Return a snippet if body_html contains the banned echo-fragment closer tic."""
+    text = html_unescape(_strip_html(body_html))
+    m = _CLOSER_TIC_RE.search(text)
+    if not m:
+        return None
+    start = max(0, m.start() - 40)
+    end = min(len(text), m.end() + 40)
+    return text[start:end].strip()
+
+
+# Step 6.5 (2026-07-20): STYLE.md's Anti-Fabrication section and EDITOR.md's
+# Hallucination Checklist (both prompt-only) did not hold up either — a
+# 25-generation verification batch still produced fabricated-sounding named
+# citations in 2/16 would-publish articles even after the editor pass:
+# dogs #3 invented "Dr. S. Jane Sykes and Dr. Madhuri Koutmos at UC Davis"
+# and a company "ABCDNA"; techtools #2 invented "A 2014 study at the
+# University of Illinois" tracking "102 knowledge workers" for the
+# Pomodoro/52-17 rule. This can't verify truth, only flag suspicious
+# over-specific attribution shape (named person + institution, or a
+# study/company claim with fabricated-plausible specificity) — same
+# lesson as _find_closer_tic: a soft instruction isn't enough, so push
+# the model toward STYLE.md's own stated fallback ("a correct vague
+# sentence beats a precise invented one") by regenerating once on a hit.
+# A round-2 verification batch (after the checks below were first added)
+# still slipped one through in a different shape: gardening #3 cited
+# "(Cornell University Extension, 2018)" with specific rot-rate/temperature
+# stats attached to a claim about "land-grant universities in the Pacific
+# Northwest" — Cornell is in New York, so the citation is not just
+# unverifiable but geographically incoherent. Parenthetical "(Institution,
+# YYYY)" academic-style citations are a distinct fabrication shape from
+# prose "a study at X" phrasing, so they need their own pattern.
+_SUSPICIOUS_CITATION_RE = re.compile(
+    r"\bDr\.\s?[A-Z][a-z]+"
+    r"|\bresearchers?\s+[A-Z][a-z]+\s+[A-Z][a-z]+"
+    r"|\b(?:a|the)\s+\d{4}\s+study\b"
+    r"|\bstudy\s+(?:by|from|published|conducted)\b"
+    r"|\b(?:a|the)\s+study\s+at\s+(?:the\s+)?[A-Z][A-Za-z.&' ]{2,50}\b"
+    r"|\baccording to\s+[A-Z][a-z]+\s+[A-Z][a-z]+\b"
+    r"|\([A-Z][A-Za-z.&' ]{2,60}(?:University|Extension|Institute|College|Association|Society|Foundation|Journal)[A-Za-z.&' ]{0,20},\s*(?:19|20)\d{2}\)",
+    re.IGNORECASE,
+)
+
+
+def _find_suspicious_citation(body_html: str) -> str | None:
+    """Return a snippet if body_html contains a suspiciously over-specific,
+    unverifiable-looking named citation (person, institution, or study claim).
+    """
+    text = html_unescape(_strip_html(body_html))
+    m = _SUSPICIOUS_CITATION_RE.search(text)
+    if not m:
+        return None
+    start = max(0, m.start() - 60)
+    end = min(len(text), m.end() + 60)
+    return text[start:end].strip()
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -660,13 +786,16 @@ def main(argv: list[str] | None = None) -> int:
                     category,
                     list(wp_categories),
                 )
-            variation_directives = None if args.topic else _roll_variation_directives()
+            if args.topic:
+                variation_directives, length_band = None, None
+            else:
+                variation_directives, length_band = _roll_variation_directives()
             if variation_directives:
                 logger.info("Variation directives: %s", variation_directives)
             recent_titles = [] if args.topic else list_recent_post_titles()
             if recent_titles:
                 logger.info(
-                    "Loaded %d recent post titles for topic de-duplication.",
+                    "Loaded %d post title(s) (full catalog) for topic de-duplication.",
                     len(recent_titles),
                 )
             link_candidates = list_recent_posts_for_linking()
@@ -708,6 +837,12 @@ def main(argv: list[str] | None = None) -> int:
                 repeat = _find_repeated_content(article["body_html"])
                 if repeat:
                     return f"body_html has repeat-loop degeneration (e.g. {repeat!r} repeated)"
+                closer_tic = _find_closer_tic(article["body_html"])
+                if closer_tic:
+                    return f"body_html has the banned echo-fragment closer tic (e.g. {closer_tic!r})"
+                suspicious_citation = _find_suspicious_citation(article["body_html"])
+                if suspicious_citation:
+                    return f"body_html has a suspicious unverifiable-looking citation (e.g. {suspicious_citation!r})"
                 return None
 
             problem = _generation_problem(article)
@@ -768,6 +903,15 @@ def main(argv: list[str] | None = None) -> int:
                     revised_word_count - word_count,
                 )
                 word_count = revised_word_count
+
+                post_revise_problem = _generation_problem(article)
+                if post_revise_problem:
+                    logger.error(
+                        "Editor pass left/introduced a problem (%s); aborting without "
+                        "publishing.",
+                        post_revise_problem,
+                    )
+                    return 1
 
             keyphrase = article.get("focus_keyphrase") or ""
             if keyphrase:
@@ -833,6 +977,24 @@ def main(argv: list[str] | None = None) -> int:
                     "Injected rel/target safety attrs on %d external <a> tag(s).",
                     rel_fixes,
                 )
+
+            word_count = len(_strip_html(article["body_html"]).split())
+            existing_titles = list_recent_post_titles(limit=1000)
+            validation = validate_article(
+                article,
+                word_count=word_count,
+                length_band=length_band,
+                existing_titles=existing_titles,
+            )
+            if not validation.ok:
+                dump_rejected_article(article, site_host, validation.reason or "unknown")
+                logger.error(
+                    "Validation gate rejected article %r: %s",
+                    article["title"],
+                    validation.reason,
+                )
+                return 1
+            logger.info("Validation gate: pass (words=%d).", word_count)
 
             image, featured_media_id, final_body = _fetch_and_attach_image(article)
 

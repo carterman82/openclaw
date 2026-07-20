@@ -1,0 +1,95 @@
+<p><strong>AI writing tools</strong> didn't make your last piece of content sound robotic. Your workflow did. The default approach, open a tool, type a prompt, get a draft, lightly edit, is the most common and most destructive way to use any AI writing assistant, and it's widespread enough that readers have developed a reliable instinct for spotting the output. The problem isn't that these tools can't write. It's that the typical workflow hands them the job they're worst at and gives you the job you're worst at, in the wrong order.</p>
+
+<p>Flip the sequence and the results change dramatically. The core idea is simple: <em>you</em> write the draft, imperfect and rough, and the AI edits it. Your sentence structures survive. Your word choices survive. So do your arguments. The AI tightens, restructures, and catches gaps without overwriting the thing that makes your content worth reading in the first place. This article explains why the standard workflow fails, what's happening inside the model when you give it an open-ended "write me a draft" prompt, and how to rebuild your process around a set of specific, replicable techniques that actually preserve your voice.</p>
+
+<h2>Why AI Writing Tools Regress to the Mean</h2>
+
+<p>Ethan Mollick, a professor at Wharton and author of <em>Co-Intelligence</em> (2024), describes a consistent behavior in large language models: when given an open-ended generation task, they regress toward the statistical center of their training data. That's not a flaw in the architecture. It's what the architecture is optimized to do. A <a href="https://en.wikipedia.org/wiki/Large_language_model" rel="noopener" target="_blank">large language model</a> predicts the most probable next token given all preceding context. Given a prompt like "write a blog post about project management for small teams," the most probable output is the average of every project-management blog post the model has ever seen.</p>
+
+<p>The average is generic. It opens with a sentence about how managing projects can be challenging. It uses "robust" and "seamless" and "leverage." Three H2s march by in parallel structure. And it ends with a neat little summary paragraph that restates the intro. Every AI writing tool on the market produces some version of this under open-ended prompting, because they're all working from the same underlying mechanic.</p>
+
+<p>The same thing does NOT happen when you constrain the generation task to editing. Give the model your own paragraph, your own sentence rhythms, your own word choices, and ask it to improve clarity or fix a structural problem, and it has far less latitude to regress. It has to work inside your voice rather than replace it with the average. That's the load-bearing insight behind the reversed workflow.</p>
+
+<h2>The "Draft First" Trap and How It Compounds</h2>
+
+<p>Most people using AI writing tools reach for them at the beginning: blank page, blank mind, hit the tool. There's a real reason for this. Starting is the hardest part of writing, and AI removes the blank-page friction almost instantly. The problem is that the cost shows up later, and most people misattribute it.</p>
+
+<p>When you edit an AI draft, you're not editing your ideas in your voice. You're editing the model's interpretation of your ideas in the statistical average of all voices. Every sentence you read, even to change it, subtly pulls your editing toward the structure it already has. Cognitive scientists call this anchoring: the first number on the table biases every estimate that follows. The AI draft is that first number. You end up keeping more of it than you intended, because each individual sentence seems fine, and it's only in aggregate that the piece sounds like it was written by a committee of no one in particular.</p>
+
+<p>This compounds further when multiple people on a team are all using the same tools with the same default prompts. Your company's blog starts to sound like your competitor's blog. Your cold emails start to sound like everyone else's cold emails. The differentiation that actually gets replies (a real tactical breakdown of how that works is in this piece on <a href="http://localhost:8088/cold-email-reply-rate-improve/">improving cold email reply rate</a>) comes from specificity and voice, neither of which survive the standard AI drafting workflow intact.</p>
+
+<h2>AI Writing Tools Work Best as Editing Layers</h2>
+
+<p>The reversed workflow has four stages. Each stage uses AI for something specific and bounded, not open-ended. Here's how it actually runs in practice.</p>
+
+<h3>Stage 1: Write a rough draft yourself, fast</h3>
+
+<p>Write without editing. Don't fix sentences as you go. Aim for something that captures your actual argument, your actual examples, your actual opinions. It doesn't need to be good. A 400-word rough draft written in 15 minutes is the right raw material for this process. A polished AI draft is not.</p>
+
+<p>Your rough draft contains things the AI genuinely cannot generate: the specific anecdote from your last client call, the comparison that only makes sense given your industry context, the opinion you've developed from doing the actual work. These are the things that make content readable and shareable. Protect them by generating them yourself first, even badly.</p>
+
+<h3>Stage 2: Use AI to diagnose structure, not rewrite prose</h3>
+
+<p>Paste your rough draft into your AI writing tool with a structural prompt, not a "make this better" prompt. "Make this better" gives the model maximum latitude to regress. Something like: "Read this draft and tell me: is the main argument clear by paragraph two? Are there any sections that feel out of order? What's missing that a skeptical reader would ask for?" This produces a diagnostic, not a rewrite. You stay in control of the actual words.</p>
+
+<p>Act on the diagnosis yourself. Move the section it flagged. Add the example it said was missing. Keep writing in your own sentences.</p>
+
+<h3>Stage 3: Use AI to edit paragraph by paragraph, not the whole document</h3>
+
+<p>When you're happy with structure, run the AI through the draft in small pieces. Feed it one paragraph at a time with a tight constraint: "Tighten this paragraph for clarity. Don't change the sentence structure or word choices unless something is genuinely unclear." Narrow constraints keep the model from overwriting. Broad constraints invite regression.</p>
+
+<p>Read each suggestion before accepting it. If the AI swapped a specific verb for a generic one ("illustrates" becoming "shows how"), put the specific verb back. This is where the editing takes five minutes instead of one, but that five minutes is what separates content with a point of view from content that sounds like a press release.</p>
+
+<h3>Stage 4: Use AI for the finishing tasks it's actually good at</h3>
+
+<p>There are tasks where the statistical-average problem doesn't apply because the right answer genuinely is the average: subject lines, meta descriptions, headline variants, alt text, and summary sentences. For these, open-ended AI generation is fine, because you're not trying to sound like yourself, you're trying to match a format readers and algorithms recognize. Generate five headline options, pick the one that fits, move on.</p>
+
+<p>The same logic applies to the structural furniture of content: table of contents, FAQ sections, numbered steps that need parallel phrasing. AI handles these well precisely because the ideal output has no individual voice. Save the control you're exercising for the paragraphs that actually carry your argument.</p>
+
+<h2>The Prompt Constraint Test</h2>
+
+<p>Here's a reframe you can apply to any AI writing prompt before you send it. Call it the Constraint Test: if a skilled intern could complete the task without knowing anything specific about you, your company, your opinions, or your experience, the prompt is too open. That's the task profile where AI regression hurts you most.</p>
+
+<p>Narrow it until the model needs context that only you can provide. "Write a section about onboarding" fails. "Here's my current onboarding section. My readers are SaaS founders who've already tried at least two onboarding tools. Tighten the second paragraph, which is currently too abstract, into something more concrete without adding length" passes. The second prompt forces the model to work inside constraints you've set rather than generating from scratch.</p>
+
+<p>This test also helps you spot when AI <em>is</em> the right tool for the first draft. Writing a template that will get customized anyway? A job description where the format matters more than the voice? A policy document where clarity is the only goal? These pass the Constraint Test because there's no individual voice to preserve. Go ahead and prompt freely.</p>
+
+<h2>Where the Reversed Workflow Breaks Down</h2>
+
+<p>This approach assumes you have something to say before you sit down to write. If you don't, no workflow saves you. AI writing tools are extraordinarily good at generating the appearance of substance without the substance itself. A founder who hasn't formed a real opinion about their market can use AI to produce 800 words that sound considered, and every single sentence will be true and none of it will be interesting. The tool amplifies what you bring. If you bring nothing, it amplifies nothing very efficiently.</p>
+
+<p>The reversed workflow also takes more time upfront than the standard approach, particularly in stages one through three. If you're producing high-volume, low-stakes content (product descriptions, transactional emails, templated reports), the investment doesn't pencil out. Use AI drafting freely there. The discipline described here belongs on content where voice and specificity are part of the product: thought leadership, content marketing, outreach, anything where a reader's trust in the author is part of why they keep reading.</p>
+
+<p>There's also a skill-atrophy risk worth naming. Ethan Mollick <a href="https://www.oneusefulthing.org/p/the-battle-for-your-default-behavior" rel="noopener" target="_blank">has written about how default behaviors in AI usage tend to stick</a>, and defaulting to AI-first drafting for long enough genuinely degrades the rough-draft fluency that makes the reversed workflow possible in the first place. The ability to write fast, rough, and specific is a muscle. If you only exercise it to lightly edit AI output, it weakens. The reversed workflow is also a training regimen, not just a production method.</p>
+
+<h2>Practical Tool Configuration for the Reversed Workflow</h2>
+
+<p>A few specific setup choices make the reversed workflow easier to sustain across tools you're probably already using.</p>
+
+<p>In ChatGPT or Claude, use the custom instructions or system prompt to set a standing constraint: "When I paste my own writing, improve it without changing my sentence structures or word choices unless they cause genuine confusion. Flag changes you want to make and ask before making them." This prevents the model from silently rewriting you when you only asked for a tweak.</p>
+
+<p>In Notion AI, use "Improve writing" sparingly on full sections and prefer "Make shorter" or "Fix spelling and grammar" on individual paragraphs. The more specific the command, the less latitude the model takes. Jasper, Copy.ai, and similar tools all have "edit" or "rephrase" modes that work better for this purpose than their flagship "write" modes, for exactly the same reason.</p>
+
+<p>If you're doing content marketing at scale and wondering how to make this work on a team, the answer is a shared voice guide that gets pasted into every AI prompt as context. It doesn't need to be long: five to eight sentences describing your company's tone, two or three example paragraphs written in-voice, and a short list of words you never use. With that context, even open-ended AI generation regresses toward your voice instead of the average, because you've shifted what the average is. The same principle applies to high-converting copy like your pricing page, where every word is doing conversion work (a walkthrough of those structural choices is here: <a href="http://localhost:8088/pricing-page-design-conversions/">pricing page design choices that affect conversions</a>).</p>
+
+<h2>The Right Mental Model for AI Writing Assistance</h2>
+
+<p>Stop thinking of AI writing tools as ghostwriters and start thinking of them as very fast, very patient copy editors who have read everything ever published and have no taste of their own. That's not an insult. It's a precise description of the thing's actual capability profile. Copy editors don't write your book. They make the book you wrote clearer, tighter, and more consistent. And they catch the thing you're too close to catch. They don't replace your argument with a better one; they help your argument land the way you intended it.</p>
+
+<p>The ghostwriter mental model leads to the standard workflow, where AI drafts and you polish, and the output sounds like everyone else. The copy-editor mental model leads to the reversed workflow, where you draft and AI polishes, and the output sounds like you on a very focused day. Both cases use identical tools. The mental model is the whole difference.</p>
+
+<p>Content that reads as human, specific, and considered is getting more valuable as AI-generated content fills the web, not less. The founders and marketers who figure out how to use these tools without losing their voice will have a durable advantage over the ones who let the tools write for them. The reversed workflow is how you get there.</p>
+
+<h2>Frequently Asked Questions</h2>
+
+<h3>Does this approach work for short-form content too?</h3>
+<p>For anything under 200 words, the gain is smaller but the risk is also smaller. Write a rough version, paste it in, ask for a tighter version, compare the two. The main thing to watch is whether the AI removed a specific detail you needed to keep.</p>
+
+<h3>What if I'm not a confident writer?</h3>
+<p>The rough draft doesn't need to be good writing. It needs to be your thinking. Bullet points, fragments, and half-sentences all work as raw material for Stage 2 diagnosis. The point is to have your ideas in the document before the AI touches it, not to have polished prose.</p>
+
+<h3>Which AI writing tools support this workflow best?</h3>
+<p>Claude handles editing constraints well because it follows nuanced instructions reliably. ChatGPT with a good system prompt works too. Purpose-built tools like Jasper are fine for Stage 4 tasks (headlines, meta descriptions, variants) but can over-generate when given full drafts.</p>
+
+<h3>How do I know if an AI edit has overwritten my voice?</h3>
+<p>Read the suggested change aloud. If you wouldn't say it that way in a conversation with a colleague, put your version back. The spoken-word test catches register shifts that look fine on screen but feel wrong in context.</p>

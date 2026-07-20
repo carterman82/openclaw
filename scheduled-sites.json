@@ -10,6 +10,11 @@
     "notes": "Production catfancast.com. External hosted site (not part of local multisite). Requires CATFANCAST_WP_* env vars set in .env and website_memory/catfancast.com.md present."
   },
   {
+    "slug": "animefancast",
+    "enabled": true,
+    "notes": "Production animefancast.com. External hosted site (not part of local multisite). Requires ANIMEFANCAST_WP_* env vars set in .env and website_memory/animefancast.com.md present."
+  },
+  {
     "slug": "gardening",
     "enabled": true,
     "notes": "Phase 5 pilot subsite (blog_id=2) at http://gardening.localhost:8088. Enable after Staatic + GH Pages deploy is verified end-to-end."
