@@ -27,3 +27,6 @@ staatic-exports/
 .gh-worktree/
 .gh-init/
 
+# Development screenshots
+screenshots/
+

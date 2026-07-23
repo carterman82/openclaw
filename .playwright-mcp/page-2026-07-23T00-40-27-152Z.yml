@@ -1,0 +1,293 @@
+- generic [active] [ref=f6e1]:
+  - link "Skip to content" [ref=f6e2] [cursor=pointer]:
+    - /url: "#wp--skip-link--target"
+  - generic [ref=f6e3]:
+    - banner [ref=f6e4]:
+      - paragraph [ref=f6e7]:
+        - link "Dog Info Verse" [ref=f6e8] [cursor=pointer]:
+          - /url: http://dogs.localhost:8088
+      - list [ref=f6e10]:
+        - listitem [ref=f6e11]:
+          - link "Adoption & Rescue" [ref=f6e12] [cursor=pointer]:
+            - /url: http://dogs.localhost:8088/category/adoption-rescue/
+        - listitem [ref=f6e13]:
+          - link "Breed Profiles" [ref=f6e14] [cursor=pointer]:
+            - /url: http://dogs.localhost:8088/category/breed-profiles/
+        - listitem [ref=f6e15]:
+          - link "Dog Behavior" [ref=f6e16] [cursor=pointer]:
+            - /url: http://dogs.localhost:8088/category/dog-behavior/
+        - listitem [ref=f6e17]:
+          - link "Grooming & Care" [ref=f6e18] [cursor=pointer]:
+            - /url: http://dogs.localhost:8088/category/grooming-care/
+        - listitem [ref=f6e19]:
+          - link "History & Culture" [ref=f6e20] [cursor=pointer]:
+            - /url: http://dogs.localhost:8088/category/history-culture/
+        - listitem [ref=f6e21]:
+          - link "Nutrition" [ref=f6e22] [cursor=pointer]:
+            - /url: http://dogs.localhost:8088/category/nutrition/
+    - main [ref=f6e23]:
+      - list [ref=f6e25]:
+        - listitem [ref=f6e26]:
+          - generic [ref=f6e27]:
+            - figure [ref=f6e28]:
+              - link [ref=f6e29] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/22/quiet-dog-shelter-suppression/
+                - 'img "The Quiet Dog in the Shelter: Why Suppression Looks Like Good Behavior" [ref=f6e30]'
+            - generic [ref=f6e31]:
+              - link "Adoption & Rescue" [ref=f6e33] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/adoption-rescue/
+              - heading [level=2] [ref=f6e34]:
+                - 'link "The Quiet Dog in the Shelter: Why Suppression Looks Like Good Behavior" [ref=f6e35] [cursor=pointer]':
+                  - /url: http://dogs.localhost:8088/2026/07/22/quiet-dog-shelter-suppression/
+              - paragraph [ref=f6e37]:
+                - text: Shelters call quiet dogs ‘easygoing.’ They are not. They are suppressed. Here is how to spot a dog who has learned to shut down, and what to do when you…
+                - link "Read" [ref=f6e38] [cursor=pointer]:
+                  - /url: http://dogs.localhost:8088/2026/07/22/quiet-dog-shelter-suppression/
+              - time [ref=f6e40]: July 22, 2026
+        - listitem [ref=f6e41]:
+          - generic [ref=f6e42]:
+            - figure [ref=f6e43]:
+              - link [ref=f6e44] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/22/double-coat-shedding-reset-protocol/
+                - img "Your Dog’s Double Coat Isn’t a Shedding Problem. It’s a Climate Regulator." [ref=f6e45]
+            - generic [ref=f6e46]:
+              - link "Grooming & Care" [ref=f6e48] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/grooming-care/
+              - heading [level=2] [ref=f6e49]:
+                - link "Your Dog’s Double Coat Isn’t a Shedding Problem. It’s a Climate Regulator." [ref=f6e50] [cursor=pointer]:
+                  - /url: http://dogs.localhost:8088/2026/07/22/double-coat-shedding-reset-protocol/
+              - paragraph [ref=f6e52]:
+                - text: Double-coated dogs shed year-round because the undercoat sheds continuously, not seasonally. Shaving makes it worse. Here is the reset protocol that works with the biology, not against it.
+                - link "Read" [ref=f6e53] [cursor=pointer]:
+                  - /url: http://dogs.localhost:8088/2026/07/22/double-coat-shedding-reset-protocol/
+              - time [ref=f6e55]: July 22, 2026
+      - list [ref=f6e58]:
+        - listitem [ref=f6e59]:
+          - generic [ref=f6e61]:
+            - figure [ref=f6e62]:
+              - link [ref=f6e63] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/21/dog-aggression-learned-helplessness-loop/
+                - img "Your Dog’s ‘Aggression’ Isn’t a Personality Flaw. It’s a Learned Helplessness Loop." [ref=f6e64]
+            - generic [ref=f6e65]:
+              - link "Dog Behavior" [ref=f6e67] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/dog-behavior/
+              - heading [level=3] [ref=f6e68]:
+                - link "Your Dog’s ‘Aggression’ Isn’t a Personality Flaw. It’s a Learned Helplessness Loop." [ref=f6e69] [cursor=pointer]:
+                  - /url: http://dogs.localhost:8088/2026/07/21/dog-aggression-learned-helplessness-loop/
+              - time [ref=f6e71]: July 21, 2026
+        - listitem [ref=f6e72]:
+          - generic [ref=f6e74]:
+            - figure [ref=f6e75]:
+              - link [ref=f6e76] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/21/why-dogs-stop-walking-threshold/
+                - 'img "Why Dogs Stop Walking: The Threshold That Turns a Walk Into a Standoff" [ref=f6e77]'
+            - generic [ref=f6e78]:
+              - link "Dog Behavior" [ref=f6e80] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/dog-behavior/
+              - heading [level=3] [ref=f6e81]:
+                - 'link "Why Dogs Stop Walking: The Threshold That Turns a Walk Into a Standoff" [ref=f6e82] [cursor=pointer]':
+                  - /url: http://dogs.localhost:8088/2026/07/21/why-dogs-stop-walking-threshold/
+              - time [ref=f6e84]: July 21, 2026
+        - listitem [ref=f6e85]:
+          - generic [ref=f6e87]:
+            - figure [ref=f6e88]:
+              - link [ref=f6e89] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/20/dog-stubbornness-decision-tree/
+                - img "Your Dog’s ‘Stubbornness’ Isn’t a Personality Flaw. It’s a Decision Tree." [ref=f6e90]
+            - generic [ref=f6e91]:
+              - link "Dog Behavior" [ref=f6e93] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/dog-behavior/
+              - heading [level=3] [ref=f6e94]:
+                - link "Your Dog’s ‘Stubbornness’ Isn’t a Personality Flaw. It’s a Decision Tree." [ref=f6e95] [cursor=pointer]:
+                  - /url: http://dogs.localhost:8088/2026/07/20/dog-stubbornness-decision-tree/
+              - time [ref=f6e97]: July 20, 2026
+        - listitem [ref=f6e98]:
+          - generic [ref=f6e100]:
+            - figure [ref=f6e101]:
+              - link [ref=f6e102] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/20/adoption-myth-good-behavior-suppression/
+                - 'img "The Adoption Myth That Keeps Dogs in Shelters: Why ‘Good Behavior’ Is a Trap" [ref=f6e103]'
+            - generic [ref=f6e104]:
+              - link "Adoption & Rescue" [ref=f6e106] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/adoption-rescue/
+              - heading [level=3] [ref=f6e107]:
+                - 'link "The Adoption Myth That Keeps Dogs in Shelters: Why ‘Good Behavior’ Is a Trap" [ref=f6e108] [cursor=pointer]':
+                  - /url: http://dogs.localhost:8088/2026/07/20/adoption-myth-good-behavior-suppression/
+              - time [ref=f6e110]: July 20, 2026
+        - listitem [ref=f6e111]:
+          - generic [ref=f6e113]:
+            - figure [ref=f6e114]:
+              - link [ref=f6e115] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/20/1925-serum-run-nome-history/
+                - 'img "The 674-Mile Relay That Saved Nome: The 1925 Serum Run" [ref=f6e116]'
+            - generic [ref=f6e117]:
+              - link "History & Culture" [ref=f6e119] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/history-culture/
+              - heading [level=3] [ref=f6e120]:
+                - 'link "The 674-Mile Relay That Saved Nome: The 1925 Serum Run" [ref=f6e121] [cursor=pointer]':
+                  - /url: http://dogs.localhost:8088/2026/07/20/1925-serum-run-nome-history/
+              - time [ref=f6e123]: July 20, 2026
+        - listitem [ref=f6e124]:
+          - generic [ref=f6e126]:
+            - figure [ref=f6e127]:
+              - link [ref=f6e128] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/20/basenji-no-bark-yodel-hunting-history/
+                - 'img "The Working Purpose Behind the Basenji’s Yodel: What the African Hunting History Actually Demanded" [ref=f6e129]'
+            - generic [ref=f6e130]:
+              - link "Breed Profiles" [ref=f6e132] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/breed-profiles/
+              - heading [level=3] [ref=f6e133]:
+                - 'link "The Working Purpose Behind the Basenji’s Yodel: What the African Hunting History Actually Demanded" [ref=f6e134] [cursor=pointer]':
+                  - /url: http://dogs.localhost:8088/2026/07/20/basenji-no-bark-yodel-hunting-history/
+              - time [ref=f6e136]: July 20, 2026
+        - listitem [ref=f6e137]:
+          - generic [ref=f6e139]:
+            - figure [ref=f6e140]:
+              - link [ref=f6e141] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/17/raw-dog-food-bacteria-not-natural/
+                - 'img "Raw Dog Food Bacteria: Why Raw Feeding Is Not a Natural Diet" [ref=f6e142]'
+            - generic [ref=f6e143]:
+              - link "Nutrition" [ref=f6e145] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/nutrition/
+              - heading [level=3] [ref=f6e146]:
+                - 'link "Raw Dog Food Bacteria: Why Raw Feeding Is Not a Natural Diet" [ref=f6e147] [cursor=pointer]':
+                  - /url: http://dogs.localhost:8088/2026/07/17/raw-dog-food-bacteria-not-natural/
+              - time [ref=f6e149]: July 17, 2026
+        - listitem [ref=f6e150]:
+          - generic [ref=f6e152]:
+            - figure [ref=f6e153]:
+              - link [ref=f6e154] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/16/why-dog-licks-face-research/
+                - 'img "Why Dog Licks Face: The Puppyhood Signal Your Dog Never Outgrew" [ref=f6e155]'
+            - generic [ref=f6e156]:
+              - link "Dog Behavior" [ref=f6e158] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/dog-behavior/
+              - heading [level=3] [ref=f6e159]:
+                - 'link "Why Dog Licks Face: The Puppyhood Signal Your Dog Never Outgrew" [ref=f6e160] [cursor=pointer]':
+                  - /url: http://dogs.localhost:8088/2026/07/16/why-dog-licks-face-research/
+              - time [ref=f6e162]: July 16, 2026
+        - listitem [ref=f6e163]:
+          - generic [ref=f6e165]:
+            - figure [ref=f6e166]:
+              - link [ref=f6e167] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/16/norwegian-lundehund-six-toes-puffin-hunting-anatomy/
+                - 'img "The Norwegian Lundehund’s Six Toes: Why They Evolved for Puffin Hunting" [ref=f6e168]'
+            - generic [ref=f6e169]:
+              - link "Breed Profiles" [ref=f6e171] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/breed-profiles/
+              - heading [level=3] [ref=f6e172]:
+                - 'link "The Norwegian Lundehund’s Six Toes: Why They Evolved for Puffin Hunting" [ref=f6e173] [cursor=pointer]':
+                  - /url: http://dogs.localhost:8088/2026/07/16/norwegian-lundehund-six-toes-puffin-hunting-anatomy/
+              - time [ref=f6e175]: July 16, 2026
+        - listitem [ref=f6e176]:
+          - generic [ref=f6e178]:
+            - figure [ref=f6e179]:
+              - link [ref=f6e180] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/16/icelandic-sheepdog-coat-genetic-history/
+                - 'img "The Icelandic Sheepdog’s Coat Is Not a Fluke: What the Arctic Working History Actually Demanded" [ref=f6e181]'
+            - generic [ref=f6e182]:
+              - link "Breed Profiles" [ref=f6e184] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/breed-profiles/
+              - heading [level=3] [ref=f6e185]:
+                - 'link "The Icelandic Sheepdog’s Coat Is Not a Fluke: What the Arctic Working History Actually Demanded" [ref=f6e186] [cursor=pointer]':
+                  - /url: http://dogs.localhost:8088/2026/07/16/icelandic-sheepdog-coat-genetic-history/
+              - time [ref=f6e188]: July 16, 2026
+        - listitem [ref=f6e189]:
+          - generic [ref=f6e191]:
+            - figure [ref=f6e192]:
+              - link [ref=f6e193] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/16/why-double-coated-dog-sheds-spring-reset/
+                - 'img "Why Your Double Coated Dog Sheds in Spring: The Reset Protocol" [ref=f6e194]'
+            - generic [ref=f6e195]:
+              - link "Grooming & Care" [ref=f6e197] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/grooming-care/
+              - heading [level=3] [ref=f6e198]:
+                - 'link "Why Your Double Coated Dog Sheds in Spring: The Reset Protocol" [ref=f6e199] [cursor=pointer]':
+                  - /url: http://dogs.localhost:8088/2026/07/16/why-double-coated-dog-sheds-spring-reset/
+              - time [ref=f6e201]: July 16, 2026
+        - listitem [ref=f6e202]:
+          - generic [ref=f6e204]:
+            - figure [ref=f6e205]:
+              - link [ref=f6e206] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/16/resource-guarding-dogs-counter-conditioning/
+                - 'img "Resource Guarding in Dogs: Why It Isn’t Aggression and How to Fix It" [ref=f6e207]'
+            - generic [ref=f6e208]:
+              - link "Dog Behavior" [ref=f6e210] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/dog-behavior/
+              - heading [level=3] [ref=f6e211]:
+                - 'link "Resource Guarding in Dogs: Why It Isn’t Aggression and How to Fix It" [ref=f6e212] [cursor=pointer]':
+                  - /url: http://dogs.localhost:8088/2026/07/16/resource-guarding-dogs-counter-conditioning/
+              - time [ref=f6e214]: July 16, 2026
+        - listitem [ref=f6e215]:
+          - generic [ref=f6e217]:
+            - figure [ref=f6e218]:
+              - link [ref=f6e219] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/16/why-rescue-dog-wont-come-when-called/
+                - img "Why Your Rescue Dog Won’t Come When Called (And What Works)" [ref=f6e220]
+            - generic [ref=f6e221]:
+              - link "Adoption & Rescue" [ref=f6e223] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/adoption-rescue/
+              - heading [level=3] [ref=f6e224]:
+                - link "Why Your Rescue Dog Won’t Come When Called (And What Works)" [ref=f6e225] [cursor=pointer]:
+                  - /url: http://dogs.localhost:8088/2026/07/16/why-rescue-dog-wont-come-when-called/
+              - time [ref=f6e227]: July 16, 2026
+        - listitem [ref=f6e228]:
+          - generic [ref=f6e230]:
+            - figure [ref=f6e231]:
+              - link [ref=f6e232] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/2026/07/16/grain-free-dog-food-heart-disease/
+                - 'img "Grain-Free Dog Food and Heart Disease: What the FDA Investigation Actually Found" [ref=f6e233]'
+            - generic [ref=f6e234]:
+              - link "Nutrition" [ref=f6e236] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088/category/nutrition/
+              - heading [level=3] [ref=f6e237]:
+                - 'link "Grain-Free Dog Food and Heart Disease: What the FDA Investigation Actually Found" [ref=f6e238] [cursor=pointer]':
+                  - /url: http://dogs.localhost:8088/2026/07/16/grain-free-dog-food-heart-disease/
+              - time [ref=f6e240]: July 16, 2026
+    - contentinfo [ref=f6e241]:
+      - contentinfo [ref=f6e242]:
+        - generic [ref=f6e243]:
+          - generic [ref=f6e244]:
+            - paragraph [ref=f6e245]:
+              - link "Dog Info Verse" [ref=f6e246] [cursor=pointer]:
+                - /url: http://dogs.localhost:8088
+            - paragraph [ref=f6e247]: Real writing about real dogs.
+          - generic [ref=f6e248]:
+            - heading "Explore" [level=4] [ref=f6e249]
+            - list [ref=f6e250]:
+              - listitem [ref=f6e251]:
+                - link "Adoption & Rescue" [ref=f6e252] [cursor=pointer]:
+                  - /url: http://dogs.localhost:8088/category/adoption-rescue/
+              - listitem [ref=f6e253]:
+                - link "Breed Profiles" [ref=f6e254] [cursor=pointer]:
+                  - /url: http://dogs.localhost:8088/category/breed-profiles/
+              - listitem [ref=f6e255]:
+                - link "Dog Behavior" [ref=f6e256] [cursor=pointer]:
+                  - /url: http://dogs.localhost:8088/category/dog-behavior/
+              - listitem [ref=f6e257]:
+                - link "Grooming & Care" [ref=f6e258] [cursor=pointer]:
+                  - /url: http://dogs.localhost:8088/category/grooming-care/
+              - listitem [ref=f6e259]:
+                - link "History & Culture" [ref=f6e260] [cursor=pointer]:
+                  - /url: http://dogs.localhost:8088/category/history-culture/
+              - listitem [ref=f6e261]:
+                - link "Nutrition" [ref=f6e262] [cursor=pointer]:
+                  - /url: http://dogs.localhost:8088/category/nutrition/
+          - generic [ref=f6e263]:
+            - heading "Legal" [level=4] [ref=f6e264]
+            - list [ref=f6e265]:
+              - listitem [ref=f6e266]:
+                - link "About" [ref=f6e267] [cursor=pointer]:
+                  - /url: /about/
+              - listitem [ref=f6e268]:
+                - link "Privacy" [ref=f6e269] [cursor=pointer]:
+                  - /url: /privacy/
+              - listitem [ref=f6e270]:
+                - link "Contact" [ref=f6e271] [cursor=pointer]:
+                  - /url: /contact/
+        - generic [ref=f6e272]:
+          - paragraph [ref=f6e273]:
+            - text: ©
+            - link "Openclaw" [ref=f6e274] [cursor=pointer]:
+              - /url: /
+          - paragraph [ref=f6e275]: Written and edited with editorial care.

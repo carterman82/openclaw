@@ -1,0 +1,357 @@
+- generic [active] [ref=f2e1]:
+  - link "Skip to content" [ref=f2e2] [cursor=pointer]:
+    - /url: "#wp--skip-link--target"
+  - generic [ref=f2e3]:
+    - banner [ref=f2e4]:
+      - link [ref=f2e8] [cursor=pointer]:
+        - /url: http://gardening.localhost:8088/
+        - img "Gardening Info Verse" [ref=f2e9]
+      - list [ref=f2e11]:
+        - listitem [ref=f2e12]:
+          - link "Container Gardening" [ref=f2e13] [cursor=pointer]:
+            - /url: http://gardening.localhost:8088/category/container-gardening/
+        - listitem [ref=f2e14]:
+          - link "Garden Design" [ref=f2e15] [cursor=pointer]:
+            - /url: http://gardening.localhost:8088/category/garden-design/
+        - listitem [ref=f2e16]:
+          - link "Herbs" [ref=f2e17] [cursor=pointer]:
+            - /url: http://gardening.localhost:8088/category/herbs/
+        - listitem [ref=f2e18]:
+          - link "Houseplants" [ref=f2e19] [cursor=pointer]:
+            - /url: http://gardening.localhost:8088/category/houseplants/
+        - listitem [ref=f2e20]:
+          - link "Perennials & Flowers" [ref=f2e21] [cursor=pointer]:
+            - /url: http://gardening.localhost:8088/category/perennials-flowers/
+        - listitem [ref=f2e22]:
+          - link "Pests & Diseases" [ref=f2e23] [cursor=pointer]:
+            - /url: http://gardening.localhost:8088/category/pests-diseases/
+        - listitem [ref=f2e24]:
+          - link "Soil & Composting" [ref=f2e25] [cursor=pointer]:
+            - /url: http://gardening.localhost:8088/category/soil-composting/
+        - listitem [ref=f2e26]:
+          - link "Vegetable Gardening" [ref=f2e27] [cursor=pointer]:
+            - /url: http://gardening.localhost:8088/category/vegetable-gardening/
+    - main [ref=f2e28]:
+      - list [ref=f2e30]:
+        - listitem [ref=f2e31]:
+          - generic [ref=f2e32]:
+            - figure [ref=f2e33]:
+              - link [ref=f2e34] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/21/rooting-hormone-myth-cuttings/
+                - 'img "The Rooting Hormone Myth: Why Cuttings Root Without It" [ref=f2e35]'
+            - generic [ref=f2e36]:
+              - link "Container Gardening" [ref=f2e38] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/container-gardening/
+              - heading [level=2] [ref=f2e39]:
+                - 'link "The Rooting Hormone Myth: Why Cuttings Root Without It" [ref=f2e40] [cursor=pointer]':
+                  - /url: http://gardening.localhost:8088/2026/07/21/rooting-hormone-myth-cuttings/
+              - paragraph [ref=f2e42]:
+                - text: Rooting hormone does not make cuttings root. It just nudges the process. Here is the exact three-step process that works for 90% of common houseplant and garden cuttings, without the…
+                - link "Read" [ref=f2e43] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/2026/07/21/rooting-hormone-myth-cuttings/
+              - time [ref=f2e45]: July 21, 2026
+        - listitem [ref=f2e46]:
+          - generic [ref=f2e47]:
+            - figure [ref=f2e48]:
+              - link [ref=f2e49] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/21/perennials-die-first-year-watering/
+                - img "Perennials Die in First Year Because You Water Them Like Annuals" [ref=f2e50]
+            - generic [ref=f2e51]:
+              - link "Perennials & Flowers" [ref=f2e53] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/perennials-flowers/
+              - heading [level=2] [ref=f2e54]:
+                - link "Perennials Die in First Year Because You Water Them Like Annuals" [ref=f2e55] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/2026/07/21/perennials-die-first-year-watering/
+              - paragraph [ref=f2e57]:
+                - text: Perennials die in the first year because you water them like annuals. Here is the exact three-week schedule that fixes it.
+                - link "Read" [ref=f2e58] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/2026/07/21/perennials-die-first-year-watering/
+              - time [ref=f2e60]: July 21, 2026
+      - list [ref=f2e63]:
+        - listitem [ref=f2e64]:
+          - generic [ref=f2e66]:
+            - figure [ref=f2e67]:
+              - link [ref=f2e68] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/21/perennial-border-self-seeding-curation/
+                - img "Your Perennial Border Isn’t Overgrown. It’s Self-Seeding Too Hard." [ref=f2e69]
+            - generic [ref=f2e70]:
+              - link "Perennials & Flowers" [ref=f2e72] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/perennials-flowers/
+              - heading [level=3] [ref=f2e73]:
+                - link "Your Perennial Border Isn’t Overgrown. It’s Self-Seeding Too Hard." [ref=f2e74] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/2026/07/21/perennial-border-self-seeding-curation/
+              - time [ref=f2e76]: July 21, 2026
+        - listitem [ref=f2e77]:
+          - generic [ref=f2e79]:
+            - figure [ref=f2e80]:
+              - link [ref=f2e81] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/21/whitefly-egg-clue-spray-timing/
+                - 'img "The Whitefly Egg Clue: Why Your Plants Keep Dying After You Spray" [ref=f2e82]'
+            - generic [ref=f2e83]:
+              - link "Pests & Diseases" [ref=f2e85] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/pests-diseases/
+              - heading [level=3] [ref=f2e86]:
+                - 'link "The Whitefly Egg Clue: Why Your Plants Keep Dying After You Spray" [ref=f2e87] [cursor=pointer]':
+                  - /url: http://gardening.localhost:8088/2026/07/21/whitefly-egg-clue-spray-timing/
+              - time [ref=f2e89]: July 21, 2026
+        - listitem [ref=f2e90]:
+          - generic [ref=f2e92]:
+            - figure [ref=f2e93]:
+              - link [ref=f2e94] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/20/wax-plant-blooms-ethylene-trigger/
+                - 'img "Wax Plant Blooms After Stress: The Ethylene Trigger" [ref=f2e95]'
+            - generic [ref=f2e96]:
+              - link "Houseplants" [ref=f2e98] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/houseplants/
+              - heading [level=3] [ref=f2e99]:
+                - 'link "Wax Plant Blooms After Stress: The Ethylene Trigger" [ref=f2e100] [cursor=pointer]':
+                  - /url: http://gardening.localhost:8088/2026/07/20/wax-plant-blooms-ethylene-trigger/
+              - time [ref=f2e102]: July 20, 2026
+        - listitem [ref=f2e103]:
+          - generic [ref=f2e105]:
+            - figure [ref=f2e106]:
+              - link [ref=f2e107] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/20/dahlias-tubers-not-corms/
+                - img "Dahlias Grow From Tubers, Not Corms. Here Is Why That Changes Everything" [ref=f2e108]
+            - generic [ref=f2e109]:
+              - link "Perennials & Flowers" [ref=f2e111] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/perennials-flowers/
+              - heading [level=3] [ref=f2e112]:
+                - link "Dahlias Grow From Tubers, Not Corms. Here Is Why That Changes Everything" [ref=f2e113] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/2026/07/20/dahlias-tubers-not-corms/
+              - time [ref=f2e115]: July 20, 2026
+        - listitem [ref=f2e116]:
+          - generic [ref=f2e118]:
+            - figure [ref=f2e119]:
+              - link [ref=f2e120] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/20/tomato-plants-not-dying-fruiting-overload/
+                - 'img "Your Tomato Plants Are Not Dying: They Are Fruiting Too Hard" [ref=f2e121]'
+            - generic [ref=f2e122]:
+              - link "Vegetable Gardening" [ref=f2e124] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/vegetable-gardening/
+              - heading [level=3] [ref=f2e125]:
+                - 'link "Your Tomato Plants Are Not Dying: They Are Fruiting Too Hard" [ref=f2e126] [cursor=pointer]':
+                  - /url: http://gardening.localhost:8088/2026/07/20/tomato-plants-not-dying-fruiting-overload/
+              - time [ref=f2e128]: July 20, 2026
+        - listitem [ref=f2e129]:
+          - generic [ref=f2e131]:
+            - figure [ref=f2e132]:
+              - link [ref=f2e133] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/20/effective-microorganisms-slow-compost/
+                - 'img "Effective Microorganisms Don’t Speed Up Compost: They Slow It Down" [ref=f2e134]'
+            - generic [ref=f2e135]:
+              - link "Soil & Composting" [ref=f2e137] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/soil-composting/
+              - heading [level=3] [ref=f2e138]:
+                - 'link "Effective Microorganisms Don’t Speed Up Compost: They Slow It Down" [ref=f2e139] [cursor=pointer]':
+                  - /url: http://gardening.localhost:8088/2026/07/20/effective-microorganisms-slow-compost/
+              - time [ref=f2e141]: July 20, 2026
+        - listitem [ref=f2e142]:
+          - generic [ref=f2e144]:
+            - figure [ref=f2e145]:
+              - link [ref=f2e146] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/19/fungus-gnats-not-problem-soil-fungus/
+                - 'img "Fungus Gnats Are Not the Problem: The Fungus Feeding on Your Roots" [ref=f2e147]'
+            - generic [ref=f2e148]:
+              - link "Pests & Diseases" [ref=f2e150] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/pests-diseases/
+              - heading [level=3] [ref=f2e151]:
+                - 'link "Fungus Gnats Are Not the Problem: The Fungus Feeding on Your Roots" [ref=f2e152] [cursor=pointer]':
+                  - /url: http://gardening.localhost:8088/2026/07/19/fungus-gnats-not-problem-soil-fungus/
+              - time [ref=f2e154]: July 19, 2026
+        - listitem [ref=f2e155]:
+          - generic [ref=f2e157]:
+            - figure [ref=f2e158]:
+              - link [ref=f2e159] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/17/compost-is-not-fertilizer-container-herbs/
+                - 'img "Compost Is Not Fertilizer: The Nitrogen Tie-Up That Starves Container Herbs" [ref=f2e160]'
+            - generic [ref=f2e161]:
+              - link "Container Gardening" [ref=f2e163] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/container-gardening/
+              - heading [level=3] [ref=f2e164]:
+                - 'link "Compost Is Not Fertilizer: The Nitrogen Tie-Up That Starves Container Herbs" [ref=f2e165] [cursor=pointer]':
+                  - /url: http://gardening.localhost:8088/2026/07/17/compost-is-not-fertilizer-container-herbs/
+              - time [ref=f2e167]: July 17, 2026
+        - listitem [ref=f2e168]:
+          - generic [ref=f2e170]:
+            - figure [ref=f2e171]:
+              - link [ref=f2e172] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/16/green-potatoes-solanine-sprouting/
+                - 'img "Green Potatoes: The Bitter Taste Test That Saves Your Tuber" [ref=f2e173]'
+            - generic [ref=f2e174]:
+              - link "Vegetable Gardening" [ref=f2e176] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/vegetable-gardening/
+              - heading [level=3] [ref=f2e177]:
+                - 'link "Green Potatoes: The Bitter Taste Test That Saves Your Tuber" [ref=f2e178] [cursor=pointer]':
+                  - /url: http://gardening.localhost:8088/2026/07/16/green-potatoes-solanine-sprouting/
+              - time [ref=f2e180]: July 16, 2026
+        - listitem [ref=f2e181]:
+          - generic [ref=f2e183]:
+            - figure [ref=f2e184]:
+              - link [ref=f2e185] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/16/monstera-dropping-leaves-light-problem/
+                - 'img "Monstera Dropping Leaves: The Light Overload Problem" [ref=f2e186]'
+            - generic [ref=f2e187]:
+              - link "Houseplants" [ref=f2e189] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/houseplants/
+              - heading [level=3] [ref=f2e190]:
+                - 'link "Monstera Dropping Leaves: The Light Overload Problem" [ref=f2e191] [cursor=pointer]':
+                  - /url: http://gardening.localhost:8088/2026/07/16/monstera-dropping-leaves-light-problem/
+              - time [ref=f2e193]: July 16, 2026
+        - listitem [ref=f2e194]:
+          - generic [ref=f2e196]:
+            - figure [ref=f2e197]:
+              - link [ref=f2e198] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/16/fresh-wood-chips-kill-roses/
+                - 'img "The Mulch Myth: Why Fresh Wood Chips Kill Your Roses (And What to Use Instead)" [ref=f2e199]'
+            - generic [ref=f2e200]:
+              - link "Garden Design" [ref=f2e202] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/garden-design/
+              - heading [level=3] [ref=f2e203]:
+                - 'link "The Mulch Myth: Why Fresh Wood Chips Kill Your Roses (And What to Use Instead)" [ref=f2e204] [cursor=pointer]':
+                  - /url: http://gardening.localhost:8088/2026/07/16/fresh-wood-chips-kill-roses/
+              - time [ref=f2e206]: July 16, 2026
+        - listitem [ref=f2e207]:
+          - generic [ref=f2e209]:
+            - figure [ref=f2e210]:
+              - link [ref=f2e211] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/16/hydrangea-color-aluminum-myth/
+                - img "Hydrangea Color Is a pH Problem. Aluminum Is Just the Passenger." [ref=f2e212]
+            - generic [ref=f2e213]:
+              - link "Perennials & Flowers" [ref=f2e215] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/perennials-flowers/
+              - heading [level=3] [ref=f2e216]:
+                - link "Hydrangea Color Is a pH Problem. Aluminum Is Just the Passenger." [ref=f2e217] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/2026/07/16/hydrangea-color-aluminum-myth/
+              - time [ref=f2e219]: July 16, 2026
+        - listitem [ref=f2e220]:
+          - generic [ref=f2e222]:
+            - figure [ref=f2e223]:
+              - link [ref=f2e224] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/16/why-basil-is-bitter-rotation-fix/
+                - 'img "Why Basil Is Bitter: The Real Reason (And How to Fix It)" [ref=f2e225]'
+            - generic [ref=f2e226]:
+              - link "Herbs" [ref=f2e228] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/herbs/
+              - heading [level=3] [ref=f2e229]:
+                - 'link "Why Basil Is Bitter: The Real Reason (And How to Fix It)" [ref=f2e230] [cursor=pointer]':
+                  - /url: http://gardening.localhost:8088/2026/07/16/why-basil-is-bitter-rotation-fix/
+              - time [ref=f2e232]: July 16, 2026
+        - listitem [ref=f2e233]:
+          - generic [ref=f2e235]:
+            - figure [ref=f2e236]:
+              - link [ref=f2e237] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/16/why-container-potting-mix-kills-strawberries/
+                - img "Why Your Container Potting Mix Is Killing Strawberries (And What to Use Instead)" [ref=f2e238]
+            - generic [ref=f2e239]:
+              - link "Container Gardening" [ref=f2e241] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/container-gardening/
+              - heading [level=3] [ref=f2e242]:
+                - link "Why Your Container Potting Mix Is Killing Strawberries (And What to Use Instead)" [ref=f2e243] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/2026/07/16/why-container-potting-mix-kills-strawberries/
+              - time [ref=f2e245]: July 16, 2026
+        - listitem [ref=f2e246]:
+          - generic [ref=f2e248]:
+            - figure [ref=f2e249]:
+              - link [ref=f2e250] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/16/why-perennials-die-first-year-watering/
+                - img "Why Perennials Die in the First Year (And How to Keep Them Alive)" [ref=f2e251]
+            - generic [ref=f2e252]:
+              - link "Perennials & Flowers" [ref=f2e254] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/perennials-flowers/
+              - heading [level=3] [ref=f2e255]:
+                - link "Why Perennials Die in the First Year (And How to Keep Them Alive)" [ref=f2e256] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/2026/07/16/why-perennials-die-first-year-watering/
+              - time [ref=f2e258]: July 16, 2026
+        - listitem [ref=f2e259]:
+          - generic [ref=f2e261]:
+            - figure [ref=f2e262]:
+              - link [ref=f2e263] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/16/collard-greens-nitrogen-soil-stomach-trouble/
+                - 'img "Your Collard Greens Aren’t the Problem: The Soil Chemistry Behind Harvest-Time Stomach Trouble" [ref=f2e264]'
+            - generic [ref=f2e265]:
+              - link "Vegetable Gardening" [ref=f2e267] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/vegetable-gardening/
+              - heading [level=3] [ref=f2e268]:
+                - 'link "Your Collard Greens Aren’t the Problem: The Soil Chemistry Behind Harvest-Time Stomach Trouble" [ref=f2e269] [cursor=pointer]':
+                  - /url: http://gardening.localhost:8088/2026/07/16/collard-greens-nitrogen-soil-stomach-trouble/
+              - time [ref=f2e271]: July 16, 2026
+        - listitem [ref=f2e272]:
+          - generic [ref=f2e274]:
+            - figure [ref=f2e275]:
+              - link [ref=f2e276] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/16/compost-myth-why-hot-compost-isnt-actually-hot/
+                - 'img "The Compost Myth: Why Your Hot Compost Isn’t Actually Hot" [ref=f2e277]'
+            - generic [ref=f2e278]:
+              - link "Vegetable Gardening" [ref=f2e280] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/vegetable-gardening/
+              - heading [level=3] [ref=f2e281]:
+                - 'link "The Compost Myth: Why Your Hot Compost Isn’t Actually Hot" [ref=f2e282] [cursor=pointer]':
+                  - /url: http://gardening.localhost:8088/2026/07/16/compost-myth-why-hot-compost-isnt-actually-hot/
+              - time [ref=f2e284]: July 16, 2026
+        - listitem [ref=f2e285]:
+          - generic [ref=f2e287]:
+            - figure [ref=f2e288]:
+              - link [ref=f2e289] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/2026/07/16/tomato-hornworm-detection-control/
+                - img "Tomato Hornworm Has a Secret Weapon Against You" [ref=f2e290]
+            - generic [ref=f2e291]:
+              - link "Pests & Diseases" [ref=f2e293] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088/category/pests-diseases/
+              - heading [level=3] [ref=f2e294]:
+                - link "Tomato Hornworm Has a Secret Weapon Against You" [ref=f2e295] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/2026/07/16/tomato-hornworm-detection-control/
+              - time [ref=f2e297]: July 16, 2026
+    - contentinfo [ref=f2e298]:
+      - contentinfo [ref=f2e299]:
+        - generic [ref=f2e300]:
+          - generic [ref=f2e301]:
+            - paragraph [ref=f2e302]:
+              - link "Gardening Info Verse" [ref=f2e303] [cursor=pointer]:
+                - /url: http://gardening.localhost:8088
+            - paragraph [ref=f2e304]: Deep gardening for the curious hobbyist.
+          - generic [ref=f2e305]:
+            - heading "Explore" [level=4] [ref=f2e306]
+            - list [ref=f2e307]:
+              - listitem [ref=f2e308]:
+                - link "Container Gardening" [ref=f2e309] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/category/container-gardening/
+              - listitem [ref=f2e310]:
+                - link "Garden Design" [ref=f2e311] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/category/garden-design/
+              - listitem [ref=f2e312]:
+                - link "Herbs" [ref=f2e313] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/category/herbs/
+              - listitem [ref=f2e314]:
+                - link "Houseplants" [ref=f2e315] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/category/houseplants/
+              - listitem [ref=f2e316]:
+                - link "Perennials & Flowers" [ref=f2e317] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/category/perennials-flowers/
+              - listitem [ref=f2e318]:
+                - link "Pests & Diseases" [ref=f2e319] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/category/pests-diseases/
+              - listitem [ref=f2e320]:
+                - link "Soil & Composting" [ref=f2e321] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/category/soil-composting/
+              - listitem [ref=f2e322]:
+                - link "Vegetable Gardening" [ref=f2e323] [cursor=pointer]:
+                  - /url: http://gardening.localhost:8088/category/vegetable-gardening/
+          - generic [ref=f2e324]:
+            - heading "Legal" [level=4] [ref=f2e325]
+            - list [ref=f2e326]:
+              - listitem [ref=f2e327]:
+                - link "About" [ref=f2e328] [cursor=pointer]:
+                  - /url: /about/
+              - listitem [ref=f2e329]:
+                - link "Privacy" [ref=f2e330] [cursor=pointer]:
+                  - /url: /privacy/
+              - listitem [ref=f2e331]:
+                - link "Contact" [ref=f2e332] [cursor=pointer]:
+                  - /url: /contact/
+        - generic [ref=f2e333]:
+          - paragraph [ref=f2e334]:
+            - text: ©
+            - link "Openclaw" [ref=f2e335] [cursor=pointer]:
+              - /url: /
+          - paragraph [ref=f2e336]: Written and edited with editorial care.

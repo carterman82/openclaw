@@ -122,7 +122,7 @@ and auto-deploy static exports to per-subsite GitHub Pages repos.
   (`catfancast`, `localhost`) skip the deploy chain — the allowlist lives
   in `deploy.DEPLOYABLE_SLUGS`.
 - GH Pages URLs: `https://carterman82.github.io/openclaw-<slug>/` (301-
-  redirect to `www.reggaefancast.com/openclaw-<slug>/` because the user's
+  redirect to `www.info-verse.org/openclaw-<slug>/` because the user's
   account has a custom domain configured for `carterman82.github.io`; the
   redirect is transparent).
 - Pass `--skip-deploy` to skip the export+push step (WP publish still
@@ -261,6 +261,73 @@ python scripts/verify-seo.py --latest
 ```
 
 Exit code 0 = no FAIL (WARNs and SKIPs are acceptable). On sites without the plugin, Routing and Y1/Y3/Y7/Y8 are automatically SKIP/WARN — the remaining content-shape checks (Y2, Y4–Y6, Y10–Y12) are fully verifiable.
+
+## Search Console / Analytics / Ads (Phase 7)
+
+The five pilot subsites (`gardening`, `dogs`, `boardgames`, `coffee`,
+`techtools`) live under one `info-verse.org` apex, so most of Phase 7's
+setup is one-time apex-level work rather than per-subsite work.
+
+**Search Console**
+- One DNS TXT record at the `info-verse.org` apex verifies a GSC *Domain*
+  property, which automatically covers every subdomain — no per-subsite
+  verification needed, and adding a new pilot subsite later requires no new
+  GSC step at all.
+- Sitemap submission is still per-subsite and manual: submit
+  `https://<slug>.info-verse.org/sitemap_index.xml` for each of the 5 in
+  GSC → Sitemaps. No GSC API credentials exist in this project, so this is
+  not scriptable — do it by hand after every new subsite goes live.
+
+**GA4**
+- One GA4 property per subsite (5 total). The measurement snippet lives in
+  `openclaw-base/functions.php` (`openclaw_base_ga4_snippet()`, hooked on
+  `wp_head`) and only fires when the active child theme defines
+  `OPENCLAW_GA4_ID` — an undefined constant means silent no-output, not an
+  error. Each child theme's `functions.php`
+  (`wp-content/themes/openclaw-<slug>/functions.php`) has a commented-out
+  `define( 'OPENCLAW_GA4_ID', 'G-XXXXXXXXXX' );` line ready to fill in once
+  that subsite's GA4 property exists.
+- After filling in an ID, redeploy that subsite (`wp staatic publish` +
+  git push, or just run `python -m openclaw post --site <slug>` normally)
+  and confirm with `curl -s https://<slug>.info-verse.org/ | grep "gtag('config'"`.
+
+**AdSense**
+- One AdSense account/publisher ID covers the whole apex — unlike the GA4
+  constant, `OPENCLAW_ADSENSE_ID` is defined once in the **parent** theme
+  (`openclaw-base/functions.php`, commented out by default) rather than per
+  child theme. Fill in `ca-pub-XXXXXXXXXXXXXXXX` there once, redeploy all 5
+  subsites, done.
+- `ads.txt` goes at the `info-verse.org` apex once AdSense approves the
+  domain — confirm which repo actually serves `www.info-verse.org/` before
+  adding it (see PLAN.md §12, 2026-07-13 decision).
+- Legal pages (About/Privacy/Contact — AdSense requires these) are created
+  per subsite by `scripts/create-legal-pages.py` (idempotent, safe to
+  re-run): pulls on-brand About copy from each site's
+  `website_memory/<slug>.localhost.md` persona, and points Contact/Privacy
+  at a single shared address baked into the script. Linked from a "Legal"
+  column in the theme footer (`openclaw-base/parts/footer.html`).
+- Ad placement: `.openclaw-ad-slot` containers (empty `<div>`s, ready for
+  AdSense Auto Ads or manual units later) sit above the title, at the
+  content midpoint (word-count-based `the_content` filter,
+  `openclaw_auto_ad_slot_mid_content()`), and above the related-posts
+  block on every post; one leaderboard slot on home and category-archive
+  pages. `style.css` reserves `min-height` per slot type to keep CLS low
+  before ads are actually filling them.
+
+**Belt-and-braces audit**
+
+```powershell
+python scripts/audit-static-seo.py                  # all 5 pilot subsites
+python scripts/audit-static-seo.py --site gardening --site dogs
+```
+
+Fetches the *deployed* HTML (not the WP REST payload — that's what
+`scripts/audit-content.py` checks) for each subsite's home page and one
+sampled post: title, meta description, canonical host, `og:image` (200),
+`og:type`, JSON-LD presence, GA4 snippet, plus `robots.txt` and the full
+sitemap tree. Exits non-zero on any FAIL. Run this after any theme change
+or Staatic republish that touches head tags, metadata, or the ad-slot
+templates — it's the regression gate for all of the above.
 
 ## Scheduling (Phase 4)
 

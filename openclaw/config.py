@@ -119,14 +119,19 @@ class Config:
     # the last-resort _retry_local_hotter() value of 1.25 so that path still
     # represents a genuine escalation over the default.
     LOCAL_MODEL_REPETITION_PENALTY: float = 1.22
-    # Default False: Step 3.8.5/3.8.7 (2026-07-14) found that the only
-    # mechanism that actually suppresses thinking on this LM Studio build
-    # (extra_body={"reasoning_effort":"none"}) also reliably breaks
-    # tool_choice="required" grammar enforcement, so the model answers in
-    # plain prose instead of calling the tool. See PLAN.md §12 for the full
-    # writeup. Kept as an opt-in knob in case a future server/model build
-    # handles it correctly.
-    LOCAL_MODEL_DISABLE_THINKING: bool = False
+    # Default True (2026-07-23): the tool_choice="required" grammar breakage
+    # noted at Step 3.8.5/3.8.7 no longer applies — we've been on
+    # response_format=json_schema (strict) since Step 3.8.8, and
+    # reasoning_effort="none" was re-verified to return valid strict-schema
+    # JSON in `content` with reasoning_tokens=0. Flipped on because thinking
+    # mode was the dominant source of run failures: Qwen 3 routinely burned
+    # the full max_tokens budget looping mid-reasoning ("Polling is fine.
+    # Polling is fine…" x hundreds, 38 of 46 qwen-fallback dumps between
+    # 2026-07-14 and 2026-07-23), which then triggered a Claude fallback
+    # that also fails because the account is billing-blocked. Disabling
+    # thinking cuts generation from many minutes to ~10s and eliminates
+    # the loop class entirely.
+    LOCAL_MODEL_DISABLE_THINKING: bool = True
     LOCAL_IMAGE_BASE_URL: str | None = None
     LOCAL_IMAGE_ENABLED: bool = False
 
@@ -172,7 +177,7 @@ class Config:
                 os.getenv("LOCAL_MODEL_REPETITION_PENALTY"), 1.22
             ),
             LOCAL_MODEL_DISABLE_THINKING=_parse_bool(
-                os.getenv("LOCAL_MODEL_DISABLE_THINKING"), False
+                os.getenv("LOCAL_MODEL_DISABLE_THINKING"), True
             ),
             LOCAL_IMAGE_BASE_URL=_normalize_optional(os.getenv("LOCAL_IMAGE_BASE_URL")),
             LOCAL_IMAGE_ENABLED=local_image_enabled_raw in _TRUE_STRINGS,

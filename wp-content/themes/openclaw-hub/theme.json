@@ -1,0 +1,30 @@
+{
+    "$schema": "https://schemas.wp.org/wp/6.6/theme.json",
+    "version": 3,
+    "settings": {
+        "typography": {
+            "fontFamilies": [
+                {
+                    "name": "Body",
+                    "slug": "openclaw-body",
+                    "fontFamily": "'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+                },
+                {
+                    "name": "Display",
+                    "slug": "openclaw-display",
+                    "fontFamily": "'Space Grotesk', 'Inter Tight', -apple-system, system-ui, sans-serif"
+                }
+            ]
+        },
+        "color": {
+            "palette": [
+                { "name": "Background", "slug": "openclaw-background", "color": "#0F172A" },
+                { "name": "Surface",    "slug": "openclaw-surface",    "color": "#1E293B" },
+                { "name": "Text",       "slug": "openclaw-text",       "color": "#F8FAFC" },
+                { "name": "Muted",      "slug": "openclaw-muted",      "color": "#94A3B8" },
+                { "name": "Primary",    "slug": "openclaw-primary",    "color": "#F59E0B" },
+                { "name": "Accent",     "slug": "openclaw-accent",     "color": "#38BDF8" }
+            ]
+        }
+    }
+}

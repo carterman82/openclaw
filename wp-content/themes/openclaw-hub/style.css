@@ -1,0 +1,268 @@
+/*
+Theme Name: Openclaw Info Verse Hub
+Theme URI: https://github.com/carterman82/openclaw-hub
+Author: openclaw
+Author URI: https://github.com/carterman82
+Description: Network hub for info-verse.org. Aggregation-only home page linking to the five subsite fandoms. Child of openclaw-base with a distinct dark-slate + amber network palette.
+Version: 0.5.0
+Template: openclaw-base
+Requires at least: 6.6
+Requires PHP: 8.1
+License: GPL-2.0-or-later
+License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Text Domain: openclaw-hub
+*/
+
+/* ---- Base ---------------------------------------------------------- */
+
+body {
+    background: var(--wp--preset--color--openclaw-background);
+    color: var(--wp--preset--color--openclaw-text);
+    font-family: var(--wp--preset--font-family--openclaw-body);
+}
+
+a { color: inherit; }
+
+/* Kill the parent theme's category-nav underline hover state — hub has no
+   categories to link to. */
+.openclaw-hub-topbar a { text-decoration: none; }
+
+/* ---- Header -------------------------------------------------------- */
+
+.openclaw-hub-topbar {
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 20px 0;
+}
+
+.openclaw-hub-topbar .wp-block-site-title a {
+    color: var(--wp--preset--color--openclaw-text);
+    text-decoration: none;
+}
+
+.openclaw-hub-topbar .wp-block-site-title a:hover {
+    color: var(--wp--preset--color--openclaw-primary);
+}
+
+/* ---- Hero ---------------------------------------------------------- */
+
+.openclaw-hub-hero {
+    padding: 72px 0 48px;
+    text-align: center;
+}
+
+.openclaw-hub-hero h1 {
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    font-size: clamp(40px, 6vw, 64px);
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    line-height: 1.05;
+    margin: 0 0 20px;
+    color: var(--wp--preset--color--openclaw-text);
+}
+
+.openclaw-hub-hero h1::after {
+    content: "";
+    display: block;
+    width: 56px;
+    height: 3px;
+    background: var(--wp--preset--color--openclaw-primary);
+    margin: 20px auto 0;
+    border-radius: 2px;
+}
+
+.openclaw-hub-hero p {
+    color: var(--wp--preset--color--openclaw-muted);
+    font-size: 17px;
+    max-width: 620px;
+    margin: 0 auto;
+    line-height: 1.6;
+}
+
+/* ---- Network feed -------------------------------------------------- */
+
+.openclaw-network-feed {
+    display: grid;
+    gap: 48px;
+    margin: 32px 0 40px;
+}
+
+.openclaw-network-row-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 32px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+
+.openclaw-network-row-heading {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+    flex: 1;
+}
+
+.openclaw-network-row-title {
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    margin: 0;
+    color: var(--wp--preset--color--openclaw-text);
+}
+
+.openclaw-network-row-blurb {
+    margin: 0;
+    color: var(--wp--preset--color--openclaw-muted);
+    font-size: 15px;
+    line-height: 1.55;
+    max-width: 640px;
+}
+
+.openclaw-network-row-visit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--wp--preset--color--openclaw-primary);
+    text-decoration: none;
+    white-space: nowrap;
+    padding: 8px 16px;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    border-radius: 999px;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.openclaw-network-row-visit:hover {
+    background-color: var(--wp--preset--color--openclaw-primary);
+    border-color: var(--wp--preset--color--openclaw-primary);
+    color: var(--wp--preset--color--openclaw-background);
+}
+
+.openclaw-network-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 20px;
+}
+
+/* ---- Card ---------------------------------------------------------- */
+
+.openclaw-network-card {
+    display: grid;
+    grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
+    background: var(--wp--preset--color--openclaw-surface);
+    border-radius: 10px;
+    overflow: hidden;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+    border: 1px solid rgba(255,255,255,0.06);
+}
+
+.openclaw-network-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+    border-color: rgba(245, 158, 11, 0.35);
+}
+
+.openclaw-network-card:hover .openclaw-network-card-title {
+    color: var(--wp--preset--color--openclaw-primary);
+}
+
+.openclaw-network-card-image {
+    aspect-ratio: 16 / 9;
+    background-color: #1E293B;
+    display: block;
+    overflow: hidden;
+    position: relative;
+}
+
+.openclaw-network-card-image img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center;
+}
+
+.openclaw-network-card-body {
+    padding: 28px 36px;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.openclaw-network-card-title {
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.3;
+    margin: 0;
+    color: var(--wp--preset--color--openclaw-text);
+    letter-spacing: -0.015em;
+    transition: color 160ms ease;
+}
+
+/* ---- Empty state (subsite feed offline) ---------------------------- */
+
+.openclaw-network-row-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--wp--preset--color--openclaw-muted);
+    font-size: 14px;
+    border: 1px dashed rgba(255,255,255,0.08);
+    border-radius: 8px;
+}
+
+/* ---- Footer overrides ---------------------------------------------- */
+
+.wp-block-group > .wp-block-columns .wp-block-column p a,
+.wp-block-group > .wp-block-columns .wp-block-column li a,
+.openclaw-hub-footer-bottom a {
+    color: var(--wp--preset--color--openclaw-muted);
+    text-decoration: underline;
+    text-decoration-color: rgba(148,163,184,0.3);
+    text-underline-offset: 3px;
+    transition: color 120ms ease, text-decoration-color 120ms ease;
+}
+
+.wp-block-group > .wp-block-columns .wp-block-column p a:hover,
+.wp-block-group > .wp-block-columns .wp-block-column li a:hover,
+.openclaw-hub-footer-bottom a:hover {
+    color: var(--wp--preset--color--openclaw-primary);
+    text-decoration-color: var(--wp--preset--color--openclaw-primary);
+}
+
+.openclaw-hub-footer-bottom {
+    padding-top: 24px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+/* ---- Responsive --------------------------------------------------- */
+
+@media (max-width: 900px) {
+    .openclaw-network-card { grid-template-columns: minmax(0, 240px) minmax(0, 1fr); }
+    .openclaw-network-card-body { padding: 16px 20px; }
+    .openclaw-network-card-title { font-size: 18px; }
+}
+
+@media (max-width: 760px) {
+    .openclaw-network-row-title { font-size: 26px; }
+    .openclaw-network-row-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+}
+
+@media (max-width: 640px) {
+    .openclaw-hub-hero { padding: 48px 0 32px; }
+    .openclaw-network-feed { gap: 36px; }
+    .openclaw-network-row-title { font-size: 24px; }
+    .openclaw-network-card { grid-template-columns: 1fr; }
+    .openclaw-network-card-body { padding: 16px 18px 20px; }
+    .openclaw-network-card-title { font-size: 17px; }
+}

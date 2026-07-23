@@ -19,6 +19,12 @@ function openclaw_base_setup(): void {
     add_theme_support( 'title-tag' );
     add_theme_support( 'responsive-embeds' );
     add_theme_support( 'html5', [ 'search-form', 'comment-form', 'comment-list', 'gallery', 'caption', 'style', 'script' ] );
+    add_theme_support( 'custom-logo', [
+        'height'      => 96,
+        'width'       => 320,
+        'flex-height' => true,
+        'flex-width'  => true,
+    ] );
 
     // 16:9 sizes across the board.
     add_image_size( 'openclaw-hero',  1600, 900, true );
@@ -65,6 +71,47 @@ function openclaw_base_enqueue(): void {
     wp_enqueue_style( 'openclaw-base-fonts', $fonts_url, [], null );
 }
 add_action( 'wp_enqueue_scripts', 'openclaw_base_enqueue' );
+
+/**
+ * GA4 measurement snippet. Child themes define OPENCLAW_GA4_ID with their own
+ * per-subsite property ID; a child theme that doesn't define it just gets no
+ * output — no error, no fallback tracking ID.
+ */
+function openclaw_base_ga4_snippet(): void {
+    if ( ! defined( 'OPENCLAW_GA4_ID' ) || ! OPENCLAW_GA4_ID ) {
+        return;
+    }
+    $id = esc_js( OPENCLAW_GA4_ID );
+    ?>
+<script async src="https://www.googletagmanager.com/gtag/js?id=<?php echo esc_attr( $id ); ?>"></script>
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', '<?php echo $id; ?>');
+</script>
+    <?php
+}
+add_action( 'wp_head', 'openclaw_base_ga4_snippet', 1 );
+
+/**
+ * AdSense verification / Auto Ads script. One publisher ID covers the whole
+ * account, so — unlike OPENCLAW_GA4_ID — OPENCLAW_ADSENSE_ID is defined once
+ * here in the parent theme rather than per child theme. Undefined = no
+ * output, same fail-soft pattern as the GA4 snippet.
+ */
+// define( 'OPENCLAW_ADSENSE_ID', 'ca-pub-XXXXXXXXXXXXXXXX' );
+
+function openclaw_base_adsense_snippet(): void {
+    if ( ! defined( 'OPENCLAW_ADSENSE_ID' ) || ! OPENCLAW_ADSENSE_ID ) {
+        return;
+    }
+    $id = esc_attr( OPENCLAW_ADSENSE_ID );
+    ?>
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=<?php echo $id; ?>" crossorigin="anonymous"></script>
+    <?php
+}
+add_action( 'wp_head', 'openclaw_base_adsense_snippet', 1 );
 
 /**
  * Register block-pattern category so parent patterns group under one heading in
@@ -324,3 +371,48 @@ function openclaw_auto_toc( string $content ): string {
     return $content;
 }
 add_filter( 'the_content', 'openclaw_auto_toc', 20 );
+
+/**
+ * Auto-inject one in-content ad slot near the midpoint of the post, at a
+ * <p> boundary — word-count based so it never lands inside a list or code
+ * block. Skips short posts (< 6 paragraphs) where a mid-content slot would
+ * sit awkwardly close to the top or bottom. Runs after the TOC filter
+ * (priority 20) so its <ol>/<li> markup is never mistaken for a paragraph.
+ */
+function openclaw_auto_ad_slot_mid_content( string $content ): string {
+    if ( ! is_singular( 'post' ) || ! in_the_loop() || ! is_main_query() ) {
+        return $content;
+    }
+    if ( ! preg_match_all( '/<p\b[^>]*>.*?<\/p>/is', $content, $matches, PREG_OFFSET_CAPTURE ) ) {
+        return $content;
+    }
+    $paragraphs = $matches[0];
+    if ( count( $paragraphs ) < 6 ) {
+        return $content;
+    }
+
+    $word_counts = array_map(
+        static fn( array $p ): int => str_word_count( wp_strip_all_tags( $p[0] ) ),
+        $paragraphs
+    );
+    $total_words = array_sum( $word_counts );
+    if ( $total_words === 0 ) {
+        return $content;
+    }
+
+    $target  = $total_words / 2;
+    $running = 0;
+    $insert_after_index = count( $paragraphs ) - 1;
+    foreach ( $word_counts as $i => $w ) {
+        $running += $w;
+        if ( $running >= $target ) {
+            $insert_after_index = $i;
+            break;
+        }
+    }
+
+    $slot = "\n" . '<div class="openclaw-ad-slot openclaw-ad-slot--in-content" data-slot-id="post-mid"></div>' . "\n";
+    $insert_pos = $paragraphs[ $insert_after_index ][1] + strlen( $paragraphs[ $insert_after_index ][0] );
+    return substr_replace( $content, $slot, $insert_pos, 0 );
+}
+add_filter( 'the_content', 'openclaw_auto_ad_slot_mid_content', 21 );

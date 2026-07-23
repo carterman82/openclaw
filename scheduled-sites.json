@@ -38,5 +38,10 @@
     "slug": "techtools",
     "enabled": true,
     "notes": "Phase 5 Step 5.10 subsite (blog_id=6) at http://techtools.localhost:8088 — Tech Tool Guide. 29 posts migrated from localhost primary on 2026-07-14. Enable after Staatic + GH Pages deploy is verified end-to-end."
+  },
+  {
+    "slug": "hub",
+    "enabled": false,
+    "notes": "Info Verse network hub (blog_id=7) at http://hub.localhost:8088 — aggregation-only apex site at https://info-verse.org/. NEVER enable content generation: hub has no persona / topic guide and its home page pulls cards from the 5 subsite REST APIs via [openclaw_network_feed]. Redeploys automatically after every other subsite publishes via deploy.refresh_hub(); the scheduled runner skips it since enabled=false. Present here to document the deployable slug — see PLAN.md 2026-07-22 Decision Log entry."
   }
 ]

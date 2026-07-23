@@ -46,10 +46,16 @@ def _resolve_git_exe() -> str:
     found = shutil.which("git")
     if found:
         return found
+    # Under Task Scheduler, %LOCALAPPDATA% and %USERPROFILE% may resolve to
+    # the service principal's profile (not the interactive user's), so the
+    # env-var-driven candidates below miss the real install. Also include
+    # the observed absolute path for this machine as a last-ditch check.
     candidates = [
         Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "Git" / "cmd" / "git.exe",
         Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "Git" / "cmd" / "git.exe",
         Path(os.environ.get("LOCALAPPDATA", "")) / "Programs" / "Git" / "cmd" / "git.exe",
+        Path(os.environ.get("USERPROFILE", "")) / "AppData" / "Local" / "Programs" / "Git" / "cmd" / "git.exe",
+        Path(r"C:\Users\carte\AppData\Local\Programs\Git\cmd\git.exe"),
     ]
     for candidate in candidates:
         if candidate.exists():
@@ -71,18 +77,32 @@ _GH_REPO_PREFIX = "openclaw-"
 # A CNAME file with this value is written into the worktree on every deploy
 # so Staatic republishes can't wipe it.  Update here when subdomains change.
 _SLUG_TO_DOMAIN: dict[str, str] = {
-    "gardening":  "rootstock.reggaefancast.com",
-    "dogs":       "kennelside.reggaefancast.com",
-    "boardgames": "meeple.reggaefancast.com",
-    "coffee":     "crema.reggaefancast.com",
-    "techtools":  "techtools.reggaefancast.com",
+    "gardening":  "gardening.info-verse.org",
+    "dogs":       "dogs.info-verse.org",
+    "boardgames": "boardgames.info-verse.org",
+    "coffee":     "coffee.info-verse.org",
+    "techtools":  "techtools.info-verse.org",
+    # Hub sits on the naked apex; carterman82.github.io (the user-site repo)
+    # is the source of truth for info-verse.org because Namecheap doesn't do
+    # ALIAS records at the apex — pointing four GH Pages A records at the
+    # apex lands users on whichever repo owns the apex CNAME.
+    "hub":        "info-verse.org",
 }
+
+# Per-slug repo override. Absent slugs fall back to the historical
+# `openclaw-<slug>` pattern under _GH_OWNER. Kept as a hook for the case
+# where a slug's serving repo diverges from the default naming — currently
+# empty (hub now uses openclaw-hub like the five pilots, since the
+# alternative — reusing the carterman82.github.io user-site repo — would
+# have wiped its existing content and broken www.reggaefancast.com).
+_SLUG_TO_REPO: dict[str, str] = {}
 
 # Only the pilot subsites that live on the local multisite deploy to GitHub.
 # Other slugs (catfancast, localhost as primary) are skipped by the wiring in
 # main.py so this list stays authoritative and predictable.
 DEPLOYABLE_SLUGS: frozenset[str] = frozenset({
     "gardening", "dogs", "boardgames", "coffee", "techtools",
+    "hub",
 })
 
 _STAATIC_TIMEOUT_SEC = 300
@@ -128,10 +148,29 @@ def trigger_staatic_export(slug: str) -> bool:
     return True
 
 
+# Per-invocation git overrides so deploy works regardless of which principal
+# runs the process (interactive user vs. Task Scheduler service account) and
+# regardless of what's in that principal's global git config.
+#
+# safe.directory=*  neutralises Git's "dubious ownership" refusal when the
+#   .gh-worktree/ dirs were created by a different user (e.g. an interactive
+#   catch-up push while the scheduler runs as SYSTEM).
+# user.name / user.email
+#   the service principal has no global identity, so `git commit` fails with
+#   "Author identity unknown"; hardcode a stable openclaw identity that
+#   matches what earlier interactive commits used (github.com noreply address
+#   for carterman82) so commit history stays consistent across principals.
+_GIT_C_OVERRIDES = (
+    "-c", "safe.directory=*",
+    "-c", "user.name=Carter",
+    "-c", "user.email=67517982+carterman82@users.noreply.github.com",
+)
+
+
 def _run_git(args: list[str], cwd: Path) -> tuple[bool, str]:
     try:
         r = subprocess.run(
-            [_GIT_EXE, *args],
+            [_GIT_EXE, *_GIT_C_OVERRIDES, *args],
             cwd=str(cwd),
             capture_output=True,
             text=True,
@@ -143,11 +182,17 @@ def _run_git(args: list[str], cwd: Path) -> tuple[bool, str]:
     return r.returncode == 0, out
 
 
+def _repo_name(slug: str) -> str:
+    """Return the GitHub repo name for `slug`. Overrides via _SLUG_TO_REPO win."""
+    return _SLUG_TO_REPO.get(slug, f"{_GH_REPO_PREFIX}{slug}")
+
+
 def _ensure_worktree(slug: str) -> Path | None:
     """Clone the deploy repo once; reuse the working tree on subsequent runs."""
     _WORKTREE_ROOT.mkdir(parents=True, exist_ok=True)
-    wt = _WORKTREE_ROOT / f"{_GH_REPO_PREFIX}{slug}"
-    remote = f"https://github.com/{_GH_OWNER}/{_GH_REPO_PREFIX}{slug}.git"
+    repo = _repo_name(slug)
+    wt = _WORKTREE_ROOT / repo
+    remote = f"https://github.com/{_GH_OWNER}/{repo}.git"
     if not (wt / ".git").exists():
         logger.info("Cloning deploy repo for %r into %s.", slug, wt)
         if wt.exists():
@@ -229,6 +274,43 @@ def commit_and_push(slug: str, post_title: str) -> bool:
     return True
 
 
+def refresh_hub(reason: str = "subsite publish") -> bool:
+    """Re-export + re-push the hub aggregation site.
+
+    Called after any non-hub deployable subsite publishes so the info-verse.org
+    home page's card feed reflects the new post within one publish cycle
+    instead of waiting up to 6 hours for the per-subsite REST-fetch transient
+    to expire. Also invalidates the hub's cached feed transients before the
+    Staatic crawl so the new post is picked up on the first render.
+
+    Fail-soft — a hub refresh error must not fail the subsite deploy that
+    triggered it. Callers ignore the return value.
+    """
+    logger.info("Refreshing hub aggregation site (reason=%s).", reason)
+
+    # Bust the hub's cached subsite feeds so the Staatic crawl re-fetches
+    # from every subsite's live REST API. Safe to skip if wp-cli refuses
+    # (fresh install, plugin not yet registering the command, etc.).
+    flush_cmd = [
+        "docker", "compose", "run", "--rm", "wpcli",
+        "openclaw", "hub_flush_cache", "--url=hub.localhost:8088",
+    ]
+    try:
+        subprocess.run(
+            flush_cmd,
+            cwd=str(_PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
+        logger.warning("Hub cache flush failed to start (%s): %s", type(exc).__name__, exc)
+
+    if not trigger_staatic_export("hub"):
+        return False
+    return commit_and_push("hub", f"Refresh feed ({reason})")
+
+
 def deploy_after_publish(slug: str, post_title: str) -> bool:
     """Full post-publish deploy chain. Skips silently for non-pilot slugs."""
     if not is_deployable(slug):
@@ -236,4 +318,14 @@ def deploy_after_publish(slug: str, post_title: str) -> bool:
         return False
     if not trigger_staatic_export(slug):
         return False
-    return commit_and_push(slug, post_title)
+    ok = commit_and_push(slug, post_title)
+    # Piggyback: after any non-hub subsite deploy succeeds, refresh the hub
+    # so its aggregation feed reflects the new post. A hub refresh failure
+    # never rolls back the subsite deploy — refresh_hub is fail-soft and its
+    # return value is intentionally ignored.
+    if ok and slug != "hub":
+        try:
+            refresh_hub(reason=f"{slug} publish: {post_title}")
+        except Exception as exc:  # noqa: BLE001 — belt-and-braces
+            logger.warning("Hub refresh raised %s: %s", type(exc).__name__, exc)
+    return ok

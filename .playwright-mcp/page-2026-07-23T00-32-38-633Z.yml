@@ -1,0 +1,273 @@
+- generic [active] [ref=f3e1]:
+  - link "Skip to content" [ref=f3e2] [cursor=pointer]:
+    - /url: "#wp--skip-link--target"
+  - generic [ref=f3e3]:
+    - banner [ref=f3e4]:
+      - link [ref=f3e8] [cursor=pointer]:
+        - /url: http://coffee.localhost:8088/
+        - img "Coffee Info Verse" [ref=f3e9]
+      - list [ref=f3e11]:
+        - listitem [ref=f3e12]:
+          - link "Bean Origins" [ref=f3e13] [cursor=pointer]:
+            - /url: http://coffee.localhost:8088/category/bean-origins/
+        - listitem [ref=f3e14]:
+          - link "Brewing Methods" [ref=f3e15] [cursor=pointer]:
+            - /url: http://coffee.localhost:8088/category/brewing-methods/
+        - listitem [ref=f3e16]:
+          - link "Coffee Culture" [ref=f3e17] [cursor=pointer]:
+            - /url: http://coffee.localhost:8088/category/coffee-culture/
+        - listitem [ref=f3e18]:
+          - link "Equipment Guides" [ref=f3e19] [cursor=pointer]:
+            - /url: http://coffee.localhost:8088/category/equipment-guides/
+        - listitem [ref=f3e20]:
+          - link "Extraction Science" [ref=f3e21] [cursor=pointer]:
+            - /url: http://coffee.localhost:8088/category/extraction-science/
+        - listitem [ref=f3e22]:
+          - link "Pour Over" [ref=f3e23] [cursor=pointer]:
+            - /url: http://coffee.localhost:8088/category/pour-over/
+        - listitem [ref=f3e24]:
+          - link "Roasting" [ref=f3e25] [cursor=pointer]:
+            - /url: http://coffee.localhost:8088/category/roasting/
+    - main [ref=f3e26]:
+      - list [ref=f3e28]:
+        - listitem [ref=f3e29]:
+          - generic [ref=f3e30]:
+            - figure [ref=f3e31]:
+              - link [ref=f3e32] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/22/sca-cupping-protocol-consistency-not-quality/
+                - img "The SCA Cupping Protocol Doesn’t Measure Quality. It Measures Consistency." [ref=f3e33]
+            - generic [ref=f3e34]:
+              - link "Coffee Culture" [ref=f3e36] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/coffee-culture/
+              - heading [level=2] [ref=f3e37]:
+                - link "The SCA Cupping Protocol Doesn’t Measure Quality. It Measures Consistency." [ref=f3e38] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/2026/07/22/sca-cupping-protocol-consistency-not-quality/
+              - paragraph [ref=f3e40]:
+                - text: The SCA cupping protocol doesn’t measure quality. It measures consistency. Here’s why that matters for your home brew.
+                - link "Read" [ref=f3e41] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/2026/07/22/sca-cupping-protocol-consistency-not-quality/
+              - time [ref=f3e43]: July 22, 2026
+        - listitem [ref=f3e44]:
+          - generic [ref=f3e45]:
+            - figure [ref=f3e46]:
+              - link [ref=f3e47] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/22/espresso-grinder-dead-zone-burr-alignment/
+                - img "Your Espresso Shot Isn’t Sour. The Grinder’s Dead Zone Is." [ref=f3e48]
+            - generic [ref=f3e49]:
+              - link "Extraction Science" [ref=f3e51] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/extraction-science/
+              - heading [level=2] [ref=f3e52]:
+                - link "Your Espresso Shot Isn’t Sour. The Grinder’s Dead Zone Is." [ref=f3e53] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/2026/07/22/espresso-grinder-dead-zone-burr-alignment/
+              - paragraph [ref=f3e55]:
+                - text: Your espresso shot isn’t sour. The grinder’s dead zone is. Here’s how to find it, test it, and work around it without buying new gear.
+                - link "Read" [ref=f3e56] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/2026/07/22/espresso-grinder-dead-zone-burr-alignment/
+              - time [ref=f3e58]: July 22, 2026
+      - list [ref=f3e61]:
+        - listitem [ref=f3e62]:
+          - generic [ref=f3e64]:
+            - figure [ref=f3e65]:
+              - link [ref=f3e66] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/22/kenyan-aa-brewing-extraction-protocol/
+                - img "Kenyan AA Doesn’t Taste Like Blackcurrant. It Tastes Like High-Altitude Acidity." [ref=f3e67]
+            - generic [ref=f3e68]:
+              - link "Bean Origins" [ref=f3e70] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/bean-origins/
+              - heading [level=3] [ref=f3e71]:
+                - link "Kenyan AA Doesn’t Taste Like Blackcurrant. It Tastes Like High-Altitude Acidity." [ref=f3e72] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/2026/07/22/kenyan-aa-brewing-extraction-protocol/
+              - time [ref=f3e74]: July 22, 2026
+        - listitem [ref=f3e75]:
+          - generic [ref=f3e77]:
+            - figure [ref=f3e78]:
+              - link [ref=f3e79] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/21/pour-over-grind-too-fine-dripper-fault/
+                - img "Your Pour-Over Grind Is Too Fine. It’s Not the Dripper’s Fault." [ref=f3e80]
+            - generic [ref=f3e81]:
+              - link "Pour Over" [ref=f3e83] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/pour-over/
+              - heading [level=3] [ref=f3e84]:
+                - link "Your Pour-Over Grind Is Too Fine. It’s Not the Dripper’s Fault." [ref=f3e85] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/2026/07/21/pour-over-grind-too-fine-dripper-fault/
+              - time [ref=f3e87]: July 21, 2026
+        - listitem [ref=f3e88]:
+          - generic [ref=f3e90]:
+            - figure [ref=f3e91]:
+              - link [ref=f3e92] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/21/vietnamese-robusta-brewing-phin-protocol/
+                - 'img "The Robusta Blind Spot: Why Vietnamese Coffee Demands a Different Recipe" [ref=f3e93]'
+            - generic [ref=f3e94]:
+              - link "Coffee Culture" [ref=f3e96] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/coffee-culture/
+              - heading [level=3] [ref=f3e97]:
+                - 'link "The Robusta Blind Spot: Why Vietnamese Coffee Demands a Different Recipe" [ref=f3e98] [cursor=pointer]':
+                  - /url: http://coffee.localhost:8088/2026/07/21/vietnamese-robusta-brewing-phin-protocol/
+              - time [ref=f3e100]: July 21, 2026
+        - listitem [ref=f3e101]:
+          - generic [ref=f3e103]:
+            - figure [ref=f3e104]:
+              - link [ref=f3e105] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/21/roasting-not-color-game-chemical-stress-test/
+                - img "Roasting Is Not a Color Game. It’s a Chemical Stress Test." [ref=f3e106]
+            - generic [ref=f3e107]:
+              - link "Roasting" [ref=f3e109] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/roasting/
+              - heading [level=3] [ref=f3e110]:
+                - link "Roasting Is Not a Color Game. It’s a Chemical Stress Test." [ref=f3e111] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/2026/07/21/roasting-not-color-game-chemical-stress-test/
+              - time [ref=f3e113]: July 21, 2026
+        - listitem [ref=f3e114]:
+          - generic [ref=f3e116]:
+            - figure [ref=f3e117]:
+              - link [ref=f3e118] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/21/wet-hulled-processing-brewing-protocol/
+                - 'img "Wet-Hulled Coffee: The Processing Method That Breaks Standard Brew Recipes" [ref=f3e119]'
+            - generic [ref=f3e120]:
+              - link "Brewing Methods" [ref=f3e122] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/brewing-methods/
+              - heading [level=3] [ref=f3e123]:
+                - 'link "Wet-Hulled Coffee: The Processing Method That Breaks Standard Brew Recipes" [ref=f3e124] [cursor=pointer]':
+                  - /url: http://coffee.localhost:8088/2026/07/21/wet-hulled-processing-brewing-protocol/
+              - time [ref=f3e126]: July 21, 2026
+        - listitem [ref=f3e127]:
+          - generic [ref=f3e129]:
+            - figure [ref=f3e130]:
+              - link [ref=f3e131] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/17/pour-over-filter-rinsing-extraction-variable/
+                - img "Your Pour-Over Is Sour Because You’re Rinsing the Filter Wrong. Here’s the Real Fix." [ref=f3e132]
+            - generic [ref=f3e133]:
+              - link "Pour Over" [ref=f3e135] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/pour-over/
+              - heading [level=3] [ref=f3e136]:
+                - link "Your Pour-Over Is Sour Because You’re Rinsing the Filter Wrong. Here’s the Real Fix." [ref=f3e137] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/2026/07/17/pour-over-filter-rinsing-extraction-variable/
+              - time [ref=f3e139]: July 17, 2026
+        - listitem [ref=f3e140]:
+          - generic [ref=f3e142]:
+            - figure [ref=f3e143]:
+              - link [ref=f3e144] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/16/v60-filter-paper-extraction-variable-2/
+                - img "The V60 Pour Pattern Matters Less Than You Think. Filter Paper Is the Real Variable." [ref=f3e145]
+            - generic [ref=f3e146]:
+              - link "Pour Over" [ref=f3e148] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/pour-over/
+              - heading [level=3] [ref=f3e149]:
+                - link "The V60 Pour Pattern Matters Less Than You Think. Filter Paper Is the Real Variable." [ref=f3e150] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/2026/07/16/v60-filter-paper-extraction-variable-2/
+              - time [ref=f3e152]: July 16, 2026
+        - listitem [ref=f3e153]:
+          - generic [ref=f3e155]:
+            - figure [ref=f3e156]:
+              - link [ref=f3e157] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/16/ethiopian-natural-anaerobic-processing-difference/
+                - img "Ethiopian Natural Processing Is Not Just Blueberry Jam. The Anaerobic Twist Changes Everything." [ref=f3e158]
+            - generic [ref=f3e159]:
+              - link "Bean Origins" [ref=f3e161] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/bean-origins/
+              - heading [level=3] [ref=f3e162]:
+                - link "Ethiopian Natural Processing Is Not Just Blueberry Jam. The Anaerobic Twist Changes Everything." [ref=f3e163] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/2026/07/16/ethiopian-natural-anaerobic-processing-difference/
+              - time [ref=f3e165]: July 16, 2026
+        - listitem [ref=f3e166]:
+          - generic [ref=f3e168]:
+            - figure [ref=f3e169]:
+              - link [ref=f3e170] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/16/crema-problem-espresso-looks-perfect-tastes-sour/
+                - 'img "The Crema Problem: Why Your Espresso Looks Perfect But Tastes Sour" [ref=f3e171]'
+            - generic [ref=f3e172]:
+              - link "Brewing Methods" [ref=f3e174] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/brewing-methods/
+              - heading [level=3] [ref=f3e175]:
+                - 'link "The Crema Problem: Why Your Espresso Looks Perfect But Tastes Sour" [ref=f3e176] [cursor=pointer]':
+                  - /url: http://coffee.localhost:8088/2026/07/16/crema-problem-espresso-looks-perfect-tastes-sour/
+              - time [ref=f3e178]: July 16, 2026
+        - listitem [ref=f3e179]:
+          - generic [ref=f3e181]:
+            - figure [ref=f3e182]:
+              - link [ref=f3e183] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/15/burr-alignment-grinder-spec/
+                - img "Burr Alignment Is the Grinder Spec Nobody Publishes. It’s Also the One That Matters Most." [ref=f3e184]
+            - generic [ref=f3e185]:
+              - link "Equipment Guides" [ref=f3e187] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/equipment-guides/
+              - heading [level=3] [ref=f3e188]:
+                - link "Burr Alignment Is the Grinder Spec Nobody Publishes. It’s Also the One That Matters Most." [ref=f3e189] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/2026/07/15/burr-alignment-grinder-spec/
+              - time [ref=f3e191]: July 15, 2026
+        - listitem [ref=f3e192]:
+          - generic [ref=f3e194]:
+            - figure [ref=f3e195]:
+              - link [ref=f3e196] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/15/hario-switch-dual-path-design-immersion/
+                - img "The Switch’s Dual-Path Design Is the Only Reason It Works. Here’s How." [ref=f3e197]
+            - generic [ref=f3e198]:
+              - link "Equipment Guides" [ref=f3e200] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/equipment-guides/
+              - heading [level=3] [ref=f3e201]:
+                - link "The Switch’s Dual-Path Design Is the Only Reason It Works. Here’s How." [ref=f3e202] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/2026/07/15/hario-switch-dual-path-design-immersion/
+              - time [ref=f3e204]: July 15, 2026
+        - listitem [ref=f3e205]:
+          - generic [ref=f3e207]:
+            - figure [ref=f3e208]:
+              - link [ref=f3e209] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/2026/07/15/brew-ratio-extraction-pour-over/
+                - img "Water Temperature in Pour-Over Is Overrated. Brew Ratio Is Running the Show." [ref=f3e210]
+            - generic [ref=f3e211]:
+              - link "Extraction Science" [ref=f3e213] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088/category/extraction-science/
+              - heading [level=3] [ref=f3e214]:
+                - link "Water Temperature in Pour-Over Is Overrated. Brew Ratio Is Running the Show." [ref=f3e215] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/2026/07/15/brew-ratio-extraction-pour-over/
+              - time [ref=f3e217]: July 15, 2026
+    - contentinfo [ref=f3e218]:
+      - contentinfo [ref=f3e219]:
+        - generic [ref=f3e220]:
+          - generic [ref=f3e221]:
+            - paragraph [ref=f3e222]:
+              - link "Coffee Info Verse" [ref=f3e223] [cursor=pointer]:
+                - /url: http://coffee.localhost:8088
+            - paragraph [ref=f3e224]: Home brewing, examined at cup level.
+          - generic [ref=f3e225]:
+            - heading "Explore" [level=4] [ref=f3e226]
+            - list [ref=f3e227]:
+              - listitem [ref=f3e228]:
+                - link "Bean Origins" [ref=f3e229] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/category/bean-origins/
+              - listitem [ref=f3e230]:
+                - link "Brewing Methods" [ref=f3e231] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/category/brewing-methods/
+              - listitem [ref=f3e232]:
+                - link "Coffee Culture" [ref=f3e233] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/category/coffee-culture/
+              - listitem [ref=f3e234]:
+                - link "Equipment Guides" [ref=f3e235] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/category/equipment-guides/
+              - listitem [ref=f3e236]:
+                - link "Extraction Science" [ref=f3e237] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/category/extraction-science/
+              - listitem [ref=f3e238]:
+                - link "Pour Over" [ref=f3e239] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/category/pour-over/
+              - listitem [ref=f3e240]:
+                - link "Roasting" [ref=f3e241] [cursor=pointer]:
+                  - /url: http://coffee.localhost:8088/category/roasting/
+          - generic [ref=f3e242]:
+            - heading "Legal" [level=4] [ref=f3e243]
+            - list [ref=f3e244]:
+              - listitem [ref=f3e245]:
+                - link "About" [ref=f3e246] [cursor=pointer]:
+                  - /url: /about/
+              - listitem [ref=f3e247]:
+                - link "Privacy" [ref=f3e248] [cursor=pointer]:
+                  - /url: /privacy/
+              - listitem [ref=f3e249]:
+                - link "Contact" [ref=f3e250] [cursor=pointer]:
+                  - /url: /contact/
+        - generic [ref=f3e251]:
+          - paragraph [ref=f3e252]:
+            - text: ©
+            - link "Openclaw" [ref=f3e253] [cursor=pointer]:
+              - /url: /
+          - paragraph [ref=f3e254]: Written and edited with editorial care.

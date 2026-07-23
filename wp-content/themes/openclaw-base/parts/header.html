@@ -1,8 +1,9 @@
 <!-- wp:group {"className":"openclaw-topbar","layout":{"type":"constrained","contentSize":"1200px"}} -->
 <div class="wp-block-group openclaw-topbar">
-    <!-- wp:group {"layout":{"type":"flex","justifyContent":"left","flexWrap":"nowrap","verticalAlignment":"center"},"style":{"spacing":{"padding":{"top":"var:preset|spacing|5","bottom":"var:preset|spacing|5"}}}} -->
-    <div class="wp-block-group" style="padding-top:var(--wp--preset--spacing--5);padding-bottom:var(--wp--preset--spacing--5)">
-        <!-- wp:site-title {"level":0,"style":{"typography":{"fontFamily":"var:preset|font-family|openclaw-display","fontSize":"24px","fontWeight":"700","letterSpacing":"-0.02em"}}} /-->
+    <!-- wp:group {"className":"openclaw-brand","layout":{"type":"flex","justifyContent":"left","flexWrap":"nowrap","verticalAlignment":"center"},"style":{"spacing":{"padding":{"top":"0px","bottom":"0px"}}}} -->
+    <div class="wp-block-group openclaw-brand" style="padding-top:0px;padding-bottom:0px">
+        <!-- wp:site-logo {"width":160,"shouldSyncIcon":false} /-->
+        <!-- wp:site-title {"level":0,"className":"openclaw-brand-title"} /-->
     </div>
     <!-- /wp:group -->
 </div>
@@ -19,7 +20,10 @@
             margin: 0;
             display: flex;
             flex-wrap: wrap;
-            gap: 32px;
+            column-gap: 32px;
+            row-gap: 0;
+            max-height: 92px;
+            overflow: hidden;
         }
         .openclaw-category-nav .wp-block-categories li a {
             color: var(--wp--preset--color--openclaw-text);
@@ -28,8 +32,10 @@
             font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 0.05em;
+            line-height: 16px;
             padding: 14px 0;
             display: inline-block;
+            white-space: nowrap;
         }
         .openclaw-category-nav .wp-block-categories li a:hover {
             color: var(--wp--preset--color--openclaw-primary);

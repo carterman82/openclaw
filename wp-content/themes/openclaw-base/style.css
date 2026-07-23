@@ -3,7 +3,7 @@ Theme Name: Openclaw Base
 Theme URI: https://github.com/carterman82/openclaw
 Author: openclaw
 Description: Editorial-magazine parent theme for the openclaw multisite network. Provides a shared magazine layout (header wordmark + optional category nav, featured lead, category explorer, 3-col card grid, single-column reading layout with auto-injected TOC and related posts, multi-column footer). Six semantic color slots and a font pairing exposed via theme.json for child themes to override.
-Version: 0.1.0
+Version: 0.1.4
 Requires at least: 6.6
 Requires PHP: 8.1
 License: GPL-2.0-or-later
@@ -44,6 +44,36 @@ a:hover {
 .openclaw-topbar {
     border-bottom: 1px solid var(--wp--preset--color--openclaw-muted);
     background: var(--wp--preset--color--openclaw-surface);
+}
+
+/* Desktop: show the site-logo image, hide the text wordmark fallback. */
+.openclaw-brand .wp-block-site-logo img {
+    max-height: 104px;
+    width: auto;
+    height: auto;
+    display: block;
+}
+
+.openclaw-brand .openclaw-brand-title {
+    display: none;
+}
+
+/* Mobile: swap — hide the logo image, show the site name as a wordmark. */
+@media (max-width: 600px) {
+    .openclaw-brand .wp-block-site-logo {
+        display: none;
+    }
+    .openclaw-brand .openclaw-brand-title {
+        display: block;
+        font-family: var(--wp--preset--font-family--openclaw-display);
+        font-weight: 700;
+        font-size: 20px;
+        line-height: 1;
+        margin: 0;
+    }
+    .openclaw-brand .openclaw-brand-title a {
+        color: var(--wp--preset--color--openclaw-text);
+    }
 }
 
 .openclaw-category-nav {
@@ -275,6 +305,34 @@ a:hover {
 .openclaw-toc a:hover {
     color: var(--wp--preset--color--openclaw-primary);
     border-bottom-color: var(--wp--preset--color--openclaw-primary);
+}
+
+.openclaw-ad-slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 32px auto;
+    background: var(--wp--preset--color--openclaw-surface);
+    border-radius: var(--openclaw-radius);
+    overflow: hidden;
+}
+
+/* Reserved heights approximate the responsive ad formats each slot will
+   carry, so an unfilled slot doesn't shift layout once ads start serving
+   (CLS target < 0.1). Leaderboard: 320x50 mobile / 728x90 desktop.
+   In-content: 300x250 medium rectangle at all widths. */
+.openclaw-ad-slot--leaderboard {
+    min-height: 50px;
+    max-width: 728px;
+}
+
+.openclaw-ad-slot--in-content {
+    min-height: 250px;
+    max-width: 336px;
+}
+
+@media (min-width: 601px) {
+    .openclaw-ad-slot--leaderboard { min-height: 90px; }
 }
 
 .openclaw-related {

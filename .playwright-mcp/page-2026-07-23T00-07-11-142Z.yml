@@ -1,0 +1,35 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#wp--skip-link--target"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e6]:
+        - paragraph [ref=e7]:
+          - link "Info Verse" [ref=e8] [cursor=pointer]:
+            - /url: http://hub.localhost:8088
+        - paragraph [ref=e9]: Network
+    - main [ref=e10]:
+      - generic [ref=e11]:
+        - heading "Info Verse" [level=1] [ref=e12]
+        - paragraph [ref=e13]: A network of independent editorial sites, each covering one subject in depth. Pick a fandom to start reading.
+    - contentinfo [ref=e14]:
+      - contentinfo [ref=e15]:
+        - generic [ref=e16]:
+          - generic [ref=e17]:
+            - heading "About Info Verse" [level=4] [ref=e18]
+            - paragraph [ref=e19]: Info Verse is a network of independent, single-topic editorial sites. Each site covers one subject in depth rather than many subjects shallowly.
+          - generic [ref=e20]:
+            - heading "Legal" [level=4] [ref=e21]
+            - list [ref=e22]:
+              - listitem [ref=e23]:
+                - link "About" [ref=e24] [cursor=pointer]:
+                  - /url: /about/
+              - listitem [ref=e25]:
+                - link "Privacy" [ref=e26] [cursor=pointer]:
+                  - /url: /privacy/
+              - listitem [ref=e27]:
+                - link "Contact" [ref=e28] [cursor=pointer]:
+                  - /url: /contact/
+        - generic [ref=e29]:
+          - paragraph [ref=e30]: © Info Verse
+          - paragraph [ref=e31]: Five sites. One editorial voice.

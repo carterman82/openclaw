@@ -34,6 +34,7 @@ services:
       - "boardgames.localhost=127.0.0.1"
       - "coffee.localhost=127.0.0.1"
       - "techtools.localhost=127.0.0.1"
+      - "hub.localhost=127.0.0.1"
     environment:
       WORDPRESS_DB_HOST: db:3306
       WORDPRESS_DB_USER: wp
@@ -56,6 +57,7 @@ services:
       - ./wp-content/themes/openclaw-dogs:/var/www/html/wp-content/themes/openclaw-dogs
       - ./wp-content/themes/openclaw-boardgames:/var/www/html/wp-content/themes/openclaw-boardgames
       - ./wp-content/themes/openclaw-coffee:/var/www/html/wp-content/themes/openclaw-coffee
+      - ./wp-content/themes/openclaw-hub:/var/www/html/wp-content/themes/openclaw-hub
       # Apache: multisite ServerAlias + second Listen 8088 so Staatic can crawl
       # `<slug>.localhost:8088` from inside the container.
       - ./apache/openclaw-multisite.conf:/etc/apache2/conf-enabled/openclaw-multisite.conf:ro
@@ -84,6 +86,7 @@ services:
       - ./wp-content/themes/openclaw-dogs:/var/www/html/wp-content/themes/openclaw-dogs
       - ./wp-content/themes/openclaw-boardgames:/var/www/html/wp-content/themes/openclaw-boardgames
       - ./wp-content/themes/openclaw-coffee:/var/www/html/wp-content/themes/openclaw-coffee
+      - ./wp-content/themes/openclaw-hub:/var/www/html/wp-content/themes/openclaw-hub
       # Match the wordpress service so `wp staatic publish` writes into the same
       # bind-mounted export tree the host filesystem sees.
       - ./staatic-exports:/var/www/html/wp-content/staatic-exports

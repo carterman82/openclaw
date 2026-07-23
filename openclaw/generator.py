@@ -191,24 +191,26 @@ def _build_system_prompt(categories: tuple[str, ...], site_host: str) -> str:
         "gives a clear reason to click. No 'In this article…' opener.\n"
         "- write a `unique_angle_justification`: 1-2 sentences (max 400 chars) "
         "answering, BEFORE you write the body, what makes THIS article "
-        "non-generic and why a cat owner reading it would remember it. It MUST "
+        "non-generic and why a reader of this site would remember it. It MUST "
         "name (a) which of the five TOPIC.md §1 angle-types the article takes — "
         "contested-explanation, myth-correction, misread-signal, "
         "non-obvious-comparison, or primary-source — and (b) the specific "
         "credibility source per TOPIC.md §5 you will ground the piece on "
-        "(named study with author/year, named researcher, veterinary "
-        "institution or professional-body position statement, breed-registry "
-        "clause, historical primary source, named real cat, or named "
-        "expert-authored reference). This field is a self-check; it does NOT "
-        "appear in the article body. FAIL patterns: 'This article covers X', "
-        "'A comprehensive guide to Y', 'Experts say…' — these are generic "
-        "explainers, not takes. PASS patterns: 'Ranks three competing kneading "
-        "theories against Bradshaw's *Cat Sense* — nest-hypothesis loses'; "
-        "'Reframes the aloofness myth against Vitale 2019 attachment findings'; "
-        "'Surfaces what the AVMA declawing position statement actually says vs. "
-        "the manicure metaphor'. If you cannot honestly write a pass-pattern "
-        "justification with a real, verifiable source, pick a different topic "
-        "or narrower angle where you can.\n"
+        "(named study with author/year, named researcher, a relevant "
+        "professional or governing body's official position statement, a "
+        "domain-specific registry or standards clause, a historical primary "
+        "source, a named real-world example, or a named expert-authored "
+        "reference). This field is a self-check; it does NOT appear in the "
+        "article body. FAIL patterns: 'This article covers X', 'A "
+        "comprehensive guide to Y', 'Experts say…' — these are generic "
+        "explainers, not takes. PASS patterns: 'Ranks three competing "
+        "explanations against a named field study — the popular theory "
+        "loses'; 'Reframes a common myth against a named researcher's "
+        "published findings'; 'Surfaces what an official standards body's "
+        "position statement actually says vs. the popular misconception'. If "
+        "you cannot honestly write a pass-pattern justification with a real, "
+        "verifiable source, pick a different topic or narrower angle where "
+        "you can.\n"
         "- write an `image_prompt`: a single rich paragraph built using the rules "
         "in the IMAGE_GENERATOR guide below. Follow its formula in order: "
         "[Purpose] [Composition] [Main subject] [Environment] [Lighting] [Mood] "
@@ -544,15 +546,15 @@ def _generate_with_local(
             extra_body["repetition_penalty"] = cfg.LOCAL_MODEL_REPETITION_PENALTY
         max_tokens = cfg.LOCAL_MODEL_MAX_TOKENS
         if cfg.LOCAL_MODEL_DISABLE_THINKING:
-            # Step 3.8.5/3.8.7 (2026-07-14): `chat_template_kwargs.
-            # enable_thinking=False` is silently ignored by this LM Studio
-            # build. `extra_body.reasoning_effort="none"` DOES suppress the
-            # <think> trace, but was also observed to reliably break
-            # tool_choice="required" grammar enforcement (the model answers
-            # in plain prose instead of calling the tool) - so this default
-            # is OFF (see Config.LOCAL_MODEL_DISABLE_THINKING). Left wired
-            # as an opt-in knob for a future server/model build where it
-            # might work without that side effect.
+            # `chat_template_kwargs.enable_thinking=False` is silently
+            # ignored on this LM Studio build; `extra_body.reasoning_effort=
+            # "none"` is the mechanism that actually suppresses the <think>
+            # trace. Default flipped ON at Step 3.8.11 (2026-07-23) — the
+            # earlier concern was that this broke tool_choice="required"
+            # grammar, but we've been on response_format=json_schema
+            # (strict) since Step 3.8.8, and re-verified that in JSON-schema
+            # mode reasoning_effort="none" returns valid JSON in `content`
+            # with reasoning_tokens=0. See Config.LOCAL_MODEL_DISABLE_THINKING.
             extra_body["reasoning_effort"] = "none"
         if extra_body:
             create_kwargs["extra_body"] = extra_body

@@ -1,0 +1,116 @@
+- generic [active] [ref=f3e1]:
+  - link "Skip to content" [ref=f3e2] [cursor=pointer]:
+    - /url: "#wp--skip-link--target"
+  - generic [ref=f3e3]:
+    - banner [ref=f3e4]:
+      - generic [ref=f3e6]:
+        - paragraph [ref=f3e7]:
+          - link "Info Verse" [ref=f3e8] [cursor=pointer]:
+            - /url: http://hub.localhost:8088
+        - paragraph [ref=f3e9]: Network
+    - main [ref=f3e10]:
+      - generic [ref=f3e11]:
+        - heading "Info Verse" [level=1] [ref=f3e12]
+        - paragraph [ref=f3e13]: A network of five independent editorial sites, each covering one subject in depth. Pick a fandom to start reading.
+      - generic [ref=f3e14]:
+        - generic [ref=f3e15]:
+          - generic [ref=f3e16]:
+            - heading "Tech Tools Info Verse" [level=2] [ref=f3e17]
+            - generic [ref=f3e18]:
+              - paragraph [ref=f3e19]: Practical SaaS, AI, and productivity writing for founders, freelancers, and operators who live in software.
+              - paragraph [ref=f3e20]:
+                - link "Visit site →" [ref=f3e21] [cursor=pointer]:
+                  - /url: https://techtools.info-verse.org/
+          - generic [ref=f3e22]:
+            - link "The 30% Client Problem. Here’s the Exact Math That Decides When to Fire Them." [ref=f3e23] [cursor=pointer]:
+              - /url: https://techtools.info-verse.org/2026/07/22/30-percent-client-problem-fire-them-math/
+              - paragraph [ref=f3e24]
+              - heading "The 30% Client Problem. Here’s the Exact Math That Decides When to Fire Them." [level=3] [ref=f3e27]
+            - paragraph [ref=f3e28]:
+              - link [ref=f3e29] [cursor=pointer]:
+                - /url: https://techtools.info-verse.org/2026/07/22/30-percent-client-problem-fire-them-math/
+        - generic [ref=f3e30]:
+          - generic [ref=f3e31]:
+            - heading "Gardening Info Verse" [level=2] [ref=f3e32]
+            - generic [ref=f3e33]:
+              - paragraph [ref=f3e34]: Home-gardening editorial for hobbyists — plants, soil, pests, and design, from windowsill to backyard border.
+              - paragraph [ref=f3e35]:
+                - link "Visit site →" [ref=f3e36] [cursor=pointer]:
+                  - /url: https://gardening.info-verse.org/
+          - generic [ref=f3e37]:
+            - 'link "The Rooting Hormone Myth: Why Cuttings Root Without It" [ref=f3e38] [cursor=pointer]':
+              - /url: https://gardening.info-verse.org/2026/07/21/rooting-hormone-myth-cuttings/
+              - paragraph [ref=f3e39]
+              - 'heading "The Rooting Hormone Myth: Why Cuttings Root Without It" [level=3] [ref=f3e42]'
+            - paragraph [ref=f3e43]:
+              - link [ref=f3e44] [cursor=pointer]:
+                - /url: https://gardening.info-verse.org/2026/07/21/rooting-hormone-myth-cuttings/
+        - generic [ref=f3e45]:
+          - generic [ref=f3e46]:
+            - heading "Dog Info Verse" [level=2] [ref=f3e47]
+            - generic [ref=f3e48]:
+              - paragraph [ref=f3e49]: Enthusiast writing on breed history, behavior, health, and training — for real dogs and the people who own them.
+              - paragraph [ref=f3e50]:
+                - link "Visit site →" [ref=f3e51] [cursor=pointer]:
+                  - /url: https://dogs.info-verse.org/
+          - generic [ref=f3e52]:
+            - 'link "The Quiet Dog in the Shelter: Why Suppression Looks Like Good Behavior" [ref=f3e53] [cursor=pointer]':
+              - /url: https://dogs.info-verse.org/2026/07/22/quiet-dog-shelter-suppression/
+              - paragraph [ref=f3e54]
+              - 'heading "The Quiet Dog in the Shelter: Why Suppression Looks Like Good Behavior" [level=3] [ref=f3e57]'
+            - paragraph [ref=f3e58]:
+              - link [ref=f3e59] [cursor=pointer]:
+                - /url: https://dogs.info-verse.org/2026/07/22/quiet-dog-shelter-suppression/
+        - generic [ref=f3e60]:
+          - generic [ref=f3e61]:
+            - heading "Boardgames Info Verse" [level=2] [ref=f3e62]
+            - generic [ref=f3e63]:
+              - paragraph [ref=f3e64]: Tabletop editorial for players who already own a shelf of games — mechanics, strategy, and the history of the medium.
+              - paragraph [ref=f3e65]:
+                - link "Visit site →" [ref=f3e66] [cursor=pointer]:
+                  - /url: https://boardgames.info-verse.org/
+          - generic [ref=f3e67]:
+            - link "Solo Board Games Are Not About Beating the Board" [ref=f3e68] [cursor=pointer]:
+              - /url: https://boardgames.info-verse.org/2026/07/22/solo-board-games-not-beating-board/
+              - paragraph [ref=f3e69]
+              - heading "Solo Board Games Are Not About Beating the Board" [level=3] [ref=f3e72]
+            - paragraph [ref=f3e73]:
+              - link [ref=f3e74] [cursor=pointer]:
+                - /url: https://boardgames.info-verse.org/2026/07/22/solo-board-games-not-beating-board/
+        - generic [ref=f3e75]:
+          - generic [ref=f3e76]:
+            - heading "Coffee Info Verse" [level=2] [ref=f3e77]
+            - generic [ref=f3e78]:
+              - paragraph [ref=f3e79]: Home-brewing editorial for pour-over converts, espresso hobbyists, and French-press loyalists leveling up their cup.
+              - paragraph [ref=f3e80]:
+                - link "Visit site →" [ref=f3e81] [cursor=pointer]:
+                  - /url: https://coffee.info-verse.org/
+          - generic [ref=f3e82]:
+            - link "Your Espresso Shot Isn’t Sour. The Grinder’s Dead Zone Is." [ref=f3e83] [cursor=pointer]:
+              - /url: https://coffee.info-verse.org/2026/07/22/espresso-grinder-dead-zone-burr-alignment/
+              - paragraph [ref=f3e84]
+              - heading "Your Espresso Shot Isn’t Sour. The Grinder’s Dead Zone Is." [level=3] [ref=f3e87]
+            - paragraph [ref=f3e88]:
+              - link [ref=f3e89] [cursor=pointer]:
+                - /url: https://coffee.info-verse.org/2026/07/22/espresso-grinder-dead-zone-burr-alignment/
+    - contentinfo [ref=f3e90]:
+      - contentinfo [ref=f3e91]:
+        - generic [ref=f3e92]:
+          - generic [ref=f3e93]:
+            - heading "About Info Verse" [level=4] [ref=f3e94]
+            - paragraph [ref=f3e95]: Info Verse is a network of five independent, single-topic editorial sites — gardening, dogs, board games, coffee, and consumer tech. Each site covers one subject in depth rather than many subjects shallowly.
+          - generic [ref=f3e96]:
+            - heading "Legal" [level=4] [ref=f3e97]
+            - list [ref=f3e98]:
+              - listitem [ref=f3e99]:
+                - link "About" [ref=f3e100] [cursor=pointer]:
+                  - /url: /about/
+              - listitem [ref=f3e101]:
+                - link "Privacy" [ref=f3e102] [cursor=pointer]:
+                  - /url: /privacy/
+              - listitem [ref=f3e103]:
+                - link "Contact" [ref=f3e104] [cursor=pointer]:
+                  - /url: /contact/
+        - generic [ref=f3e105]:
+          - paragraph [ref=f3e106]: © Info Verse
+          - paragraph [ref=f3e107]: Five sites. One editorial voice.

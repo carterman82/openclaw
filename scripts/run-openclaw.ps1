@@ -49,6 +49,25 @@ if (-not (Test-Path $PythonExe)) {
     throw "Missing venv Python at $PythonExe. Create .venv per README.md before scheduling."
 }
 
+# Task Scheduler's PATH doesn't include user-profile installs (e.g. Git for
+# Windows under %LOCALAPPDATA%\Programs\Git). openclaw/deploy.py needs git.exe
+# to push each subsite's Staatic export to GitHub Pages — without this
+# prepend, every scheduled deploy fails with `FileNotFoundError: [WinError 2]`
+# and the post is published locally but never reaches the live URL. Prepend
+# each candidate directory that actually exists so a machine-wide install
+# (Program Files) is preferred over a user-profile one when both are present.
+$GitCandidates = @(
+    (Join-Path $env:ProgramFiles 'Git\cmd'),
+    (Join-Path ${env:ProgramFiles(x86)} 'Git\cmd'),
+    (Join-Path $env:LOCALAPPDATA 'Programs\Git\cmd'),
+    (Join-Path $env:USERPROFILE 'AppData\Local\Programs\Git\cmd')
+) | Where-Object { $_ -and (Test-Path (Join-Path $_ 'git.exe')) } | Select-Object -Unique
+foreach ($gitDir in $GitCandidates) {
+    if (-not ($env:PATH -split ';' | Where-Object { $_ -eq $gitDir })) {
+        $env:PATH = "$gitDir;$env:PATH"
+    }
+}
+
 $SitesConfigPath = Join-Path $ProjectRoot 'scheduled-sites.json'
 $LogsDir = Join-Path $ProjectRoot 'logs'
 if (-not (Test-Path $LogsDir)) {
