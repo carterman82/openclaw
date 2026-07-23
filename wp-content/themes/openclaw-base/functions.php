@@ -126,6 +126,20 @@ function openclaw_base_pattern_category(): void {
 add_action( 'init', 'openclaw_base_pattern_category' );
 
 /**
+ * [openclaw_site_copyright] — site-specific footer identity for every child
+ * theme.  A hard-coded parent-theme brand made Rootstock, Kennelside, Meeple,
+ * Crema, and Tech Tool Guide look like anonymous network microsites.
+ */
+function openclaw_site_copyright_shortcode(): string {
+    return sprintf(
+        '&copy; <a href="%1$s">%2$s</a>',
+        esc_url( home_url( '/' ) ),
+        esc_html( get_bloginfo( 'name' ) )
+    );
+}
+add_shortcode( 'openclaw_site_copyright', 'openclaw_site_copyright_shortcode' );
+
+/**
  * [openclaw_related_posts count="3"] — same-category posts first, then same-tag
  * fill, then most-recent to top up. Skips the current post. Rendered as a
  * 3-col grid of thumbnail cards. Excluded on non-single or when nothing to
