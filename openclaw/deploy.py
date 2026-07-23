@@ -167,25 +167,6 @@ _GIT_C_OVERRIDES = (
 )
 
 
-def _configure_worktree_identity(worktree: Path) -> bool:
-    """Persist the deploy identity in a worktree before attempting a commit.
-
-    The ``-c`` overrides used for individual git calls are retained, but a
-    scheduled run on Windows has previously reached ``git commit`` without
-    those transient settings taking effect.  A local repository configuration
-    makes the required identity explicit and independently inspectable.
-    """
-    for key, value in (
-        ("user.name", "Carter"),
-        ("user.email", "67517982+carterman82@users.noreply.github.com"),
-    ):
-        ok, out = _run_git(["config", "--local", key, value], cwd=worktree)
-        if not ok:
-            logger.warning("git config %s failed in %s: %s", key, worktree, out[-400:])
-            return False
-    return True
-
-
 def _run_git(args: list[str], cwd: Path) -> tuple[bool, str]:
     try:
         r = subprocess.run(
@@ -229,8 +210,6 @@ def _ensure_worktree(slug: str) -> Path | None:
         if not ok:
             logger.warning("git reset failed for %r: %s", slug, out[-400:])
             return None
-    if not _configure_worktree_identity(wt):
-        return None
     return wt
 
 

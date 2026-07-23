@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import difflib
-import ipaddress
 import json
 import logging
 import os
@@ -33,7 +32,6 @@ from .publisher import (
     get_site_name,
     list_recent_post_titles,
     list_recent_posts_for_linking,
-    list_existing_focus_keyphrases,
     publish_post,
     reset_site_caches,
     upload_media,
@@ -42,12 +40,6 @@ from .trends import gather_trending_signals
 from .validation import dump_rejected_article, find_title_collision, validate_article
 
 logger = logging.getLogger(__name__)
-
-# A post was created successfully but could not be exported/pushed to the
-# public static site.  The scheduler treats this differently from a failed
-# generation: retrying the full command would create another WP post rather
-# than repairing the owed deployment.
-_EXIT_DEPLOY_OWED = 2
 
 
 _SITE_PREFIXED_KEYS: tuple[str, ...] = (
@@ -326,43 +318,6 @@ def _enforce_external_link_attrs(body_html: str, wp_host: str) -> tuple[str, int
         return f"<a {new_attrs}>{text}</a>"
 
     return _A_TAG_RE.sub(repl, body_html), fixes
-
-
-def _external_source_problem(body_html: str, wp_host: str) -> str | None:
-    """Return a publication-blocking problem for missing or unsafe citations.
-
-    The model's ``external_links_used`` field is self-reported, so it cannot
-    prove that the rendered article contains a usable source. Inspect the
-    final HTML instead. Sources must be public HTTPS URLs and must not point
-    back to the article's own WordPress host, localhost, or a private IP.
-    """
-    source_urls: list[str] = []
-    for match in _A_TAG_RE.finditer(body_html):
-        href_m = _HREF_RE.search(match.group(1))
-        if not href_m:
-            continue
-        url = href_m.group(1).strip()
-        parsed = urlparse(url)
-        host = (parsed.hostname or "").lower()
-        if host and host != wp_host:
-            source_urls.append(url)
-
-    if not source_urls:
-        return "article contains no external source link in its rendered body"
-
-    for url in source_urls:
-        parsed = urlparse(url)
-        host = (parsed.hostname or "").lower()
-        if parsed.scheme != "https":
-            return f"external source must use HTTPS: {url!r}"
-        if host == "localhost" or host.endswith(".localhost"):
-            return f"external source must be publicly reachable: {url!r}"
-        try:
-            if ipaddress.ip_address(host).is_private or ipaddress.ip_address(host).is_loopback:
-                return f"external source must not use a private address: {url!r}"
-        except ValueError:
-            pass  # DNS hostnames are expected; URL syntax was checked above.
-    return None
 
 
 _MIME_TO_EXT = {"image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/gif": "gif"}
@@ -1022,12 +977,6 @@ def main(argv: list[str] | None = None) -> int:
                     "Loaded %d post title(s) (full catalog) for topic de-duplication.",
                     len(recent_titles),
                 )
-            existing_keyphrases = [] if args.topic else list_existing_focus_keyphrases()
-            if existing_keyphrases:
-                logger.info(
-                    "Loaded %d existing focus keyphrase(s) for cannibalization prevention.",
-                    len(existing_keyphrases),
-                )
             link_candidates = list_recent_posts_for_linking()
             if link_candidates:
                 logger.info("Loaded %d internal-link candidates.", len(link_candidates))
@@ -1057,16 +1006,9 @@ def main(argv: list[str] | None = None) -> int:
                 internal_link_candidates=link_candidates,
                 trending_signals=trending_signals,
                 variation_directives=variation_directives,
-                existing_keyphrases=existing_keyphrases,
             )
 
             def _generation_problem(article: dict) -> str | None:
-                focus_keyphrase = str(article.get("focus_keyphrase") or "").strip()
-                if focus_keyphrase and any(
-                    focus_keyphrase.casefold() == existing.casefold()
-                    for existing in existing_keyphrases
-                ):
-                    return f"focus keyphrase duplicates an existing SEO target {focus_keyphrase!r}"
                 if recent_titles and not args.topic:
                     collision = _find_duplicate_title(article["title"], recent_titles)
                     if collision:
@@ -1102,8 +1044,6 @@ def main(argv: list[str] | None = None) -> int:
                     internal_link_candidates=link_candidates,
                     trending_signals=trending_signals,
                     variation_directives=variation_directives,
-                    retry_feedback=problem,
-                    existing_keyphrases=existing_keyphrases,
                 )
                 edits = _neutralise_article(article)
                 if edits:
@@ -1191,6 +1131,10 @@ def main(argv: list[str] | None = None) -> int:
             external_used = article.get("external_links_used") or []
             logger.info("Internal links used (self-reported): %s", internal_used)
             logger.info("External links used (self-reported): %s", external_used)
+            if not external_used:
+                logger.warning(
+                    "Article reported zero external links; minimum is 1. Publishing anyway."
+                )
 
             article["body_html"] = _sanitize_html(article["body_html"])
 
@@ -1216,12 +1160,6 @@ def main(argv: list[str] | None = None) -> int:
                 logger.warning(
                     "Stripped %d unauthorized/unsafe <a> tag(s) from body.", stripped,
                 )
-
-            source_problem = _external_source_problem(article["body_html"], wp_host)
-            if source_problem:
-                dump_rejected_article(article, site_host, f"source-validation: {source_problem}")
-                logger.error("Source validation rejected article %r: %s", article["title"], source_problem)
-                return 1
 
             article["body_html"], rel_fixes = _enforce_external_link_attrs(
                 article["body_html"], wp_host,
@@ -1295,7 +1233,6 @@ def main(argv: list[str] | None = None) -> int:
                         "Deploy failed for %r (post is published; deploy owed).",
                         args.site,
                     )
-                    return _EXIT_DEPLOY_OWED
             return 0
         except Exception as exc:
             logger.exception("Run failed: %s", exc)

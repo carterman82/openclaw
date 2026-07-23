@@ -631,8 +631,6 @@ def generate_article(
     internal_link_candidates: list[dict] | None = None,
     trending_signals: dict | None = None,
     variation_directives: str | None = None,
-    retry_feedback: str | None = None,
-    existing_keyphrases: list[str] | None = None,
 ) -> dict:
     """Generate one article. Routes to local model with Claude fallback.
 
@@ -647,11 +645,6 @@ def generate_article(
     `trending_signals` is the dict returned by `trends.gather_trending_signals`.
     `variation_directives` is a caller-rolled instruction line (length band, FAQ
     on/off, hook type) appended to the user message so structure varies per run.
-    `retry_feedback` is a caller-supplied rejection reason for one regeneration.
-    It is an instruction, not reference data: the retry must materially change
-    direction rather than paraphrase the rejected output.
-    `existing_keyphrases` supplies already-targeted search queries that must
-    not be reused as the new article's focus keyphrase.
     """
     effective_categories = categories or ALLOWED_CATEGORIES
     if category and category not in effective_categories:
@@ -666,25 +659,9 @@ def generate_article(
     user_message = (
         _build_user_message(topic, category, site_name)
         + _build_avoidance_message(recent_titles)
-        + (
-            "\n\nAlready-targeted focus keyphrases (choose a distinct search intent; "
-            "do not reuse any exact phrase):\n"
-            + "\n".join(f"- {keyphrase}" for keyphrase in existing_keyphrases)
-            if existing_keyphrases else ""
-        )
         + _build_linking_candidates_message(internal_link_candidates)
         + _build_trending_message(trending_signals)
         + (f"\n\n{variation_directives}" if variation_directives else "")
-        + (
-            "\n\n# Required regeneration change\n\n"
-            "The immediately preceding draft was rejected. "
-            f"Reason: {retry_feedback}\n"
-            "Choose a materially different topic and search intent from every "
-            "listed recent title. Do not merely rewrite, soften, or retitle the "
-            "rejected angle. Return a fresh article that still follows every "
-            "system and site rule."
-            if retry_feedback else ""
-        )
     )
     tool_schema = _build_tool_schema(effective_categories)
 

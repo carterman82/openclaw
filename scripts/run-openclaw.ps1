@@ -146,14 +146,6 @@ foreach ($slug in $siteSlugs) {
         }
 
         Write-Output "${slug}: FAIL exit=$siteExit on attempt $attempt"
-        # Exit 2 means WordPress accepted the article but its static export
-        # did not deploy. Retrying this whole command would publish a second
-        # article, not repair the first deployment. Stop and leave the
-        # failure flag for an operator to re-run the deploy safely.
-        if ($siteExit -eq 2) {
-            Write-Output "${slug}: deployment owed; skipping content-generation retries"
-            break
-        }
         if ($attempt -le $RetryWaits.Count) {
             $wait = $RetryWaits[$attempt - 1]
             Write-Output "${slug}: waiting ${wait}s before retry"

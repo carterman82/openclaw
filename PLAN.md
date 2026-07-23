@@ -3873,59 +3873,6 @@ Phase Omega exit criteria:
 
 ## 12. Decision Log
 
-- 2026-07-23: **Footer identity now follows the active site brand.** The
-  shared base theme no longer hard-codes “Openclaw” in every footer. A
-  `openclaw_site_copyright` shortcode renders the current site's name and
-  homepage URL, so the five public brands retain their own identity while
-  sharing the same parent theme.
-
-- 2026-07-23: **Exact SEO-keyphrase cannibalisation is now blocked.** The
-  publisher reads stored Yoast/Rank Math focus keyphrases with authenticated
-  REST pagination, the generator receives them as an avoidance list, and the
-  pre-review/post-review generation check rejects an exact case-insensitive
-  duplicate. The lookup is fail-soft on sites without REST-exposed SEO meta;
-  their existing title-collision guard remains active. Explicit `--topic`
-  runs retain the caller's intentional override behaviour.
-
-- 2026-07-23: **Rendered-source gate added for new articles.** The generator
-  has long instructed the model to include authoritative external links, but
-  the runtime only trusted the model's self-reported `external_links_used`
-  list and would publish even when it was empty. The final rendered HTML is
-  now inspected before publication: every article must contain at least one
-  external source link, and sources must be public HTTPS URLs rather than the
-  local WordPress host, localhost, or a private address. This establishes a
-  verifiable citation-presence floor; claim-to-source entailment remains a
-  future retrieval/verification enhancement.
-
-- 2026-07-23: **Generation retry now changes the topic direction.** The
-  current logs showed retries re-producing near-duplicate titles (including
-  Techtools' client-debt and automation-log angles) despite the full catalog
-  already being present in the prompt. `generate_article()` now accepts
-  rejection feedback, and a regeneration receives an explicit instruction to
-  choose materially different topic/search intent rather than paraphrasing
-  the rejected angle. The existing neutralisation and validation gates remain
-  unchanged; this reduces wasted retries without weakening quality checks.
-
-- 2026-07-23: **Default scheduler scope restricted to Info Verse.**
-  `scheduled-sites.json` now enables only gardening, dogs, boardgames,
-  coffee, and techtools. The unrelated catfancast and animefancast production
-  sites are disabled by default and require an explicit `-Sites` override
-  after editorial approval. JSON parsing and the five-site allowlist check
-  passed.
-
-- 2026-07-23: **Deploy-owed failure handling hardened after the live-review
-  finding.** A Techtools post could publish to WordPress, fail during the
-  GitHub Pages commit, and still exit `0`, so the scheduled runner recorded a
-  successful run while the public static site was stale. `deploy.py` now
-  writes the deploy identity into each reused worktree before committing, in
-  addition to its per-command Git overrides. `main.py` returns dedicated exit
-  code `2` when a post was published but deployment is owed; `run-openclaw.ps1`
-  records that as a failure but deliberately does not retry the full content
-  command, since doing so would create a second WordPress post instead of
-  repairing the first export. PowerShell syntax validation passed. Remaining
-  operational action: rerun the owed Techtools deployment and verify the
-  public URL after GitHub Pages finishes.
-
 - 2026-07-23: **Publish-rate hardening — three coupled fixes after a
   low-yield 24 hours** (2/14 Jul 22 attempts published, 5/7 Jul 23 12:00
   attempts published but 4/5 failed to deploy). Root causes and fixes:

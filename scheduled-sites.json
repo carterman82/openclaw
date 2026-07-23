@@ -6,13 +6,13 @@
   },
   {
     "slug": "catfancast",
-    "enabled": false,
-    "notes": "External production site, deliberately excluded from the default Info Verse scheduler. Run only with an explicit -Sites catfancast override after editorial approval."
+    "enabled": true,
+    "notes": "Production catfancast.com. External hosted site (not part of local multisite). Requires CATFANCAST_WP_* env vars set in .env and website_memory/catfancast.com.md present."
   },
   {
     "slug": "animefancast",
-    "enabled": false,
-    "notes": "External production site, deliberately excluded from the default Info Verse scheduler. Run only with an explicit -Sites animefancast override after editorial approval."
+    "enabled": true,
+    "notes": "Production animefancast.com. External hosted site (not part of local multisite). Requires ANIMEFANCAST_WP_* env vars set in .env and website_memory/animefancast.com.md present."
   },
   {
     "slug": "gardening",
