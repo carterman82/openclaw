@@ -18,16 +18,24 @@ publish.
 Configuration lives in the module-level constants below rather than `.env` —
 the local Docker multisite pilot is inherently machine-local, and threading
 these through `Config` would clutter the config surface for the (external)
-remote WP sites (`--site catfancast`).
+remote WP sites (`--site catfancast`). The one exception is `GITHUB_TOKEN`
+(Phase 8 Step 8.4): an optional secret in `Config`/`.env`, read fresh via
+`Config.load()` on each deploy. When unset, `_get_github_token()` falls back
+to `gh auth token` (GitHub CLI) -- see that function's docstring -- so no
+manual token setup is required as long as `gh auth login` has been run once
+on this machine.
 """
 
 from __future__ import annotations
 
+import base64
 import logging
 import os
 import shutil
 import subprocess
 from pathlib import Path
+
+from .config import Config
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +73,25 @@ def _resolve_git_exe() -> str:
         "falling back to bare 'git' (will likely fail under Task Scheduler)."
     )
     return "git"
+
+
+def _resolve_gh_exe() -> str | None:
+    """Find the GitHub CLI (gh.exe) by absolute path, mirroring _resolve_git_exe().
+
+    Returns None (rather than a bare-name fallback) when unresolvable, since
+    the caller treats that as "no ambient credential available" and moves on.
+    """
+    found = shutil.which("gh")
+    if found:
+        return found
+    candidates = [
+        Path(os.environ.get("ProgramFiles", r"C:\Program Files")) / "GitHub CLI" / "gh.exe",
+        Path(os.environ.get("ProgramFiles(x86)", r"C:\Program Files (x86)")) / "GitHub CLI" / "gh.exe",
+    ]
+    for candidate in candidates:
+        if candidate.exists():
+            return str(candidate)
+    return None
 
 
 _GIT_EXE: str = _resolve_git_exe()
@@ -167,14 +194,75 @@ _GIT_C_OVERRIDES = (
 )
 
 
-def _run_git(args: list[str], cwd: Path) -> tuple[bool, str]:
+def _get_github_token() -> str | None:
+    """Resolve a GitHub push token.
+
+    Prefers an explicit GITHUB_TOKEN in .env, if set. Otherwise falls back to
+    `gh auth token`: this machine's `gh` CLI is already authenticated with
+    repo-scope write access, and is literally what git's own credential.helper
+    for github.com already shells out to (`git config --get-regexp
+    credential` -> `!'...GitHub CLI\\gh.exe' auth git-credential`). Reusing it
+    means deploy auth works out of the box with no separate secret to create
+    or rotate — the same ambient credential the pipeline has relied on all
+    along, just read directly instead of through git's own helper indirection
+    (needed because that indirection is what silently breaks under Task
+    Scheduler's non-interactive session — see the 2026-07-23 outage).
+
+    Returns None only when neither source yields a token, in which case the
+    caller must fail fast rather than let git fall through to an interactive
+    prompt (which hangs / fails under Task Scheduler with no TTY).
+    """
+    token = Config.load().GITHUB_TOKEN
+    if token:
+        return token
+    gh_exe = _resolve_gh_exe()
+    if not gh_exe:
+        return None
+    try:
+        result = subprocess.run(
+            [gh_exe, "auth", "token"],
+            capture_output=True, text=True, timeout=15,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return None
+    if result.returncode != 0:
+        return None
+    token = result.stdout.strip()
+    return token or None
+
+
+def _run_git(args: list[str], cwd: Path, token: str | None = None) -> tuple[bool, str]:
+    """Run git with fail-fast credential handling.
+
+    `GIT_TERMINAL_PROMPT=0` + `GCM_INTERACTIVE=Never` turn the Task Scheduler
+    hang (GCM falling back to a bash askpass with no controlling /dev/tty)
+    into an immediate, clean failure instead of a dangling prompt. Set
+    unconditionally, on every invocation, not just ones that pass a token —
+    a git operation that unexpectedly needs a credential should fail fast
+    too. When `token` is given, it's injected as a one-off HTTP auth header
+    scoped to this subprocess only; it is never written to `.git/config` or
+    the persisted remote URL.
+
+    Header is HTTP Basic auth with a dummy `x-access-token` username and the
+    token as the password -- this is the scheme GitHub's smart-HTTP git
+    backend actually accepts for both classic PATs and `gh auth token`'s
+    OAuth tokens (verified live against a real repo). A bare `bearer` scheme
+    returns "invalid credentials" instead.
+    """
+    git_args = [_GIT_EXE, *_GIT_C_OVERRIDES]
+    if token:
+        basic = base64.b64encode(f"x-access-token:{token}".encode()).decode()
+        git_args += ["-c", f"http.extraheader=Authorization: Basic {basic}"]
+    git_args += args
+    env = dict(os.environ, GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="Never")
     try:
         r = subprocess.run(
-            [_GIT_EXE, *_GIT_C_OVERRIDES, *args],
+            git_args,
             cwd=str(cwd),
             capture_output=True,
             text=True,
             timeout=_GIT_TIMEOUT_SEC,
+            env=env,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as exc:
         return False, f"{type(exc).__name__}: {exc}"
@@ -182,12 +270,20 @@ def _run_git(args: list[str], cwd: Path) -> tuple[bool, str]:
     return r.returncode == 0, out
 
 
+def _log_deploy_failure(slug: str, reason: str, detail: str = "") -> None:
+    """Fail-loud in a grep-able form for the scheduler wrapper (Step 8.6)."""
+    if detail:
+        logger.warning("deploy_failed slug=%s reason=%s detail=%s", slug, reason, detail[-400:])
+    else:
+        logger.warning("deploy_failed slug=%s reason=%s", slug, reason)
+
+
 def _repo_name(slug: str) -> str:
     """Return the GitHub repo name for `slug`. Overrides via _SLUG_TO_REPO win."""
     return _SLUG_TO_REPO.get(slug, f"{_GH_REPO_PREFIX}{slug}")
 
 
-def _ensure_worktree(slug: str) -> Path | None:
+def _ensure_worktree(slug: str, token: str | None) -> Path | None:
     """Clone the deploy repo once; reuse the working tree on subsequent runs."""
     _WORKTREE_ROOT.mkdir(parents=True, exist_ok=True)
     repo = _repo_name(slug)
@@ -197,18 +293,18 @@ def _ensure_worktree(slug: str) -> Path | None:
         logger.info("Cloning deploy repo for %r into %s.", slug, wt)
         if wt.exists():
             shutil.rmtree(wt, ignore_errors=True)
-        ok, out = _run_git(["clone", remote, str(wt)], cwd=_PROJECT_ROOT)
+        ok, out = _run_git(["clone", remote, str(wt)], cwd=_PROJECT_ROOT, token=token)
         if not ok:
-            logger.warning("git clone failed for %r: %s", slug, out[-400:])
+            _log_deploy_failure(slug, "git-clone", out)
             return None
     else:
-        ok, out = _run_git(["fetch", "origin", "main"], cwd=wt)
+        ok, out = _run_git(["fetch", "origin", "main"], cwd=wt, token=token)
         if not ok:
-            logger.warning("git fetch failed for %r: %s", slug, out[-400:])
+            _log_deploy_failure(slug, "git-fetch", out)
             return None
         ok, out = _run_git(["reset", "--hard", "origin/main"], cwd=wt)
         if not ok:
-            logger.warning("git reset failed for %r: %s", slug, out[-400:])
+            _log_deploy_failure(slug, "git-reset", out)
             return None
     return wt
 
@@ -237,26 +333,42 @@ def _sync_export_into_worktree(export_dir: Path, worktree: Path) -> None:
     (worktree / ".nojekyll").touch()
 
 
-def commit_and_push(slug: str, post_title: str) -> bool:
+def _write_ads_txt(worktree: Path, publisher_id: str) -> None:
+    """Write ads.txt to the worktree root.
+
+    Phase 8 Step 8.14: AdSense uses ads.txt as the authorized-sellers signal
+    for a domain. Same file content on every site (single AdSense account
+    covers the whole network). Publisher ID is the pub-XXXX form; deploy.py
+    reads it fresh from Config on each run, so a config change picks up on
+    the next scheduled push with no theme redeploy.
+    """
+    line = f"google.com, {publisher_id}, DIRECT, f08c47fec0942fa0\n"
+    (worktree / "ads.txt").write_text(line)
+
+
+def commit_and_push(slug: str, post_title: str, token: str | None) -> bool:
     """Copy export -> worktree, commit, push. Return True on success."""
     export_dir = _EXPORT_ROOT / slug
     if not export_dir.exists():
-        logger.warning("No export directory at %s; skipping deploy.", export_dir)
+        _log_deploy_failure(slug, "no-export-dir", str(export_dir))
         return False
-    worktree = _ensure_worktree(slug)
+    worktree = _ensure_worktree(slug, token)
     if worktree is None:
         return False
     _sync_export_into_worktree(export_dir, worktree)
     domain = _SLUG_TO_DOMAIN.get(slug)
     if domain:
         (worktree / "CNAME").write_text(domain + "\n")
-    ok, _ = _run_git(["add", "-A"], cwd=worktree)
+    publisher_id = Config.load().ADSENSE_PUBLISHER_ID
+    if publisher_id:
+        _write_ads_txt(worktree, publisher_id)
+    ok, out = _run_git(["add", "-A"], cwd=worktree)
     if not ok:
-        logger.warning("git add failed for %r.", slug)
+        _log_deploy_failure(slug, "git-add", out)
         return False
     ok, status = _run_git(["status", "--porcelain"], cwd=worktree)
     if not ok:
-        logger.warning("git status failed for %r.", slug)
+        _log_deploy_failure(slug, "git-status", status)
         return False
     if not status.strip():
         logger.info("No changes to deploy for %r.", slug)
@@ -264,17 +376,17 @@ def commit_and_push(slug: str, post_title: str) -> bool:
     msg = f"Publish: {post_title} [{slug}]"
     ok, out = _run_git(["commit", "-m", msg], cwd=worktree)
     if not ok:
-        logger.warning("git commit failed for %r: %s", slug, out[-400:])
+        _log_deploy_failure(slug, "git-commit", out)
         return False
-    ok, out = _run_git(["push", "origin", "main"], cwd=worktree)
+    ok, out = _run_git(["push", "origin", "main"], cwd=worktree, token=token)
     if not ok:
-        logger.warning("git push failed for %r: %s", slug, out[-400:])
+        _log_deploy_failure(slug, "git-push", out)
         return False
     logger.info("Deployed %r: %s", slug, msg)
     return True
 
 
-def refresh_hub(reason: str = "subsite publish") -> bool:
+def refresh_hub(reason: str = "subsite publish", token: str | None = None) -> bool:
     """Re-export + re-push the hub aggregation site.
 
     Called after any non-hub deployable subsite publishes so the info-verse.org
@@ -287,6 +399,11 @@ def refresh_hub(reason: str = "subsite publish") -> bool:
     triggered it. Callers ignore the return value.
     """
     logger.info("Refreshing hub aggregation site (reason=%s).", reason)
+    if token is None:
+        token = _get_github_token()
+    if not token:
+        _log_deploy_failure("hub", "github-token-not-set")
+        return False
 
     # Bust the hub's cached subsite feeds so the Staatic crawl re-fetches
     # from every subsite's live REST API. Safe to skip if wp-cli refuses
@@ -308,7 +425,7 @@ def refresh_hub(reason: str = "subsite publish") -> bool:
 
     if not trigger_staatic_export("hub"):
         return False
-    return commit_and_push("hub", f"Refresh feed ({reason})")
+    return commit_and_push("hub", f"Refresh feed ({reason})", token)
 
 
 def deploy_after_publish(slug: str, post_title: str) -> bool:
@@ -316,16 +433,21 @@ def deploy_after_publish(slug: str, post_title: str) -> bool:
     if not is_deployable(slug):
         logger.debug("Skipping deploy for non-pilot slug %r.", slug)
         return False
-    if not trigger_staatic_export(slug):
+    token = _get_github_token()
+    if not token:
+        _log_deploy_failure(slug, "github-token-not-set")
         return False
-    ok = commit_and_push(slug, post_title)
+    if not trigger_staatic_export(slug):
+        _log_deploy_failure(slug, "staatic-export")
+        return False
+    ok = commit_and_push(slug, post_title, token)
     # Piggyback: after any non-hub subsite deploy succeeds, refresh the hub
     # so its aggregation feed reflects the new post. A hub refresh failure
     # never rolls back the subsite deploy — refresh_hub is fail-soft and its
     # return value is intentionally ignored.
     if ok and slug != "hub":
         try:
-            refresh_hub(reason=f"{slug} publish: {post_title}")
+            refresh_hub(reason=f"{slug} publish: {post_title}", token=token)
         except Exception as exc:  # noqa: BLE001 — belt-and-braces
             logger.warning("Hub refresh raised %s: %s", type(exc).__name__, exc)
     return ok

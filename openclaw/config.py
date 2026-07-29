@@ -134,6 +134,19 @@ class Config:
     LOCAL_MODEL_DISABLE_THINKING: bool = True
     LOCAL_IMAGE_BASE_URL: str | None = None
     LOCAL_IMAGE_ENABLED: bool = False
+    # Phase 8 Step 8.4: GitHub PAT (repo write on carterman82/openclaw-* +
+    # carterman82/openclaw-hub) injected per-invocation into git's
+    # http.extraheader by deploy.py, never persisted to .git/config or the
+    # remote URL. Uncommitted, lives only in .env. None means deploy.py
+    # fails fast instead of falling through to the interactive askpass
+    # prompt that hangs under Task Scheduler.
+    GITHUB_TOKEN: str | None = None
+    # Phase 8 Step 8.14: Google AdSense publisher ID in the pub-XXXX form
+    # (no "ca-" prefix — that's the loader/meta-tag format handled by the
+    # OPENCLAW_ADSENSE_ID PHP constant). Used by deploy.py to write
+    # ads.txt into each deployable subsite's export root. When unset, no
+    # ads.txt is written and no commit is made for it.
+    ADSENSE_PUBLISHER_ID: str | None = None
 
     @classmethod
     def load(cls) -> "Config":
@@ -181,4 +194,6 @@ class Config:
             ),
             LOCAL_IMAGE_BASE_URL=_normalize_optional(os.getenv("LOCAL_IMAGE_BASE_URL")),
             LOCAL_IMAGE_ENABLED=local_image_enabled_raw in _TRUE_STRINGS,
+            GITHUB_TOKEN=_normalize_optional(os.getenv("GITHUB_TOKEN")),
+            ADSENSE_PUBLISHER_ID=_normalize_optional(os.getenv("ADSENSE_PUBLISHER_ID")),
         )

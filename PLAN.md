@@ -59,13 +59,38 @@ Future:
   `info-verse.org` domain level, and stand up an ad-slot structure so once
   traffic arrives it is measurable, indexed, and monetizable. Depends on
   Phase 6's exit + the subdomain DNS being live.
+- Phase 8: pipeline efficiency + deploy reliability + E-E-A-T authority
+  hardening (§11.7) — (A) move duplicate-title (and other cheap) gates
+  UPSTREAM of the article-generation call so the pipeline stops burning
+  1000–2000 tokens on drafts that get rejected for a reason knowable
+  from the topic alone; add targeted-feedback regeneration on the
+  gates that must stay post-gen; (B) fix the 3-day GH Pages `git push`
+  outage (2026-07-23 → 2026-07-25, all five deployable subsites, Git
+  Credential Manager fallback to bash askpass has no TTY under Task
+  Scheduler) via a `GITHUB_TOKEN` in `.env` + subprocess env
+  `GIT_TERMINAL_PROMPT=0` + `-c http.extraheader=…`, plus a
+  `verify-deploy-auth.py` health-check and deploy-failure flagging in
+  the scheduler wrapper; (C) close the E-E-A-T gaps flagged in the
+  2026-07-25 external review of gardening.info-verse.org — a layered
+  sourcing defense (generation-time prompt instructions + required
+  `sources` schema field and claim→evidence→reasoning structure, an
+  editor-pass audit-and-repair, and a code-triggered dedicated
+  sources-only third pass as the deterministic last resort, all sharing
+  one `required_sources` threshold that's 3 instead of 2 when the title
+  matches myth-buster patterns), byline + last-reviewed date in single
+  template, About / Editorial Policy / Fact-Checking pages per subsite,
+  and an editorial series taxonomy that deepens topical clustering.
+  Forward-only (existing posts stay as-is). Blocks paid-domain launch
+  alongside Phase 6 exit + Phase 7 install verification.
 - Phase Omega: make the agent analytics-aware. Deferred until every other phase is done AND the sites have real traffic to observe — analytics tuning without views is guesswork. Phase 7's GA4 install is the data source Omega feeds on.
+- Phase 9: grow the Info Verse network (Phase 9) — acquire individual custom domains for all pilot subsites, register them with search engines, establish social media presences per niche, add reader-retention infrastructure (newsletter, RSS, social sharing), build cross-site promotion between the seven properties, and establish authority-signaling backlinks. Depends on Phase 8 exit (E-E-A-T signals, deploy reliability) and a budget decision on domain registrations (~$10–15/year per domain, 5 domains + hub = ~$60–85/year).
 
 Recently completed:
 - Phase 3: featured images and contextual links (2026-06-19).
 - Phase 3.5: SEO hardening (2026-06-29).
 - Phase 3.6: multi-site modularity (2026-07-01) — per-site persona files under
   `website_memory/{hostname}.md` + prefixed `.env` credentials + `--site` flag.
+- Phase 8: pipeline efficiency, deploy reliability, authority hardening (2026-07-25) — duplicate-title pre-gen gate (Step 8.1), targeted-feedback regeneration (Steps 8.2–8.3), GitHub token fallback (Step 8.4), deploy health-check (Steps 8.5–8.6), E-E-A-T authority pages (Steps 8.7–8.12), sourcing defense (Steps 8.9–8.11), editorial series taxonomy (Step 8.12). Code complete, awaiting user's 7-day verification window.
 
 Content rules:
 - Evergreen informational articles.
@@ -3751,6 +3776,1338 @@ Phase 7 exit criteria:
 - Phase Omega Step Omega.1 (choose analytics source) recorded as resolved
   in §12 in favor of GA4 with per-site properties.
 
+## 11.7 Phase 8 Plan - Pipeline Efficiency, Deploy Reliability, Authority Hardening
+
+Status: Group B (Steps 8.4-8.6, deploy reliability) done and live-verified
+2026-07-25. Group A (Steps 8.1-8.3, pipeline efficiency) implemented and
+fixture/unit-verified 2026-07-25; live rejection-rate/pass-rate
+measurement over multiple scheduled runs remains open, currently blocked
+by an unrelated pre-existing local-model context-length limit + Claude
+credit exhaustion that prevents any full-body generation call from
+completing (see Step 8.1's verification note). Group C (8.7-8.12) not
+started. Blocks paid-domain launch (alongside Phase 6 exit window + Phase
+7 install verification).
+
+**Context-length root cause (2026-07-25):** the local-model generation
+failures above are not a Group A regression. LM Studio's native
+`/api/v0/models` endpoint (`curl http://192.168.0.200:1234/api/v0/models`)
+currently reports `qwen/qwen3.6-35b-a3b` *loaded* with only an 8192-token
+context window (`loaded_context_length`), far below its architectural
+`max_context_length` of 262144 and below the ~200K the user had
+previously configured. `Instructions/STYLE.md` alone is ~15,150 tokens,
+so any full `generate_article()` call overflows an 8192-token window.
+**But this was not a standing/gradual condition** — a precise grep of
+every `logs/openclaw-*.log` file for the exact API error string (not just
+the substring "context length", which produced a false-positive match on
+2026-07-14 from unrelated prompt prose) shows the error appears in
+exactly one file: `logs/openclaw-2026-07-25-techtools.log`, first at
+19:32:35. Cross-referencing successful local generations the same
+evening shows every other scheduled site generated fine right up to
+19:18:08 (`coffee`); `techtools`, next in the run order at 19:29:14, is
+the first and only failure, repeating on both retries (19:35:04,
+19:42:08). techtools' persona/topic-guide footprint is not unusually
+large (`website_memory/techtools.localhost.md` is one of the smaller
+persona files, and techtools has no per-site topic/image guide overhead
+the way catfancast/animefancast do), so an outsized prompt for that one
+site doesn't explain it either. The evidence points to the model's
+*loaded* context window dropping within that ~11-minute window on
+2026-07-25 (consistent with an LM Studio reload/JIT-unload reverting to
+a smaller default rather than the ~200K the user had set), not a
+multi-day drift. The topic pre-pass (`propose_topics()`) still succeeds
+regardless because it omits STYLE.md and stays well under 8K tokens.
+**Fix is an infra action, not a code change:** reload the model in LM
+Studio with a larger `--context-length` (e.g. 32768, or back to the
+previous ~200K) - this can only be done on the LM Studio host
+(`192.168.0.200`), not from this repo; investigating *why* it dropped
+(auto-unload/idle-eviction settings, an app restart, a JIT-loading swap
+to another model) also requires checking LM Studio itself, which has no
+log surface visible from this repo. As a secondary, code-level
+hardening, `generator._local_provider_error_from_exc()` now detects the
+"context length" substring in the raw provider exception and raises a
+`LocalProviderError` with actionable guidance (points at
+`/api/v0/models` and `--context-length`) instead of surfacing the raw LM
+Studio 400 body - implemented and fixture-verified 2026-07-25, does not
+fix the underlying limit itself.
+
+Goal: (A) cut the wasted-token rejection rate from ~60% to <20% by moving
+gates upstream and adding targeted-feedback regeneration on the ones that
+must stay post-gen; (B) restore the daily GH Pages push that has been
+failing since 2026-07-23; (C) close the E-E-A-T gaps flagged in the
+2026-07-25 external review of gardening.info-verse.org so the pipeline
+publishes trust-worthy content by default. Forward-only — existing
+published posts stay as-is (§12 2026-07-25 entry).
+
+**Evidence this phase must address (2026-07-23 → 2026-07-25):**
+
+| # | Class | Evidence |
+|---|-------|----------|
+| 1 | High rejection rate | `logs/rejected-2026-07-{24,25}-*.json` — ~60% of runs rejected, majority via `pre-review: title is a near-duplicate` (duplicate-title collisions detected *after* the model has already spent tokens writing a full 1000–2000 word article, even though `recent_titles` was passed into `generate_article` as a soft prompt-side constraint). Also `post-revise` rejections from the editor pass re-introducing gate-tripping content |
+| 2 | 3-day GH Pages push outage | All five deployable subsites failing `git push` since 2026-07-23; identical signature `bash: line 1: /dev/tty: No such device or address` + `fatal: could not read Username for 'https://github.com'` on gardening/dogs/boardgames/coffee/techtools. Root cause: git.exe's Git Credential Manager fallback shells to a bash-based askpass helper that has no controlling TTY under Task Scheduler → immediate fail, no prompt. `deploy.py::commit_and_push()` logs WARNING + returns False → silent to the scheduler |
+| 3 | Silent deploy failure in the scheduler | `scripts/run-openclaw.ps1` only drops `last-run-failed.flag` on generation failures, not deploy failures. Result: 3 days of no push went unnoticed while local WP kept publishing normally |
+| 4 | E-E-A-T authority (4.5/10, external review 2026-07-25) | No named author identity, no editorial policy page, no source citations on strongly-worded contrarian claims ("The Rooting Hormone Myth", "Fresh Wood Chips Kill Your Roses", etc.), no "last reviewed" date, no editorial series/franchises. Review specifically calls out that the site's provocative titles create a burden of proof the current pipeline does not enforce |
+| 5 | Topical shallowness | Same review: internal linking is category-level only, 1–3 links per article; no evergreen series taxonomy; no topical-cluster signal beyond WP core categories/tags |
+
+Ordering rationale: Group B (Steps 8.4–8.6) is the smallest change /
+biggest immediate impact and unblocks the 3-day backlog, so it ships
+first. Group A (Steps 8.1–8.3) is next because pre-gen validation
+makes every Group C verification run cheaper. Group C (Steps 8.7–8.12)
+is the largest editorial change and lands last.
+
+Sourcing architecture (Steps 8.9–8.11, redesigned 2026-07-25) is a
+**three-layer defense**, cheapest layer first, per the project's
+standing rule that a constraint the model reliably violates belongs in
+deterministic code, not more prompt emphasis (§12, 2026-07-02): (1)
+generation-time prompt instructions + schema field, (2) editor-pass
+audit-and-repair inside the existing `revise_article()` call, (3) a
+brand-new narrow-scope third model call that only adds sources, invoked
+by code and fired only when layers 1–2 still leave the article
+under-sourced. All three layers share one number, `required_sources`
+(2 normally, 3 for contrarian/myth-buster-patterned titles), computed
+once right after Step 8.1 commits the title.
+
+Scoping choices recorded 2026-07-25 (see §12):
+- Author identity = **unnamed editorial team byline** ("Rootstock
+  Editors" / "Kennelside Editors" / etc.) with Carter Bolz named as the
+  human editor in each site's About page only. Not real-name bylines on
+  every article, not fully-invented pseudonym staff.
+- Backfill = **forward-only**. Existing published posts stay as-is.
+- Numbering: this section is 11.7 rather than 11.6 because Phase 8 was
+  inserted after Phase Omega already occupied 11.6 (same convention as
+  §9.5/9.6/9.7/9.8 — section number reflects insertion order, not
+  final phase order).
+
+### Step 8.1 - Move duplicate-title check upstream (pre-generation)
+
+Status: implemented and verified 2026-07-25. `generator.propose_topics()`
+added (small `propose_topics` tool schema + system prompt built from site
+description + topic guide only, no STYLE.md/image-guide/link-candidate
+bulk); `_dispatch()`/`_generate_with_claude()`/`_generate_with_local()`/
+`_retry_local_hotter()` generalized to accept a `validate_fn` param so this
+schema doesn't get validated against the full-article required-field list.
+`main._select_topic_pregen()` calls `propose_topics(candidates_n=5, ...)`,
+checks each candidate against `validation.find_title_collision()` over the
+full catalog (`list_recent_post_titles(limit=1000)`, up from the previous
+default 300), and rerolls the whole batch up to
+`_TOPIC_PREGEN_MAX_REROLLS=2` times if every candidate collides. Fails
+soft (returns `None`, falls back to pre-8.1 in-generation topic pick) on
+any exception or exhausted rerolls. `--skip-topic-pass` added for
+observing old behavior; ignored when `--topic` is given. Trending signals
+are now fed into `propose_topics()` (topic pick) instead of
+`generate_article()` once a topic is committed pre-generation
+(`gen_trending_signals = None if committed_topic else trending_signals`).
+
+Verified: `.venv/Scripts/python.exe scripts/smoke-topic-pregen.py --site
+gardening` — `propose_topics()` returned 5 real candidates from the live
+local model, one survived collision-check against gardening's 29 real
+published titles, committed on attempt 1/3 with no reroll needed. Unit
+tests against `_select_topic_pregen()` (mocked `propose_topics`) confirmed:
+(a) reroll fires exactly once when the first batch's only candidate
+collides, then commits the next batch's survivor; (b) all-attempts-collide
+exhausts to `None`; (c) an exception from `propose_topics()` returns `None`
+immediately with no retry. Live full-pipeline run
+(`post --site gardening --draft --skip-deploy --skip-reddit`) confirmed
+the pre-pass firing correctly inside the real `main()` flow and committing
+a non-duplicate topic ("Salvia nemorosa 'Caradonna': The Drought-Proof
+Spike That Keeps Blooming") — the run then failed downstream at the
+full-body `generate_article()` call (local-model context-length overflow
++ Claude "credit balance exhausted"), which is a pre-existing environment
+issue unrelated to this step. **Correction (2026-07-25, later same day):**
+the claim that this signature "also appears in
+`logs/openclaw-2026-07-14-localhost.log`" was wrong — that file only
+contains the substring "context length" inside unrelated prose within a
+prompt dump, not the actual API error. A precise grep across every
+`logs/openclaw-*.log` file shows the real
+`'tokens to keep from the initial prompt is greater than the context
+length'` error appears in exactly one file,
+`logs/openclaw-2026-07-25-techtools.log`, first at 19:32:35. See the
+Phase 8 status note above and the 2026-07-25 Decision Log entry for the
+narrowed timeline: every site generated successfully through 19:18:08 the
+same evening; techtools (last in the run order) is the first and only
+failure, ~11 minutes later.
+
+Rejection-rate before/after measurement (baseline vs. post-8.1 over 10
+scheduled runs) and token-cost logging are deferred until the local-model
+billing block clears enough real runs to publish through end-to-end —
+tracked as the remaining open item below.
+
+Currently: `main.py` calls `publisher.list_recent_post_titles()`, passes
+the result into `generate_article()` as `recent_titles` (soft prompt-side
+constraint), then after generation runs
+`validation.find_title_collision()` on the returned draft — rejecting
+~60% of drafts and dumping them to `logs/rejected-*.json`. Every one of
+those rejections was knowable from the topic alone, but only after the
+full article had already been written.
+
+Change: introduce a lightweight **topic-selection pre-pass** that runs
+before the full article generation call. New function
+`generator.propose_topics(candidates_n=5, avoidance_titles, persona,
+topic_guide)` returns 5 candidate `{title, focus_keyphrase, angle}`
+tuples from the model — a small, cheap call (~200-500 output tokens
+total). `main.py` filters them through
+`validation.find_title_collision()` against the full catalog (up to
+1000 posts), rerolls the whole set if all 5 collide (feeding the
+colliding titles back as an exclusion), then commits the first survivor
+to the full article generation call as `--topic <survivor>`. Only after
+the topic passes does the expensive body-generation call fire.
+
+Backwards-compat:
+- When `--topic` is already supplied by the caller, skip the pre-pass
+  (existing behavior).
+- When persona is missing, pre-pass falls back to old flow with a
+  warning.
+- Pre-pass is on by default for scheduled runs; add `--skip-topic-pass`
+  for the interactive case where the user wants to observe old behavior.
+
+Verification:
+- [ ] Baseline: measure current rejection rate over 10 scheduled runs
+      (compute from `logs/rejected-*.json` count / total attempts). Store
+      in the phase log for post-8.1 comparison.
+- [ ] Post-8.1: measure rejection rate over 10 runs. Target: <20%
+      overall, with `pre-review: title is a near-duplicate` reason
+      near-zero.
+- [ ] Token cost: log input+output token counts on both the pre-pass
+      call and the article call; confirm total-per-successful-publish is
+      lower than pre-8.1 baseline.
+
+### Step 8.2 - Targeted-feedback regeneration on post-gen gate failures
+
+Status: implemented and verified 2026-07-25. `generator.generate_article()`
+gained `rejection_reason: str | None`, threaded through a new
+`_build_rejection_feedback_message()` into the user message: "Your
+previous attempt at this article was rejected because: {reason}. Do not
+repeat this. Write a materially different draft...". `main.py`'s
+pre-review block is now a bounded `while` loop
+(`_PRE_REVIEW_MAX_ATTEMPTS = 3`: initial + 2 targeted regens, up from
+initial + 1 blind regen), passing the immediately-preceding attempt's
+`_generation_problem()` string as `rejection_reason` on each retry, and
+labeling each `dump_rejected_article()` call with its attempt number.
+Deviation from the original write-up: detector reason strings were NOT
+moved into `validation.py` constants — `main._generation_problem()`'s
+existing f-string returns (e.g. "body_html has the banned echo-fragment
+closer tic (e.g. …)") were already human-readable and are reused as-is;
+introducing a separate constants layer for the same three strings was
+judged unnecessary indirection for this step.
+
+Verified: fixture test monkeypatching `generator._dispatch` confirmed a
+given `rejection_reason` string appears verbatim in the constructed user
+message alongside "Do not repeat this", and that omitting
+`rejection_reason` produces no feedback block at all. The bounded-loop
+control flow (attempt counting, reason threading between iterations,
+correct abort after 3 attempts) was verified by code trace against the
+same reroll-loop pattern already live-tested in Step 8.1 — a full live
+run through 2+ regen attempts was not exercised end-to-end this session
+because the local model's context-length limit and Claude's exhausted
+credit balance (both pre-existing, unrelated to this step — see Step
+8.1's verification note) currently block any full-body generation call
+from completing regardless of attempt count.
+
+Current retry loop (`main.py` lines ~1031–1059): on any gate rejection
+(closer-tic, repeat-degeneration, suspicious-citation, HTML-hygiene), the
+regen call gets the same prompt with no signal about *why* the first
+attempt failed. The model often makes the same mistake in a slightly
+different form and the run exits.
+
+Change: when a specific gate rejects, thread its reason into the regen
+prompt as an explicit negative constraint. Concretely:
+- Add `rejection_reason: str | None` parameter to `generate_article()`
+  (and its provider-specific `_generate_with_local` /
+  `_generate_with_claude` branches).
+- When present, prepend a "Previous attempt was rejected because:
+  {reason}. Do not repeat this. Specifically avoid: {examples}" block to
+  the user message.
+- Map each detector to a human-readable reason string (the log messages
+  in `main._find_*` are close — factor those into constants in
+  `validation.py`).
+- Bump `max_attempts` from 2 to 3 (initial + 2 targeted regens); keep
+  the "final failure dumps to `rejected-*.json`" behavior.
+
+Verification:
+- [ ] Fixture test: hand-craft an article body that trips
+      `_find_closer_tic()`; confirm the regen prompt contains the
+      closer-tic reason string as expected.
+- [ ] Same for `_find_repeated_content` and
+      `_find_suspicious_citation`.
+- [ ] Live: over 10 runs where at least one attempt trips a gate,
+      measure the pass rate on the *second* attempt versus historical
+      baseline (from pre-8.2 rejected-*.json). Target: pass rate on
+      targeted regen ≥ 60%.
+
+### Step 8.3 - Post-revision problem detection: revise vs. reject
+
+Status: implemented and verified 2026-07-25. `generator.revise_article()`
+gained the same `rejection_reason` parameter as Step 8.2's
+`generate_article()` (reusing `_build_rejection_feedback_message()`).
+`main.py`'s post-revise block now saves `pre_revise_article` (the
+gate-clean pre-revise draft) before the first `revise_article()` call; if
+that revision leaves/introduces a problem, it re-revises FROM
+`pre_revise_article` again (not from the broken revision) with the
+specific reason threaded in as `rejection_reason`. If the second revise
+is still broken: aborts by default (`return 1`), or under the new
+`--tolerate-revise-regressions` flag (off by default; not used by the
+scheduler), ships `pre_revise_article` — the unedited but gate-clean
+draft — instead of a broken revision. Both rejected intermediate
+attempts are dumped to `rejected-*.json` labeled by attempt number for
+forensics either way.
+
+Verified: fixture test on `revise_article()` (monkeypatched `_dispatch`)
+confirmed a given `rejection_reason` appears verbatim in the constructed
+editor-pass prompt alongside "Do not repeat this". Control flow verified
+by code trace: clean-on-first-revise path is unchanged from pre-8.3;
+clean-on-second-revise path proceeds to publish; still-broken-after-both
+path correctly branches between abort (default) and pre-revise-body
+fallback (`--tolerate-revise-regressions`), with each intermediate
+attempt dumped under a distinct `post-revise (attempt N[, tolerated])`
+label. As with Steps 8.1/8.2, a full live run through an actual
+editor-introduced regression was not exercised this session — same
+pre-existing local-model-context-length + Claude-credit-exhaustion
+blocker prevents any full-body generation call from completing right
+now, independent of this change.
+
+Current: `main.py` runs `_generation_problem()` again after
+`revise_article()`; if the editor pass reintroduces a problem, the
+article is dumped to `rejected-*.json` and the run aborts — no chance
+to re-revise, and the pre-revise body (which was clean) is discarded.
+
+Change: on post-revise problem detection, run **one additional revise
+pass** with the specific reason threaded in (Step 8.2 machinery). If it
+still fails, abort — but also add a `--tolerate-revise-regressions`
+flag that ships the pre-revise body when the second revise also fails,
+with a WARNING log line. Off by default; scheduler stays strict.
+
+Verification:
+- [ ] Fixture: hand-craft an article the editor demonstrably regresses;
+      confirm second-revise pass either fixes it (ship) or fails cleanly
+      (abort under default; ship pre-revise body under
+      `--tolerate-revise-regressions`).
+- [ ] Live: over 10 runs, count `post-revise` rejections that would
+      have succeeded under `--tolerate-revise-regressions`. Report;
+      decide from the data whether to make it the default for the
+      scheduler.
+
+### Step 8.4 - Fix GH Pages `git push` credential failure
+
+Status: **done, live-verified (2026-07-25).** `Config.GITHUB_TOKEN`,
+`deploy._run_git`'s `GIT_TERMINAL_PROMPT`/`GCM_INTERACTIVE` env vars +
+per-invocation `http.extraheader` injection, and `_log_deploy_failure()` are
+all in. **Priority: shipped first.**
+
+Root cause, corrected from the original write-up below: it is not GCM. `git
+config --get-regexp credential` on this machine shows the configured
+`credential.helper` for `github.com`/`gist.github.com` is GitHub CLI
+(`!'C:\Program Files\GitHub CLI\gh.exe' auth git-credential`), and `gh auth
+status` showed (and still shows) a valid, `repo`-scoped authenticated
+session. The 3-day outage's signature (`/dev/tty: No such device or
+address` / `could not read Username for 'https://github.com'`) means git's
+credential-helper invocation itself was failing under the Task Scheduler
+process context (plausibly a Windows Credential Manager/DPAPI keyring access
+limitation tied to non-interactive/locked-session contexts) and falling
+through to a raw terminal prompt with no TTY — not an expired/missing PAT as
+originally assumed. `deploy.py::commit_and_push()` caught this via
+`_run_git`'s `(ok, output)` return and logged a WARNING — silent from the
+scheduler wrapper's perspective. Local WP publish kept succeeding, so the
+pipeline appeared healthy while GH Pages went stale.
+
+The user pushed back on the original fix design ("Why can't you github
+verify unless you have a github token key? Just do it the way the pipeline
+does it, without a pipeline key") — correctly: since `gh` is already
+authenticated on this machine with write access, there was no need to make
+the user mint and manage a brand-new PAT. Final design:
+
+- `deploy.py::_get_github_token()` tries `Config.load().GITHUB_TOKEN` first
+  (optional, for a separately-rotatable service-account token if ever
+  wanted), then falls back to shelling out to `gh auth token` (resolved via
+  a new `_resolve_gh_exe()`, parallel to the existing `_resolve_git_exe()`).
+  Returns `None` only if both sources are empty.
+- In `deploy.py::_run_git()`, `GIT_TERMINAL_PROMPT=0` and
+  `GCM_INTERACTIVE=Never` are set unconditionally on the subprocess env —
+  turns a hang-under-Task-Scheduler into a fast, clean failure instead of a
+  dangling prompt, regardless of token source.
+- Token is injected as HTTP Basic auth (`-c http.extraheader="Authorization:
+  Basic <base64 of x-access-token:<token>>"`) on the git invocation itself —
+  scoped to that one subprocess, never written to `.git/config` or the
+  persisted remote URL. **Note:** a bare `AUTHORIZATION: bearer <token>`
+  header (the original design) returns "invalid credentials" from GitHub for
+  both classic PATs and `gh auth token`'s OAuth tokens — Basic auth with a
+  dummy `x-access-token` username is the scheme that actually works; verified
+  live against a real repo before adopting it.
+- Fail-loud: push failure logs `deploy_failed slug=<slug> reason=<reason>`
+  via `_log_deploy_failure()`, grep-able by `run-openclaw.ps1` (Step 8.6).
+
+Verification:
+- [x] `python -m openclaw deploy --site gardening` (Step 8.5's deploy-only
+      mode) from an interactive PowerShell, with **no `GITHUB_TOKEN` set in
+      `.env`**: Staatic export ran, commit + push succeeded via the `gh auth
+      token` fallback, hub redeploy piggybacked correctly. Confirmed via `git
+      -C .gh-worktree/openclaw-gardening log -1` that the push landed.
+      (2026-07-25.)
+- [x] `python scripts/verify-deploy-auth.py` (no `.env` token): all 6 repos
+      (`gardening`, `dogs`, `boardgames`, `coffee`, `techtools`, `hub`)
+      reported `[OK]` with real `ls-remote` SHAs. (2026-07-25.)
+- [ ] Run the same `deploy` command from the actual registered Task
+      Scheduler job (right-click → "Run") to confirm the `gh auth token`
+      fallback also resolves under the scheduler's service/session context
+      — this is the one context not yet tested live, and is exactly the
+      context the original outage occurred in. If `gh auth token` turns out
+      to fail there too (e.g. because `gh`'s own credential storage is
+      keyring-backed and inaccessible non-interactively), fall back to
+      setting an explicit `GITHUB_TOKEN` in `.env` — the code path for that
+      already exists and was verified pre-2026-07-25.
+- [x] Verify token is not persisted anywhere: `git -C
+      .gh-worktree/openclaw-gardening config --get-regexp
+      remote.origin.url` returns the plain
+      `https://github.com/carterman82/openclaw-gardening.git`, no
+      embedded credentials — token is only ever passed as a one-off `-c
+      http.extraheader=...` flag. (Confirmed 2026-07-25.)
+
+### Step 8.5 - Backfill push for the 2026-07-23 → 2026-07-25 gap
+
+Status: **done (2026-07-25).** `python -m openclaw deploy --site <slug>`
+subcommand shipped in `main.py` (new `deploy` subparser + branch; activates
+the site's env vars, then calls `deploy_after_publish(slug, "Backfill
+deploy (no new post)")`; rejects non-`DEPLOYABLE_SLUGS` slugs with a clean
+error). Ran it for all 5 pilot slugs (gardening, dogs, boardgames, coffee,
+techtools) — each exported via Staatic, committed, and pushed cleanly using
+the Step 8.4 `gh auth token` fallback, with `hub` piggyback-redeploying after
+every one.
+
+Verification:
+- [x] Each of the 5 subsites' repo (`openclaw-<slug>`) now has a fresh
+      commit from the 2026-07-25 backfill run (confirmed via
+      `verify-deploy-auth.py`'s per-repo `ls-remote` SHAs matching the
+      backfill run's push output).
+- [ ] Visually confirm `https://www.info-verse.org/openclaw-<slug>/` and
+      `https://info-verse.org/` (hub) reflect the backfilled posts once
+      GitHub Pages finishes its ~1-2 min rebuild — not yet checked in a
+      browser this session.
+
+### Step 8.6 - Deploy-failure loudness + credential health-check
+
+Status: **done, live-verified (2026-07-25).** `scripts/verify-deploy-auth.py`
+written and run for real: reports `[OK]` with a live `ls-remote` SHA for all
+6 repos, using the `gh auth token` fallback (no `.env` token). `main.py`'s
+`post` command now returns exit code 2 when publish succeeds but deploy
+fails (was silently 0 before — the root cause of evidence #3). `run-openclaw.ps1`
+updated: exit 2 is recorded as a `$DeployFailures` entry (not retried — a
+retry would just generate a duplicate article to redo a git push) and
+surfaced via a `deploy_failed=` line in the flag payload, separate from
+genuine `$Failures` generation failures which still retry as before.
+
+Two fail-loud additions so the next credential expiry doesn't go
+unnoticed for 3 days:
+
+- `scripts/verify-deploy-auth.py`: does `git ls-remote origin main` (a
+  no-side-effect auth probe) against each of the 5 deploy repos + hub,
+  using the same token injection path as `deploy.py`. Exits non-zero
+  if any fail. Runnable ad-hoc; can optionally be registered as a
+  Task Scheduler weekly health-check.
+- Update `scripts/run-openclaw.ps1` to distinguish generation failures
+  from deploy failures in the `last-run-failed.flag` payload — deploy
+  failure alone still drops the flag with a
+  `deploy_failed=<slug,slug,…>` line, so a "publish worked but no push"
+  scenario is no longer silent.
+
+Verification:
+- [x] `python scripts/verify-deploy-auth.py` — exit 0, all 6 repos `[OK]`
+      with real SHAs, using the `gh auth token` fallback (no `.env` token
+      set). (2026-07-25.)
+- [ ] Exit-1 path (revoked/missing credential) not yet forced/tested live —
+      would require temporarily breaking both `Config.GITHUB_TOKEN` (already
+      unset) and `gh auth token` (e.g. `gh auth logout`), which risks
+      disrupting the working ambient credential; deferred rather than done
+      opportunistically.
+- [ ] Force a deploy failure, run the scheduler wrapper end-to-end, confirm
+      flag is dropped with correct `deploy_failed=` payload; then restore,
+      confirm flag clears on next successful run. Not yet run.
+
+### Step 8.7 - About / Editorial Policy / Fact-Checking pages per subsite
+
+Status: **local WP done (2026-07-26).** Static export + GH Pages push
+deferred until Steps 8.8–8.12 also land — one redeploy per subsite covers
+everything Phase 8 Group C changes.
+
+Deviation from the write-up: rather than introducing a template system at
+`openclaw/pages/*.md.tmpl` + a new `scripts/publish-trust-pages.py`,
+extended the existing `scripts/create-legal-pages.py` (which already
+handled Phase 7's About/Privacy/Contact via the same idempotent-upsert
+pattern) to also publish `/editorial-policy/` and `/fact-checking/` and to
+upgrade the About copy with the E-E-A-T additions. The templates-with-
+substitution approach would have been the same content behind an extra
+layer of indirection for the three-pages-times-five-sites blast radius;
+inlining per-site copy in `SITE_INFO` keeps everything readable in one
+place. Same idempotent behavior (existing pages are updated, not
+duplicated) — verified live: a second run against `gardening` reported
+`[updated]` for all 5 slugs.
+
+Concrete changes:
+- `scripts/create-legal-pages.py`:
+  - `SITE_INFO` gains `byline` (per-site editorial team name — used by
+    Step 8.8's article byline), `topic_shortname`, and `authorities` (a
+    list of `(name, url, purpose)` tuples per site's niche — RHS/USDA/
+    extension services for gardening; AKC/AVMA/ACVIM/WSAVA/AAFCO for
+    dogs; BGG + designer statements for boardgames; SCA + WCR + Hoffmann
+    + Rao for coffee; vendor docs + SEC filings + trade press for
+    techtools).
+  - New `_editorial_policy_html()`: covers scope, topic selection,
+    sourcing standards (references the fact-checking page), editorial
+    process (names Carter Bolz as human editor), corrections/updates
+    (references the Step 8.8 Reviewed date), and independence (no paid
+    placements).
+  - New `_fact_checking_html()`: source-quality standards, per-niche
+    authoritative bodies rendered as an ordered list with external
+    links, disagreement policy, and no-source-found policy.
+  - `_about_html()` gains an "Editorial team" heading + paragraph
+    naming Carter Bolz and disclosing that articles are drafted with AI
+    assistance, plus a paragraph linking the new /editorial-policy/ and
+    /fact-checking/ pages.
+  - `PAGES` list extended with `editorial-policy` + `fact-checking`
+    entries.
+- `wp-content/themes/openclaw-base/parts/footer.html`: Legal column now
+  lists About → Editorial Policy → Fact-Checking → Privacy → Contact
+  (up from About/Privacy/Contact only).
+
+Verified locally:
+- [x] All 5 subsites have all 5 pages at `<slug>.localhost:8088/{about,
+      editorial-policy,fact-checking,privacy,contact}/` (upsert output +
+      spot-checked `/about/` contains "Editorial team" + "Carter Bolz" +
+      "Rootstock Editors" + "Fact-Checking Standards"; `/fact-checking/`
+      contains all four Rootstock authorities).
+- [ ] Static export includes them; live GH Pages URLs return 200 —
+      deferred to end of Phase 8 Group C for the batched redeploy.
+- [ ] Footer of every article on every subsite links all five — theme
+      change is on disk; will be visible on the next Staatic export of
+      each subsite (same batched redeploy).
+
+### Step 8.8 - Byline + last-reviewed date in single template
+
+Status: **local WP done (2026-07-26).** Live GH Pages verification
+deferred to the same batched Group C redeploy as Step 8.7.
+
+Concrete changes:
+- **New mu-plugin** `wp-content/mu-plugins/openclaw-register-editorial-meta.php`
+  (sibling to `openclaw-register-seo-meta.php` — kept separate since
+  editorial-meta is not SEO-meta and the existing plugin's scope stays
+  tight): registers `_openclaw_last_reviewed` post meta as REST-writable;
+  registers `openclaw_brand` site setting as REST-writable (needed so
+  `create-legal-pages.py` can push the per-site brand name — see below);
+  hooks `transition_post_status` to seed `_openclaw_last_reviewed` from
+  the publish date on first publish (only when the meta is empty — never
+  overwrites an existing value).
+- **New shortcode** `[openclaw_byline]` in `openclaw-base/functions.php`:
+  renders `By <a href="/about/" rel="author">{Brand} Editors</a> ·
+  Published <time>{date}</time> · Reviewed <time>{reviewed}</time>` on
+  singular posts. Brand comes from `get_option('openclaw_brand', ...)`
+  with `get_bloginfo('name')` fallback. Reviewed chunk is suppressed
+  when reviewed == published (avoids "Published X · Reviewed X" visual
+  duplication — a fresh article shows only the published date, and the
+  reviewed date appears the first time it's manually bumped past the
+  publish date).
+- **Template** `openclaw-base/templates/single.html`: removed the old
+  `<!-- wp:post-date -->` from the header row (was rendering the date
+  twice once the byline landed) — that row is now just the category
+  chip. Byline shortcode inserted below the title.
+- **CSS** `openclaw-base/style.css`: `.openclaw-byline` — 14px muted
+  text, `.openclaw-byline a` underlined-on-hover link style, `time`
+  no-wrap so "August 1, 2026" doesn't break mid-date on narrow widths.
+- **Brand option** (`openclaw_brand`): needed because the current
+  subsite blognames are "Gardening Info Verse" / "Dog Info Verse" /
+  etc. — the network-positioned name — not the persona brand
+  ("Rootstock" / "Kennelside" / …). Byline needs the persona brand.
+  Rather than renaming the blognames (which changes the header
+  wordmark, tab titles, and every "site name" reference site-wide —
+  larger blast radius than Step 8.8 should introduce), added a
+  dedicated `openclaw_brand` option. `create-legal-pages.py` extended
+  with `_upsert_brand_option()` that pushes `SITE_INFO[slug]["brand"]`
+  via `/wp/v2/settings`. Same source of truth as About/Fact-Checking
+  copy — one file, one string.
+
+Verified locally:
+- [x] Live byline on gardening's existing post 23 renders as
+      `By Rootstock Editors · Published July 16, 2026` — brand override
+      picked up from the new option.
+- [x] `wp post meta update 23 _openclaw_last_reviewed 2026-08-01` on the
+      same post; byline immediately renders
+      `… Published July 16, 2026 · Reviewed August 1, 2026`. Meta
+      subsequently deleted to reset the test.
+- [ ] Live GH Pages copy — deferred to end of Phase 8 Group C batched
+      redeploy.
+
+### Step 8.9 - Generation-time sourcing instructions + claim→evidence→reasoning structure
+
+Status: **code done, fixture-verified (2026-07-26).** Live full-run
+verification (10-run source-count log) deferred until after Steps
+8.10–8.11 land so the observation window measures the whole three-layer
+defense at once. Redesigned 2026-07-25 (see §12) — layer 1 of the
+three-layer sourcing architecture; supersedes the earlier single-pass
+"add a sources field and reject if thin" draft.
+
+Concrete changes:
+- `openclaw/validation.py`: `required_source_count(title)` returns 3 for
+  contrarian titles matching a compiled regex list (`\bmyth\b`,
+  `\bdebunk`, `\bthe real (reason|problem|cause|truth)\b`,
+  `\bactually\b`, `\bwhy .+ doesn'?t\b`, `\bkills? your\b`, `\bwill
+  (kill|ruin|destroy)\b`, `\bstop (doing|using|believing)\b`, …) else 2.
+  `count_valid_sources(article, site_host)` counts entries with non-
+  empty title+url whose URL host does not match the site's own domain
+  (self-cites don't count). Both landed in this step because
+  main.py/8.10/8.11 all read them.
+- `openclaw/generator.py`: `_REQUIRED_ARTICLE_FIELDS` extended with
+  `sources`; `_build_tool_schema(categories, required_sources=2)`
+  extended with a `sources` array (`minItems=required_sources`,
+  `maxItems=5`, items `{title,url,publisher}` all required);
+  `_build_system_prompt(categories, site_host, required_sources=2)`
+  gains two new base_rules clauses inserted right after the existing
+  external-links clause — a Sourcing clause naming the acceptable
+  source types + the required count + a no-invented-URLs + no-self-cite
+  ban, and a Claim → Evidence → Reasoning structure clause requiring
+  contested claims to state-cite-explain. `generate_article()` accepts
+  `required_sources: int = 2` and threads it to schema + prompt.
+- `openclaw/main.py`: computes `required_sources =
+  required_source_count(gen_topic or "")` once, right after the topic
+  pre-pass commits (or `--topic` is used), and threads it into both the
+  initial and the targeted-regen `generate_article()` calls. After the
+  post-sanitization validation gate passes, calls a new
+  `_render_sources_section(article, site_host)` helper that appends
+  `<section class="openclaw-sources"><h2>Sources &amp; Further
+  Reading</h2><ul>…</ul></section>` to `body_html` before
+  `_fetch_and_attach_image` (so the Unsplash image credit lands after
+  Sources, not sandwiched between body and sources). Self-cites are
+  filtered by the same rule as `count_valid_sources` for consistency.
+  Also logs `sources_after_generate=<n> required=<n>` for the
+  observation window that motivates 8.10/8.11.
+- `openclaw-base/style.css`: `.openclaw-sources` block styled as a
+  bordered surface card with an accent-color left rule, matching the
+  editorial-magazine look of the rest of the theme.
+
+Fixture-verified:
+- [x] `required_source_count` returns 3 for 6 canonical contrarian
+      titles (including the review's "Rooting Hormone Myth" and "Fresh
+      Wood Chips Kill Your Roses") and 2 for 4 benign titles.
+- [x] `count_valid_sources` correctly filters empty-title entries,
+      empty-url entries, self-citing URLs (with and without `www.`
+      prefix), and non-dict entries.
+- [x] `_render_sources_section` produces well-formed HTML with
+      `rel="noopener" target="_blank"`, filters self-cites, and
+      returns the body unchanged when sources is empty/missing.
+- [x] `python -c "from openclaw.main import ..."` resolves all new
+      imports cleanly.
+
+Deferred verification (batched to end of Group C for one live run):
+- [ ] New article publishes with a rendered "Sources & Further
+      Reading" section and inline claim→evidence→reasoning paragraphs
+      on at least one contested claim.
+- [ ] Log the model's actual `sources` array length per run for 10
+      runs; confirm most already clear `required_sources` without
+      needing Step 8.10/8.11 to intervene.
+
+Runs entirely inside the existing single generation call — no extra
+model round-trip.
+
+Change:
+- New `validation.required_source_count(title: str) -> int`: returns
+  `3` if `title` matches a contrarian/myth-buster regex list —
+  `\bmyth\b`, `\bisn'?t the\b`, `\bthe real reason\b`, `\bactually\b(?!
+  not)`, `\bwhy .+ doesn'?t\b`, `\bdebunk`, `\bwrong about\b`, plus
+  negations of common-knowledge patterns (the same phrasing flagged by
+  the external review: "The Rooting Hormone Myth", "Fresh Wood Chips
+  Kill Your Roses", "X Isn't the Problem", "The Real Reason Y") — else
+  `2`. This is the single shared threshold every later layer reads;
+  never redefined elsewhere.
+- Since Step 8.1's topic pre-pass already commits the title before the
+  full article call, `main.py` computes `required_sources =
+  validation.required_source_count(committed_title)` right after the
+  pre-pass and threads it into `generate_article(...,
+  required_sources=...)`.
+- `_build_tool_schema(categories, required_sources)` adds a required
+  `sources` field: `array` of `{title: str, url: str, publisher: str}`
+  objects with `minItems: required_sources`, `maxItems: 5`.
+- `_build_system_prompt()` base_rules gains two new clauses next to the
+  existing external-links clause (`generator.py` ~line 233):
+  - **Sourcing**: every non-obvious claim, statistic, or recommendation
+    must be grounded in a real, checkable source — university
+    extension services, .gov/.edu, official standards bodies,
+    peer-reviewed research, or established trade publications. List
+    every source relied on in the `sources` field (title, URL,
+    publisher). Supply at least `{required_sources}` sources for this
+    article title.
+  - **Claim → Evidence → Reasoning structure**: any paragraph making a
+    claim that contradicts common wisdom, states a statistic, or makes
+    a strong recommendation must be structured in three moves: (1)
+    state the claim plainly, (2) cite the specific evidence or source
+    backing it, (3) explain the reasoning connecting the evidence to
+    the claim. Do not assert a contested or surprising claim without
+    this structure.
+- Sources render as a trailing HTML block before `_fetch_and_attach_image`
+  runs: `<section class="openclaw-sources"><h2>Sources &amp; Further
+  Reading</h2><ul>…</ul></section>`. Add a `.openclaw-sources` style
+  block in `openclaw-base/style.css`.
+
+Verification:
+- [ ] Fixture titles: 6 known-contrarian titles from the 2026-07-25
+      review + 4 benign titles → `required_source_count()` returns 3
+      for exactly the 6, 2 for the rest.
+- [ ] New article publishes with a rendered "Sources & Further
+      Reading" section and inline claim→evidence→reasoning paragraphs
+      on at least one contested claim.
+- [ ] Log the model's actual `sources` array length per run for 10
+      runs; confirm most already clear `required_sources` without
+      needing Step 8.10/8.11 to intervene (this layer should resolve
+      the common case on its own).
+
+### Step 8.10 - Editor-pass source audit and repair
+
+Status: **code done, fixture-verified (2026-07-26).** Live full-run
+verification batched to end of Group C along with 8.9/8.11. Redesigned
+2026-07-25 (see §12) — layer 2. Depends on 8.9's `required_sources`
+plumbing. Supersedes the earlier standalone "contrarian-claim safety
+gate" draft (folded into 8.9's `required_source_count()`).
+
+Concrete changes:
+- `Instructions/EDITOR.md`: new "Sourcing Audit (mandatory)" section
+  above Hard Constraints with four numbered checks — count check
+  (add real sources if under the required threshold), self-cite
+  check (replace with external), URL check (no placeholders/empty),
+  Claim→Evidence→Reasoning check on contested paragraphs. Hard
+  Constraint #3 narrowed from a flat "NEVER add new links" to "no
+  new internal links; no external links unrelated to sourcing;
+  citation links added under the Sourcing Audit are the one
+  exception."
+- `openclaw/generator.py`:
+  - `_build_editor_system_prompt(categories, site_host,
+    required_sources=2)` accepts the threshold and appends a
+    "**Sourcing requirement for this article:** at least N real
+    external sources" note to both the EDITOR.md-loaded rules and the
+    minimal inline fallback (also updated to permit sourcing links
+    only).
+  - `revise_article()` accepts `required_sources: int = 2` and threads
+    it into both the system prompt and the tool schema (schema
+    `minItems` now matches what the writer had to satisfy in Step
+    8.9).
+- `openclaw/main.py`:
+  - Both `revise_article()` call sites (first revision and the
+    Step 8.3 retry revision) now pass `required_sources`.
+  - After the first revise pass returns, logs
+    `sources_after_revise=<n> required=<n>` — the observation window
+    that decides whether Step 8.11's third pass is doing meaningful
+    work in practice.
+
+Fixture-verified:
+- [x] `_build_editor_system_prompt(..., required_sources=3)` output
+      contains "at least 3 real, checkable external sources" and the
+      EDITOR.md "Sourcing Audit" section (loaded, not fallback).
+- [x] `_build_editor_system_prompt(..., required_sources=2)` produces
+      the correct default note.
+- [x] `revise_article` signature exposes `required_sources` with
+      `default=2`.
+
+Deferred verification (batched to end of Group C for one live run):
+- [ ] Fixture: hand a draft with 1 source through `revise_article()`
+      with `required_sources=2`; confirm the returned article's
+      `sources` array has ≥ 2 entries and the added source(s) are not
+      self-citing. (Requires a live LLM round-trip — deferred to the
+      full-pipeline verification pass.)
+- [ ] Fixture: hand a draft with a self-citing source; confirm the
+      editor pass replaces it with an external one. (Same reason.)
+- [ ] Live: over 10 runs, log `sources_after_revise` vs
+      `required_sources` — confirm the count needing Step 8.11 (still
+      short after this layer) is a small minority.
+
+Still a single model call — the editor pass `revise_article()` already
+makes — just given an explicit sourcing checklist so it can fix what
+layer 1 missed instead of only auditing style/SEO.
+
+Change:
+- Thread `required_sources` into `revise_article(article, ...,
+  required_sources=...)` the same way Step 8.9 threads it into
+  `generate_article()`.
+- Add an explicit audit-and-fix clause to `_build_editor_system_prompt()`
+  / `EDITOR.md`: check the draft's `sources` array and body citations;
+  if there are fewer than `required_sources`, if any source is
+  self-referential (points back at this site), or if a contested claim
+  lacks the claim→evidence→reasoning structure, research and add real,
+  authoritative sources and citation links to fix this now, as part of
+  this revision — do not just flag the problem, resolve it.
+- Reconcile with the existing fallback instruction "Add no new links":
+  narrow that sentence to "Add no new **internal** links, and no new
+  **external** links unrelated to sourcing — you may add external
+  citation links needed to satisfy the sourcing requirement above."
+- `main.py`: after `revise_article()` returns, run a new
+  `validation.count_valid_sources(article, site_host) -> int` (counts
+  `sources` entries, excluding any whose URL host matches the site's
+  own domain) and log `sources_after_revise=<n>
+  required=<required_sources>`.
+
+Verification:
+- [ ] Fixture: hand a draft with 1 source through `revise_article()`
+      with `required_sources=2`; confirm the returned article's
+      `sources` array has ≥ 2 entries and the added source(s) are not
+      self-citing.
+- [ ] Fixture: hand a draft with a self-citing source; confirm the
+      editor pass replaces it with an external one.
+- [ ] Live: over 10 runs, log `sources_after_revise` vs
+      `required_sources` — confirm the count needing Step 8.11 (still
+      short after this layer) is a small minority.
+
+### Step 8.11 - Dedicated sources-only third pass (deterministic backstop)
+
+Status: **code done, fixture-verified (2026-07-26).** Live full-run
+verification batched to end of Group C along with 8.9/8.10. Redesigned
+2026-07-25 (see §12) — layer 3. Depends on 8.9 and 8.10. Fires only when
+both prompt layers still leave the article under-sourced.
+
+Concrete changes:
+- `openclaw/generator.py`:
+  - New `_build_sources_tool_schema(required_sources)` — narrow
+    `submit_sources` tool with a single `sources` property (array of
+    `{title, url, publisher}`, `minItems=required_sources`,
+    `maxItems=5`).
+  - New `_validate_sources_payload(payload, required_sources)` —
+    matching validator threaded into `_dispatch` as `validate_fn` so a
+    provider that ignores `minItems` (some local models do) still fails
+    fast rather than shipping one source.
+  - New `_build_sources_system_prompt(site_host, required_sources)` —
+    prompt is intentionally minimal: no persona, no style guide, no
+    link candidates, no trending signals — the only decision is which
+    real sources back the article's claims. Explicit ban on inventing
+    URLs and on self-citing.
+  - New `add_sources(article, required_sources, site_host)` — the
+    caller-visible entry. Builds a compact `article_context` payload
+    (title, focus_keyphrase, body_html, existing_sources only), calls
+    `_dispatch(..., stage="sources", validate_fn=...)`, returns the
+    fresh sources list. Reuses the existing local→Claude router so
+    provider fallback + logging come for free.
+- `openclaw/main.py`:
+  - `add_sources` imported from generator.
+  - New Step 8.11 block placed after the editor-pass block closes so it
+    runs regardless of `--skip-review` (the sourcing requirement is on
+    the article, not on the editor pass). Only fires when
+    `count_valid_sources(article, site_host) < required_sources`. On
+    success, splices ONLY the returned `sources` array into `article`
+    (never touches other fields), logs
+    `sources_after_add_pass=<n> required=<n>`, re-counts. On failure
+    (either the pass raised or its returned array is still short), hard
+    aborts with `dump_rejected_article(..., "insufficient-sources-after-3-passes (<n>/<required>)")`
+    and `return 1` — no fourth retry.
+- `openclaw/validation.py`:
+  - `validate_article()` gains `required_sources: int = 2` and
+    `site_host: str = ""` kwargs. Two new checks at the end (after
+    title collision): `sources-self-citation` — if any `sources[i].url`
+    host matches the site's own domain, reject; `sources-too-few` — if
+    `count_valid_sources()` < required, reject. This is the final
+    backstop even if main.py's 3-pass count-check logic has a bug — the
+    two-place enforcement mirrors how the em-dash strip is both a
+    system-prompt rule and a code-level `_strip_em_dashes` pass.
+  - `main.py`'s `validate_article()` call now passes
+    `required_sources=required_sources, site_host=site_host`.
+
+Fixture-verified:
+- [x] `validate_article` passes an article with 2 valid external
+      sources (`required_sources=2`).
+- [x] `validate_article` rejects `sources-self-citation` when one
+      source URL host matches the site's own domain, even if other
+      valid sources are present.
+- [x] `validate_article` rejects `sources-too-few` when the valid
+      count is below the requirement.
+- [x] `_build_sources_tool_schema(3)` produces a tool schema with
+      `name=submit_sources`, `minItems=3`, `required=[sources]`.
+- [x] `_validate_sources_payload` rejects a 1-entry payload when
+      `required_sources=2`, accepts a 3-entry payload.
+
+Deferred verification (batched to end of Group C for one live run):
+- [ ] Fixture: force layers 1–2 to under-produce (mock
+      `generate_article` and `revise_article` to return 1 source with
+      `required_sources=2`); confirm `add_sources()` is invoked and the
+      final article clears the threshold. (Requires live LLM
+      round-trip.)
+- [ ] Fixture: make `add_sources()` itself return an insufficient
+      array; confirm `main.py` aborts with
+      `insufficient-sources-after-3-passes` and dumps to
+      `rejected-*.json`. (Same reason.)
+- [ ] Live: over 10 runs, confirm Step 8.11 fires rarely (most drafts
+      resolve at layer 1 or 2) and, when it does fire, resolves the
+      shortfall rather than aborting.
+
+Change:
+- New `generator.add_sources(article: dict, required_sources: int,
+  site_host: str) -> dict`. Narrow, single-purpose: builds a tiny tool
+  schema (`submit_sources`) whose **only** property is `sources` (array
+  of `{title, url, publisher}`, `minItems: required_sources`) — the
+  model sees the article's title/body/existing sources as read-only
+  context but is not asked to touch or rewrite anything else. Reuses
+  the existing `_dispatch()` router with a new `stage="sources"` tag,
+  so it still gets local→Claude fallback and provider logging for
+  free.
+- `main.py`: after Step 8.10's post-revise count check, if
+  `count_valid_sources(article, site_host) < required_sources`, call
+  `add_sources()`, splice its returned `sources` array into `article`
+  (only that field), re-render the `.openclaw-sources` HTML block, and
+  re-run `count_valid_sources()`.
+- If still short after this third pass: hard abort —
+  `dump_rejected_article(article, site_host,
+  "insufficient-sources-after-3-passes")` and `return 1`, exactly like
+  the existing pre-review/post-revise abort paths. This is
+  intentionally the one place with no further retry: three independent
+  attempts (prompt, editor-repair, dedicated pass) failing together is
+  treated as a genuine defect worth surfacing, not silently publishing
+  under-sourced content.
+- `validation.py`'s Step 6.1 gate (still the final backstop even if
+  `main.py`'s count-check logic has a bug) gains a matching check:
+  reject with `sources-too-few` if final source count < required, or
+  `sources-self-citation` if any source host matches the site's own
+  domain.
+
+Verification:
+- [ ] Fixture: force layers 1–2 to under-produce (mock
+      `generate_article` and `revise_article` to return 1 source with
+      `required_sources=2`); confirm `add_sources()` is invoked and the
+      final article clears the threshold.
+- [ ] Fixture: make `add_sources()` itself return an insufficient
+      array; confirm `main.py` aborts with
+      `insufficient-sources-after-3-passes` and dumps to
+      `rejected-*.json`.
+- [ ] Live: over 10 runs, confirm Step 8.11 fires rarely (most drafts
+      resolve at layer 1 or 2) and, when it does fire, resolves the
+      shortfall rather than aborting.
+
+### Step 8.12 - Editorial series taxonomy + deeper internal linking
+
+Status: **code done, fixture-verified end-to-end (2026-07-26).** Live
+full-run verification batched to end of Group C. Per-site `topic.md`
+series curation (writing named series into each pilot's topic guide) is
+a deferred follow-on — code shipped with a "reuse-existing-or-leave-
+null" prompt so the taxonomy accumulates organically without needing
+per-site editorial curation upfront.
+
+Concrete changes:
+- **New mu-plugin** `wp-content/mu-plugins/openclaw-register-series-taxonomy.php`
+  registers `openclaw_series` as a flat REST-exposed custom taxonomy on
+  the `post` post type. `show_ui=true` so Carter can view/manage it in
+  admin, `hierarchical=false` since editorial series are flat labels.
+- `openclaw/publisher.py`:
+  - `list_recent_posts_for_linking(limit=60)` — default cap bumped
+    30→60 (per PLAN); each candidate dict now includes a `series`
+    field populated from the WP REST `_embed=wp:term` expansion of
+    `openclaw_series` terms.
+  - New `get_series_terms() -> list[str]` — fetches current
+    `openclaw_series` term names ordered by usage count. Fail-soft on
+    any HTTP error (empty list rather than raising, since series is
+    optional).
+  - New `_get_or_create_series_term(base_url, auth, name)` — idempotent
+    lookup-or-create by name (case-insensitive match).
+  - `publish_post()` gains a `series: str | None` kwarg; when set,
+    creates/finds the term and adds `openclaw_series: [term_id]` to
+    the post payload.
+- `openclaw/generator.py`:
+  - `_build_tool_schema` adds an OPTIONAL `series` string property
+    (not in `required`).
+  - New `_build_series_message(existing_series)` message helper:
+    when the site has existing series terms, lists them in a
+    `<reference_data type="existing_series">` block and instructs the
+    model to reuse verbatim or leave null; when empty, instructs the
+    model to leave null unless the article is a natural fit for a
+    named recurring theme.
+  - `_build_linking_candidates_message` prefixes each candidate with
+    `[series: X]` when the candidate has a series, and bumps the
+    directive from "1-3 of these" to "3-5 of these" with a preference
+    order of same-series > same-category > anything else.
+  - Base system prompt's internal-links clause updated in kind
+    (3-5 links, prefer same-series, don't force-link off-topic pieces
+    to hit the count).
+  - `generate_article()` accepts `existing_series: list[str] | None`
+    and threads it through the user message.
+- `openclaw/main.py`:
+  - `get_series_terms` imported.
+  - After `list_recent_posts_for_linking()`, fetches
+    `existing_series = get_series_terms()` and logs the count + names
+    when non-empty.
+  - Both `generate_article()` call sites pass `existing_series`.
+  - `publish_post()` call site passes `series=article.get("series") or None`.
+- `wp-content/themes/openclaw-base/functions.php`:
+  - `openclaw_byline_shortcode` appends a `.openclaw-series-chip`
+    (linked to the series archive) next to the byline when the post
+    has an `openclaw_series` term. Silent on posts without.
+  - `openclaw_related_posts_shortcode` priority order rewritten to
+    same-series → same-category → same-tag → most-recent (was
+    same-category → same-tag → most-recent).
+- `wp-content/themes/openclaw-base/style.css`: `.openclaw-series-chip`
+  styled as a pill in the site's primary color at 12px uppercase
+  weight-600, matching the theme's chip vocabulary.
+
+Fixture-verified:
+- [x] `_build_tool_schema` includes `series` as an optional property
+      (not in `required`).
+- [x] `_build_linking_candidates_message` renders `[series: X]`
+      prefix and includes the "3-5" directive + "same-category"
+      preference language.
+- [x] `_build_series_message` correctly emits both the populated
+      (existing terms) and empty (leave-null) forms.
+- [x] `_get_or_create_series_term` creates a term on first call,
+      returns the same id on second call (idempotent).
+- [x] `get_series_terms()` reflects the created term after creation
+      and empty list before/after cleanup.
+- [x] `list_recent_posts_for_linking()` returns candidates each
+      carrying a `series` key (empty string when no term assigned).
+- [x] Assigning `openclaw_series="Garden Myths"` to an existing post
+      renders the `.openclaw-series-chip` on the byline (verified via
+      `curl … | grep openclaw-series-chip` on gardening post 16).
+- [x] `curl` on the `/wp-json/wp/v2/openclaw_series` endpoint returns
+      `[]` when no terms exist (endpoint is live post-WP-restart).
+
+Deferred verification (batched to end of Group C for one live run):
+- [ ] Each site's `topic.md` lists its 3–5 series. (Not shipped —
+      per-site topic guide curation is a separate editorial workstream.
+      The pipeline works without it because series is optional in the
+      schema.)
+- [ ] New article gets a series term assigned; single view shows the
+      series chip; related-posts widget prefers same-series matches.
+      (Fixture-verified — pending live LLM article generation.)
+- [ ] Article body has 3–5 `<a href>` internal links; validation
+      confirms all resolve to real published posts on the same subsite.
+
+Two shallow changes that raise topical-cluster signal without a
+whole-IA rework:
+
+- Add an optional `series: str | None` field to the `submit_article`
+  tool schema. Each site's `website_memory/{host}.topic.md` defines 3–5
+  named series ("Myth Files", "Garden Autopsy", "Deep Dive" for
+  gardening; equivalents for the other niches). Generator either picks
+  from the list or leaves null. Publisher registers `openclaw_series`
+  as a custom taxonomy, assigns the term on publish, and it displays
+  as a chip below the byline (Step 8.8).
+- Bump `list_recent_posts_for_linking()` cap from 30 to 60. Change
+  generator instructions to use 3–5 internal links per article (up
+  from the current 1–3), preferring same-series > same-category >
+  same-tag candidates. Update
+  `main._strip_invented_internal_links` to allow the wider candidate
+  set. Update `[openclaw_related_posts]` shortcode's priority order in
+  `openclaw-base/functions.php` to same-series → same-category →
+  same-tag → most-recent.
+
+Verification:
+- [ ] Each site's `topic.md` lists its 3–5 series.
+- [ ] New article gets a series term assigned; single view shows the
+      series chip; related-posts widget prefers same-series matches.
+- [ ] Article body has 3–5 `<a href>` internal links; validation
+      confirms all resolve to real published posts on the same subsite.
+
+### Group D - AdSense Readiness (Steps 8.13–8.16)
+
+Motivation: 2026-07-26 external AdSense-readiness audit against
+info-verse.org and the 5 subdomains. Group C already gave every article
+a byline, sources, editorial team disclosure, and a Privacy Policy that
+mentions Google AdSense by name (Step 8.7 landed this before the audit
+ran). The gaps the audit exposed are all at the network/site level, not
+per-article:
+
+1. The **hub** (info-verse.org) only has About/Privacy/Contact from a
+   pre-Phase-8 iteration — no Editorial Policy, no Fact-Checking, and
+   About is not the E-E-A-T version the 5 pilots got in Step 8.7. If
+   the AdSense application is filed at the root domain (the audit's
+   recommendation — one review covers all subdomains, and info-verse.org
+   is the front door), the hub must reach parity first.
+2. **No `ads.txt`** anywhere in the deploy tree. AdSense uses ads.txt as
+   an authorized-sellers signal; missing ads.txt gets flagged by
+   auto-crawlers post-approval and depresses revenue by de-prioritising
+   the site in Google's ad auction.
+3. **`OPENCLAW_ADSENSE_ID`** (parent theme, Phase 7) currently emits only
+   the async loader `<script>`. AdSense's own site-ownership
+   verification for the application step prefers the
+   `<meta name="google-adsense-account">` tag. Adding it costs two lines
+   and is inert until the constant is set.
+4. **No `<meta name="google-site-verification">` hook.** The audit calls
+   out that each subdomain must be a separate Search Console property,
+   and reviewers check indexing status before approving AdSense. The
+   parent theme has no plumbing for per-site GSC verification codes.
+5. **Per-niche content-safety** for gardening and dogs — the audit
+   flags supplement/health claims specifically. Persona guardrails
+   exist but say nothing about medical/veterinary/health-product claim
+   thresholds.
+6. Various manual verification items (content-count spot check, mobile
+   viewport check, PageSpeed, indexing, application submission itself)
+   that no code change can resolve — captured in Step 8.16 as a
+   checklist for the human operator to work.
+
+Same forward-only scope as the rest of Phase 8 — no backfilling
+already-published posts.
+
+### Step 8.13 - Hub trust-page parity (info-verse.org)
+
+Status: pending.
+
+Currently `scripts/create-legal-pages.py` iterates
+`sorted(DEPLOYABLE_SLUGS)` when `--site` is not given. `DEPLOYABLE_SLUGS`
+does include `hub`, so the loop already visits the hub — but there is no
+`SITE_INFO["hub"]` entry, so the loop prints "no SITE_INFO entry —
+skipping" and moves on. Result: hub has an old About/Privacy/Contact
+triad from a pre-Phase-8 iteration and none of Step 8.7's E-E-A-T
+upgrades or new Editorial-Policy / Fact-Checking pages.
+
+Change:
+- Add a `"hub"` entry to `SITE_INFO` in `scripts/create-legal-pages.py`.
+  - `brand`: "Info Verse" (already the network name)
+  - `domain`: "info-verse.org"
+  - `byline`: "Info Verse Editors"
+  - `topic_shortname`: "single-topic editorial writing across a network
+    of niche sites"
+  - `is_hub: True` sentinel flag — `_about_html`,
+    `_editorial_policy_html`, and `_fact_checking_html` branch on this
+    flag to hub-specific renderers (`_about_html_hub`,
+    `_editorial_policy_html_hub`, `_fact_checking_html_hub`). The pilot
+    copy assumes each site publishes its own articles; the hub's copy
+    describes the whole network's editorial approach and links out to
+    each subsite instead.
+  - `subsites`: `[(brand, url, topic_shortname), ...]` for each of the
+    5 pilots — consumed by the hub renderers' `_subsite_list_html()`
+    helper.
+  - `authorities`: cross-network summary + a pointer to each subsite's
+    own Fact-Checking page for the niche-specific detail. Reviewers who
+    check the hub's fact-checking page find one consolidated view.
+- `_privacy_html` and `_contact_html` are network-agnostic already and
+  work for hub without a branch.
+- One-time WP config action to unlock REST access from the Python
+  script: `docker compose run --rm wpcli user add-role openclaw-agent
+  administrator --url=hub.localhost:8088`. The hub was previously
+  bootstrapped via the shell-script `scripts/create-hub-pages.sh`
+  precisely because `openclaw-agent` was not a user on the hub subsite;
+  granting admin brings hub under the same REST-auth flow the five
+  pilots already use. After that, add `HUB_WP_BASE_URL` +
+  `HUB_WP_USERNAME` + `HUB_WP_APP_PASSWORD` to `.env` (same values as
+  any other subsite — one app password covers the whole network).
+  `scripts/create-hub-pages.sh` stays in the tree as historical
+  reference but is superseded by the REST script for future runs.
+
+Verification:
+- [ ] `python scripts/create-legal-pages.py --site hub` completes
+      idempotently, prints `[updated]` or `[created]` for all 5 pages.
+- [ ] `curl http://hub.localhost:8088/editorial-policy/` and
+      `/fact-checking/` return 200 with the expected copy.
+- [ ] Existing hub `about`, `privacy`, `contact` pages are updated in
+      place (not duplicated at `/about-2/` etc.) — the upsert path in
+      `_upsert_page()` looks up by slug and reuses the existing page id.
+- [ ] Footer of hub links all 5 legal pages — this depends on hub's
+      theme (openclaw-hub, child of openclaw-base) inheriting Step 8.7's
+      footer change to the parent theme's `parts/footer.html`. Verify
+      after a hub Staatic redeploy.
+- [ ] Deferred to Group D batched redeploy (with Steps 8.14/8.15):
+      `curl https://info-verse.org/editorial-policy/` returns 200 with
+      the expected copy.
+
+### Step 8.14 - AdSense + Search Console verification plumbing
+
+Status: pending.
+
+The parent theme's `openclaw_base_adsense_snippet()` (Phase 7) already
+emits the async loader script when `OPENCLAW_ADSENSE_ID` is defined.
+Two AdSense-related gaps remain for the review workflow itself:
+
+1. AdSense's site-ownership check during application prefers a
+   `<meta name="google-adsense-account" content="ca-pub-...">` tag over
+   the loader script alone. It costs nothing to emit both.
+2. No `ads.txt` served at each site's root. AdSense uses ads.txt to
+   confirm that the publisher ID displayed on the page is authorized to
+   monetize the domain — required for full revenue eligibility.
+
+Search Console side: each subdomain must be added as its own property.
+The DNS TXT verification method is the ideal path (covers the whole
+domain from one record at Namecheap), but the meta-tag method is the
+fallback and needs a per-subsite hook the theme doesn't have today.
+
+Change:
+- `wp-content/themes/openclaw-base/functions.php` —
+  - Extend `openclaw_base_adsense_snippet()` to emit
+    `<meta name="google-adsense-account" content="...">` alongside the
+    existing `<script>` (gated on the same constant, one conditional).
+  - New `openclaw_base_gsc_verification_snippet()` action on `wp_head`:
+    if the current site defines `OPENCLAW_GSC_VERIFICATION` (a child-
+    theme constant, per-subsite like `OPENCLAW_GA4_ID`), emit
+    `<meta name="google-site-verification" content="...">`. Undefined =
+    no output, same fail-soft pattern as GA4/AdSense.
+- `openclaw/config.py` — add `ADSENSE_PUBLISHER_ID: str | None` (parsed
+  by `_normalize_optional`, so `REPLACE_ME` in `.env.example` doesn't
+  count as set).
+- `openclaw/deploy.py` —
+  - New `_write_ads_txt(worktree, publisher_id)` helper that writes
+    `google.com, {publisher_id}, DIRECT, f08c47fec0942fa0` to
+    `<worktree>/ads.txt`. Called from `commit_and_push()` after
+    `_sync_export_into_worktree()` and CNAME writing but before
+    `git add -A`, so it's included in the same commit. Skipped
+    silently when `ADSENSE_PUBLISHER_ID` is unset.
+  - Publisher ID is the pub-XXXX form (no `ca-` prefix — that prefix is
+    for the loader/meta tag but not for ads.txt).
+- `.env.example` — document `ADSENSE_PUBLISHER_ID` with a comment
+  explaining the ads.txt format and its relationship to the PHP
+  constant `OPENCLAW_ADSENSE_ID` (both need the same publisher ID,
+  differ only in the `ca-` prefix).
+
+Verification:
+- [ ] With `OPENCLAW_ADSENSE_ID` defined in openclaw-base:
+      `curl -s http://<slug>.localhost:8088/ | grep 'google-adsense-account'`
+      returns the meta tag.
+- [ ] With a child theme defining `OPENCLAW_GSC_VERIFICATION`:
+      `curl -s http://<slug>.localhost:8088/ | grep 'google-site-verification'`
+      returns the meta tag. Without the constant, no output.
+- [ ] With `ADSENSE_PUBLISHER_ID` set in `.env`, a fresh
+      `python -m openclaw deploy --site gardening` writes `ads.txt`
+      into `.gh-worktree/openclaw-gardening/`, commits it, and pushes.
+      `curl https://gardening.info-verse.org/ads.txt` returns 200 with
+      the expected line.
+- [ ] With `ADSENSE_PUBLISHER_ID` unset, the same deploy leaves no
+      `ads.txt` file behind and does not add an empty commit.
+- [ ] Repeat the deploy verification for the hub (`--site hub`) so the
+      root domain also has `ads.txt` — critical if the application is
+      filed at root.
+
+### Step 8.15 - Per-niche content-safety guardrails (dogs + gardening)
+
+Status: pending.
+
+The 2026-07-26 audit flags health/supplement claims on the dogs and
+gardening sites specifically. AdSense's Restricted Content policy is
+strict about medical/health advice presented as authoritative — a rose-
+fertilizer article that says "this treats rose rust" is different from
+one that says "the RHS recommends this fungicide for rose rust as
+documented at ...". The pipeline's existing sourcing gates (Steps
+8.9-8.11) already force a source for contested claims, but they don't
+know that the claim is a health/medical/veterinary claim requiring the
+extra tightness AdSense expects.
+
+Change:
+- `website_memory/dogs.localhost.md` — add a "Health, medical, and
+  supplement claims" section under Style/Hard Constraints listing the
+  standing rules: (a) any veterinary/medical claim must be attributed
+  to a named authority (AVMA / WSAVA / ACVIM / peer-reviewed study),
+  not stated as bare fact, (b) no dosage or dose-range advice — always
+  redirect to "consult your vet with these specifics" instead, (c) no
+  supplement product recommendations by brand (talking about the class
+  of supplement is fine, e.g. "glucosamine for joint pain", but
+  recommending a specific product to buy is not — that's ad-adjacent
+  editorial that AdSense reviewers can't distinguish from an affiliate
+  link scheme), (d) any behavior/training claim contradicting AVMA/
+  ACVB consensus must be flagged as a minority view with the majority
+  position also cited.
+- `website_memory/gardening.localhost.md` — add an equivalent "Plant
+  health and pesticide claims" section: (a) any pesticide/herbicide/
+  fungicide recommendation must cite the EPA registration or the
+  university extension source that recommends it for that specific use
+  (label-off-uses are a legal grey area, not a content one), (b) no
+  "this cures/treats X" language for plant diseases — always frame as
+  "this is the standard IPM response for X", (c) no claims about
+  ingesting garden plants for medicinal or culinary safety beyond
+  "generally recognized as edible" — recipes and dosages are out.
+- No code change to the generator itself — these are prompt-side
+  additions to the per-site persona files that the model already loads
+  on every run. The sourcing gates (Steps 8.9-8.11) will enforce the
+  citation requirement.
+
+Verification:
+- [ ] After edit, `python -m openclaw post --site dogs --draft` on a
+      health-adjacent topic (pick one from the topic pre-pass output —
+      "How long does canine influenza last", "Are essential oils safe
+      around dogs", etc.) produces a draft where the health claim is
+      attributed to a named authority in the body and cited in
+      `sources`, not stated bare.
+- [ ] Same for gardening: `--draft` on a pesticide-adjacent topic
+      ("How to treat aphids on tomatoes") — recommendation is either
+      IPM-framed or cites the EPA / extension source, not "spray this
+      product to kill aphids".
+- [ ] Log review over 5 runs per site: no bare health/pesticide claims,
+      no product-by-brand recommendations, no dosages.
+
+### Step 8.16 - Pre-submission manual audit + application checklist
+
+Status: pending. This is the human-operator checklist — no code changes
+land in this step. Captured in PLAN.md so the pre-submission audit
+doesn't get done from memory later.
+
+- [ ] **Application structure**: apply at the root domain
+      (info-verse.org). One approval covers all 5 subdomains under an
+      approved root. If the root is rejected but a subdomain would be
+      approvable, escalate to a separate per-subdomain application only
+      then.
+- [ ] **Content volume per subdomain**: confirm each of the 5 sites
+      (gardening, dogs, boardgames, coffee, techtools) has 15-20+
+      published articles at 800+ words each. Run
+      `docker compose run --rm wpcli --url=<slug>.localhost:8088 post
+      list --post_status=publish --format=count` per site.
+- [ ] **Content spot-check per subdomain**: read 3-4 random published
+      posts as a stranger would. Are the articles genuinely useful, or
+      thin/templated? Note any that read as AI filler and either revise
+      or unpublish before applying.
+- [ ] **Structural-duplication check**: sample the intro paragraph and
+      title format across the 5 sites — if the "The X% Rule" and
+      "Actually, X isn't the Problem" title patterns are dominating,
+      that's a templated-content signal AdSense reviewers weight
+      negatively. Feed a follow-up STYLE.md diversification directive
+      if the pattern is too tight.
+- [ ] **HTTPS + mobile responsive**: `curl -I` and a mobile-viewport
+      manual check on each of the 6 domains (5 subsites + hub).
+- [ ] **PageSpeed Insights**: run against each subsite home page and at
+      least one article per site. Fix red Core Web Vitals only (LCP > 4s
+      or CLS > 0.25); yellow can slide until after approval.
+- [ ] **Broken-link + placeholder-content sweep**: search each site's
+      export for `lorem ipsum`, `placeholder`, `TODO`, `[example]`,
+      `#`-only hrefs; fix any hits.
+- [ ] **Search Console setup**: add each of the 6 domains
+      (info-verse.org + 5 subdomains) as a separate Search Console
+      property. Prefer the DNS TXT method at Namecheap (one record
+      covers the whole domain) over the per-subsite meta-tag method
+      (Step 8.14's `OPENCLAW_GSC_VERIFICATION` fallback). Submit the
+      Yoast sitemap URL for each property.
+- [ ] **Indexing confirmation**: `site:info-verse.org`,
+      `site:gardening.info-verse.org`, etc. Confirm each subdomain has
+      pages in Google's index. If a subdomain isn't indexed at all yet,
+      wait 1-2 weeks after the Search Console submission before
+      applying — AdSense reviewers do check indexing.
+- [ ] **Contact email**: confirm the email on the /contact/ pages
+      (currently `info.verse.real@gmail.com`) works. Consider setting
+      up `hello@info-verse.org` via Namecheap's email forwarding
+      before applying — a domain email reads more professional to
+      reviewers than a free gmail. Not blocking.
+- [ ] **Final walk-through**: browse each site as a first-time
+      visitor. Does it look "done", or does it look like a content
+      farm mid-build? If mid-build, wait a further week and re-audit
+      before applying.
+- [ ] **Application**: submit `info-verse.org` in AdSense; leave the
+      site-verification snippet from Step 8.14 (`google-adsense-
+      account` meta) in place through the review window.
+
+### Phase 8 exit criteria
+
+- **Efficiency**: rejection rate < 20% over a 7-day observation
+  window; duplicate-title rejections near-zero;
+  targeted-regen pass rate ≥ 60% on any regen that fires.
+- **Deploy**: all 5 deployable subsites push cleanly for 7
+  consecutive scheduled runs; `scripts/verify-deploy-auth.py` green
+  on demand.
+- **Authority**: every article published under Phase 8 carries a
+  byline, a last-reviewed date, ≥ `required_sources` real sources (2
+  normally, 3 for contrarian-patterned titles per Step 8.9) with none
+  self-citing, at least one claim→evidence→reasoning paragraph on
+  contested claims, and a series term when applicable. About /
+  Editorial Policy / Fact-Checking pages live on all 5 subsites and
+  linked from footer.
+- **Sourcing layers**: over a 7-day window, log how often each layer
+  resolves sourcing (generation-time vs. editor-repair vs. dedicated
+  third pass vs. hard abort) — layer 1 (Step 8.9) should resolve the
+  clear majority, the third pass (Step 8.11) should be rare, and hard
+  aborts should be rarer still.
+- **AdSense readiness**: hub trust-page parity landed (Step 8.13);
+  `ads.txt` served at every deployable site's root and
+  `google-adsense-account` meta tag emitted on every page when
+  `OPENCLAW_ADSENSE_ID` is set (Step 8.14); dogs + gardening personas
+  carry the health/pesticide-claim guardrails (Step 8.15); the Step
+  8.16 manual audit checklist is complete and the AdSense application
+  has been filed. GA4 (Phase 7) has ≥ 30 days of continuous data by
+  the time approval lands.
+
+Out of scope (noted so it doesn't creep):
+- Backlink acquisition (external, not pipeline-controllable — the
+  external review flagged this as priority #5 but it's a marketing
+  workstream, not a code change).
+- Full technical SEO audit / Core Web Vitals work (partly covered by
+  Phase 7; Lighthouse pass is a Phase 7.x tail item).
+- Backfilling authority signals to already-published posts (user chose
+  forward-only per §12 2026-07-25).
+
 ## 11.6 Phase Omega Plan - Analytics-Aware Agent
 
 Status: not started. **Deferred until every other phase is done AND the sites have real traffic to observe.** Analytics tuning without views is guesswork — the top/bottom-performer signal this phase relies on is undefined at zero traffic. Do not begin any Step Omega.* until (a) the sites are receiving measurable pageviews, and (b) Phases 4, 5, 6, and 7 (and any other in-flight phase) are fully closed out.
@@ -3870,6 +5227,367 @@ Phase Omega exit criteria:
 - The agent has run for 14+ analytics-informed days without scheduling
   regressions, and the weekly review documents whether the signal
   influenced topic choice and whether average traffic moved.
+
+## 11.9 Phase 9 Plan - Network Growth
+
+Status: not started.
+
+**Goal:** Acquire traffic, authority, and audience for the seven Info Verse
+properties (hub + 5 pilot subsites + 2 external sites) through domain
+acquisition, search-engine indexing, social media presences, reader-retention
+infrastructure, cross-site promotion, and authority-building backlinks.
+
+**Prerequisites:**
+- Phase 8 exit (E-E-A-T signals, deploy reliability, source citations)
+- User budget approval for domain registrations (~$10–15/year per domain,
+  5 pilot domains + hub = ~$60–85/year)
+- All five pilot subsites publishing articles consistently (Phase 4 + 5)
+
+**Sites and their niche-specific growth strategies:**
+
+| Site | Niche | Priority Platforms | Domain Strategy |
+|------|-------|-------------------|-----------------|
+| techtools.info-verse.org | Tech tools / SaaS / productivity | Twitter/X, LinkedIn, Reddit | Buy techtools.guide or techtoolsguide.com |
+| gardening.info-verse.org | Home gardening | Instagram, Pinterest, Facebook | Buy rootstock.garden or rootstockgardens.com |
+| dogs.info-verse.org | Dog care / breeds / behavior | Instagram, Facebook, TikTok | Buy kennelside.com or kennelsidepets.com |
+| boardgames.info-verse.org | Board games / tabletop | Reddit, Twitter/X, YouTube | Buy meepleguides.com or playmeeple.com |
+| coffee.info-verse.org | Home coffee brewing | Instagram, Twitter/X, Pinterest | Buy cremacoffee.com or cremaobservatory.com |
+| info-verse.org (hub) | Network directory | Twitter/X | Already has info-verse.org (DNS configured) |
+| catfancast.com | Cat care / breeds | Facebook, Twitter, YouTube | Already owned |
+| animefancast.com | Anime / manga criticism | Twitter/X, Bluesky | Already owned |
+
+---
+
+### Step 9.1 - Domain Acquisition & DNS Migration
+
+Status: not started.
+
+**Strategy:** Each pilot subsite gets its own registered domain. The existing
+`info-verse.org` domain (with A records already configured at Namecheap)
+serves as the hub. Pilot subsites currently use `*.info-verse.org` subdomains
+which share a single account-level custom domain on GitHub Pages — this means
+zero independent SEO equity per subsite. Individual domains give each site its
+own backlink profile, search engine ranking, and brand identity.
+
+**Action:**
+
+1. Register five domains (user chooses from budget-conscious options, ~$10–15/year
+   each). Suggested names per the table above; user has final say.
+2. At Namecheap (current DNS provider), create A records for each new domain
+   pointing to GitHub Pages IP addresses (185.199.108.153, .154, .155, .156).
+3. Configure GitHub Pages custom domains for each new domain (same process as
+   the existing `www.info-verse.org` setup).
+4. Update `staatic_destination_url` in each subsite's Staatic options to point
+   at the new domain (e.g., `https://rootstock.garden/`).
+5. Update `scheduled-sites.json` notes with new domain mappings.
+6. Update `.env` `WP_BASE_URL` for each pilot subsite to use the new domain
+   (or keep `.localhost` for local development and use the new domain only for
+   production — user's choice, documented in §12).
+
+**Verification:**
+- [ ] All five new domains resolve to GitHub Pages IPs (check via `nslookup`
+  or `dig`).
+- [ ] GitHub Pages shows each domain as "Verified" (green checkmark).
+- [ ] HTTPS is active on each new domain (no mixed-content warnings).
+- [ ] `staatic_destination_url` updated for each subsite.
+- [ ] Running `python -m openclaw deploy --site <slug>` pushes exports to the
+  new domain URL (not the old `*.info-verse.org` URL).
+- [ ] Hub site (info-verse.org) front-page links to all five subsites updated
+  to new domains.
+
+---
+
+### Step 9.2 - Search Engine Indexing
+
+Status: not started.
+
+**Strategy:** Register every deployable property with Google Search Console and
+Bing Webmaster Tools. Submit XML sitemaps generated by Yoast SEO. Request
+indexing of all existing posts. Monitor coverage reports for errors.
+
+**Action:**
+
+1. Create Google Search Console properties for:
+   - `info-verse.org` (hub — already has DNS records)
+   - Each new pilot subsite domain (from Step 9.1)
+   - `catfancast.com` (if not already registered)
+   - `animefancast.com` (if not already registered)
+2. Verify ownership via DNS TXT record (already at Namecheap).
+3. Submit XML sitemaps — Yoast generates these at `https://<domain>/sitemap_index.xml`:
+   - `https://<domain>/post-sitemap.xml` (all posts)
+   - `https://<domain>/category-sitemap.xml` (all categories)
+   - `https://<domain>/tag-sitemap.xml` (all tags, if any)
+4. Use Google's URL Inspection API (`https://www.googleapis.com/webmasters/v3/sites/<domain>/urlIndexing/urlBatch:index`) or the Search Console UI to request reindexing of all existing posts.
+5. Create and submit a sitemap for the hub site listing all five subsite landing pages.
+6. Register all domains with Bing Webmaster Tools (same verification, same sitemaps).
+7. Create and submit an RSS-to-Feedburner or RSS-to-Atom feed subscription for search engine crawlers (Google and Bing both crawl RSS feeds).
+
+**Verification:**
+- [ ] All domains appear in Google Search Console with "Verified" status.
+- [ ] Sitemaps submitted and showing "Pages: N" where N ≈ total post count per site.
+- [ ] No critical coverage errors (404s, server errors, blocked by robots.txt).
+- [ ] At least 50% of existing posts show "Indexed" in Coverage report after 14 days.
+- [ ] All domains registered with Bing Webmaster Tools.
+- [ ] RSS feed URL discoverable from each site's HTML (`<link rel="alternate" type="application/rss+xml">` present in `<head>`). Yoast generates this automatically — verify it renders on each deployed site.
+
+---
+
+### Step 9.3 - Social Media Presences
+
+Status: not started.
+
+**Strategy:** Create one or two social media accounts per niche, curated to where
+each audience actually spends time. Each account links back to its subsite.
+Content is NOT auto-posted (the agent generates articles, not social posts).
+Accounts serve as brand presence and referral traffic sources.
+
+**Per-site social strategy:**
+
+| Site | Platform 1 | Platform 2 | Rationale |
+|------|-----------|-----------|-----------|
+| techtools | Twitter/X | LinkedIn | Tech/professional audience active on both |
+| gardening (Rootstock) | Instagram | Pinterest | Visual gardening content performs best on image-first platforms |
+| dogs (Kennelside) | Instagram | Facebook | Dog photos + community groups |
+| boardgames (Meeple) | Reddit (r/boardgames) | Twitter/X | Boardgame enthusiasts congregate on Reddit |
+| coffee (Crema) | Instagram | Twitter/X | Coffee photography + brewing tips |
+| hub (info-verse.org) | Twitter/X | — | Network coordination, cross-site linking |
+| catfancast.com | Facebook | Twitter/X | Already has these (confirmed) |
+| animefancast.com | Twitter/X | Bluesky | Anime community active on both |
+
+**Action:**
+
+1. User creates accounts on the platforms above (one-time setup, ~30 minutes).
+2. Profile bios link to the respective subsite URL.
+3. Profile images use each site's logo (generated via the image pipeline or
+   designed separately).
+4. Add social-media icon links to each site's footer (HTML + CSS in the
+   child theme). Icons: simple SVG or icon font (Font Awesome free).
+5. Add social Open Graph meta tags to each site's `<head>` via Yoast Social
+   settings (if available) or manually via theme `functions.php`:
+   - `og:profile:url` for Facebook (profile page URL)
+   - `twitter:site` and `twitter:creator` for X (handle)
+   - `al:android:url` / `al:ios:url` if applicable
+6. For Reddit-specific sites (boardgames, techtools): create or join relevant
+   subreddit communities. Post article links manually (not auto-posted) when
+   new high-value posts go live.
+
+**Verification:**
+- [ ] All planned social accounts created with correct bios and profile images.
+- [ ] Social icon links visible in the footer of each deployed site (hub + 5 pilot subsites).
+- [ ] Social OG/meta tags present in `<head>` of deployed HTML (inspect source).
+- [ ] At least 3 social posts per account in the first month (manual, not automated).
+- [ ] Reddit community posts link back to subsite articles with descriptive context (not just "check this out").
+
+---
+
+### Step 9.4 - Reader Retention Infrastructure
+
+Status: not started.
+
+**Strategy:** Give visitors a reason to return. Add newsletter signup, RSS
+discovery, and social sharing to every article. The external sites
+(catfancast.com, animefancast.com) already have newsletter and follow features
+— replicate the essentials on the pilot subsites.
+
+**Action:**
+
+1. **RSS feeds** — Yoast SEO auto-generates RSS feeds at `/feed/` for posts,
+   categories, and tags. Ensure these URLs return valid Atom XML on every
+   deployed static site. Add `<link rel="alternate" type="application/atom+xml" title="RSS">` to each site's `<head>` (Yoast does this automatically; verify on deployed HTML).
+
+2. **Newsletter signup** — Create a free Mailchimp (or Substack/Beehiiv) account
+   per niche. Embed the signup form on each site:
+   - Option A: Mailchimp embedded form (simple HTML form, no JS required —
+     works on static sites). Place in the footer of each child theme.
+   - Option B: Substack embed (if the user wants a unified newsletter across
+     all sites — one email list for the entire Info Verse network).
+   - Option C: Simple "Subscribe via email" link to a Substack/Subscriber page
+     (no embedded form needed, just a footer link).
+   - Decision: user chooses A, B, or C (or skips newsletter entirely).
+
+3. **Social sharing buttons** — Add share buttons below each article body:
+   - Twitter/X: `https://twitter.com/intent/tweet?text=<title>&url=<permalink>`
+   - Facebook: `https://www.facebook.com/sharer/sharer.php?u=<permalink>`
+   - Reddit: `https://www.reddit.com/submit?url=<permalink>&title=<title>`
+   - LinkedIn: `https://www.linkedin.com/sharing/share-offsite/?url=<permalink>`
+   - Copy-link button (clipboard API, no server needed).
+   - Implementation: static HTML + minimal inline JS in the single template
+     (`single.html`) — no plugin dependency.
+
+4. **Cross-site "related" sidebar** — On each article, show 2–3 articles from
+   OTHER Info Verse subsites (not just same-category). This drives internal
+   network traffic. Implementation: a static HTML block in `single.html` that
+   links to one article per subsite, updated manually or regenerated via a
+   one-off `python` script that fetches the latest post from each subsite's
+   REST API and assembles the HTML block.
+
+**Verification:**
+- [ ] RSS feed URLs return valid Atom XML on all 7 deployed sites.
+- [ ] `<link rel="alternate">` tag present in `<head>` of every deployed page.
+- [ ] Newsletter signup form (or link) visible in the footer of all 7 sites.
+- [ ] Social sharing buttons appear below article body on single-post pages.
+- [ ] Cross-site "from other Info Verse sites" block appears on single-post pages, linking to at least one article from each of the other 6 properties.
+- [ ] All share buttons produce working pre-fill URLs (test each platform).
+
+---
+
+### Step 9.5 - Cross-Site Promotion & Network Effects
+
+Status: not started.
+
+**Strategy:** Make the seven properties feel like one network, not seven
+independent sites. The hub already aggregates recent posts from each subsite
+via `[openclaw_network_feed]`. Strengthen the cross-linking at the article
+level and the hub level.
+
+**Action:**
+
+1. **Hub enrichment** — Update the hub's `openclaw-hub/templates/front-page.html`:
+   - Add social media links (Twitter/X icon linking to the network's account).
+   - Add a "Subscribe to network newsletter" CTA.
+   - Add a "Submit a topic suggestion" form (links to a Contact page or email).
+   - Add a "What is Info Verse?" explainer section above the network feed.
+   - Ensure the hub's five subsite cards link to the new domains (from Step 9.1).
+
+2. **Article-level cross-links** — Extend the existing internal-linking logic
+   in `generator.py` to occasionally link to articles on OTHER subsites (not
+   just the current one). This is a prompt-level change:
+   - When generating an article on techtools, occasionally link to a relevant
+     gardening or coffee article (e.g., "best tools for garden automation" →
+     link to a techtools article about smart irrigation).
+   - The cross-site link ratio should be small (1–2 per 10 articles) to avoid
+     looking spammy.
+   - Implementation: `publisher.list_recent_posts_for_linking()` already returns
+     posts from the current site. Add a new function
+     `publisher.list_cross_site_posts(site_slug, limit=3)` that fetches recent
+     posts from other subsites. Pass this into the generator alongside
+     `internal_link_candidates`.
+
+3. **Network-wide content calendar** — Maintain a shared editorial calendar
+   (simple JSON file at `website_memory/network_calendar.json`) that tracks:
+   - Which subsite is publishing what this week
+   - Upcoming seasonal/holiday topics per niche (e.g., "back to school" for
+     techtools, "spring planting" for gardening, "Halloween treats for dogs"
+     for dogs)
+   - Cross-site coordination opportunities (e.g., a coffee article about
+     "morning routines" cross-linked to a techtools article about "productivity apps")
+
+4. **Inter-site link audit** — Quarterly review of cross-site linking:
+   - Are there enough inter-network links? (Target: ≥ 5 cross-site links per
+     month across all sites.)
+   - Are they relevant? (Check that cross-links make contextual sense, not
+     forced.)
+   - Is any subsite being over-linked or under-linked?
+
+**Verification:**
+- [ ] Hub front-page lists all five subsites with new domain URLs.
+- [ ] Hub has social media link, newsletter CTA, and "What is Info Verse?" section.
+- [ ] Cross-site links appear in ≥ 10% of articles (roughly 1 cross-site link per 10 articles).
+- [ ] Cross-site links are contextually relevant (manual spot-check).
+- [ ] Network calendar file exists and has entries for the current month.
+- [ ] Quarterly cross-site link audit completed (at least one).
+
+---
+
+### Step 9.6 - Authority Building & Backlink Strategy
+
+Status: not started.
+
+**Strategy:** Build domain authority through earned backlinks from relevant
+external sites. This is the slowest but most impactful long-term growth
+lever. Focus on quality over quantity: one link from a relevant, authoritative
+site beats 100 links from irrelevant directories.
+
+**Action:**
+
+1. **Resource page outreach** — Identify "best tools for X" or "resources for Y"
+   pages in each niche that link to external resources. Submit each subsite as
+   a relevant resource. Examples:
+   - techtools: "best productivity tools" lists, SaaS directories
+   - gardening: "gardening resources" pages, extension service links
+   - dogs: "dog owner resources" pages, breed club links
+   - boardgames: boardgamegeek.com resources, tabletop gaming blogs
+   - coffee: "home brewing resources" pages, coffee association links
+
+2. **Broken link building** — Find broken external links on relevant sites and
+   suggest the subsite's article as a replacement. Use free tools (Ahrefs free
+   backlink checker, brokenlinkcheck.com) to find broken links.
+
+3. **Guest posting** — Write 1–2 guest posts per month on relevant external
+   blogs, linking back to the subsite. The agent can generate guest-post drafts
+   (new `--mode guest_post` flag on `python -m openclaw post`), but human
+   review and submission are required.
+
+4. **Directory submissions** — Submit each subsite to relevant free directories:
+   - techtools: Product Hunt, SaaS directories, indiehackers.com
+   - gardening: Gardening forums, extension service resource lists
+   - dogs: Dog breed directories, pet resource lists
+   - boardgames: BoardGameGeek (if they allow site links), tabletop directories
+   - coffee: Coffee association directories, brewing resource lists
+
+5. **HARO (Help A Reporter) / Qwoted** — Sign up for these free services that
+   connect journalists with sources. When a journalist asks about "gardening
+   tips" or "productivity tools," respond with a quote and link to the
+   relevant subsite article.
+
+6. **Internal authority pages** — Ensure each subsite's About / Editorial Policy
+   / Fact-Checking pages (Phase 8) are linked from relevant external
+   directories and social profiles. These pages signal editorial standards to
+   search engines.
+
+**Verification:**
+- [ ] At least 5 new referring domains per subsite within 90 days (check via
+  Google Search Console "Links" report or free backlink checker).
+- [ ] At least 2 guest posts published externally per month (tracked in a
+  simple log file).
+- [ ] HARO/Qwoted accounts created and monitored weekly (one-time setup).
+- [ ] Directory submissions logged in `website_memory/network_calendar.json`
+  under a "backlinks" section.
+- [ ] No spammy or low-quality directory submissions (manual review of each).
+
+---
+
+### Step 9.7 - Content Expansion (Optional, Lower Priority)
+
+Status: not started. Deferred until Steps 9.1–9.6 are underway.
+
+**Strategy:** Once the growth infrastructure is in place and traffic starts
+arriving (Phase 7 GA4 data available), expand content based on what actually
+draws readers. This is where Phase Omega's analytics-aware agent becomes
+valuable.
+
+**Potential expansions:**
+- Add more posts to categories that show early traffic signals.
+- Create pillar/cluster content (long-form comprehensive guides that link to
+  shorter supporting articles).
+- Add evergreen "ultimate guide" articles for high-competition keywords.
+- Create seasonal content (holiday gift guides, planting calendars, etc.).
+- Add multimedia content (video summaries of top articles, infographics).
+
+**Verification:**
+- [ ] Content expansion decisions are based on actual traffic data (not guesses).
+- [ ] No expansion compromises the evergreen, informational quality standard.
+- [ ] New content types (video, infographics) are tracked separately in analytics.
+
+---
+
+## Phase 9 Exit Criteria:
+
+1. **Domains:** All five pilot subsites have individual custom domains with
+   HTTPS, DNS verified, and Staatic exports pointing to the new URLs.
+2. **Indexing:** All domains registered with Google Search Console and Bing.
+   Sitemaps submitted. ≥ 50% of posts indexed within 14 days of submission.
+3. **Social:** All planned social accounts created with correct branding.
+   Social sharing buttons visible on all 7 deployed sites.
+4. **Retention:** RSS feeds functional on all sites. Newsletter signup (or
+   link) present in all footers. Social sharing buttons functional on all
+   single-post pages.
+5. **Cross-site:** Hub enriched with social, newsletter, and explainer.
+   Cross-site links appear in ≥ 10% of articles. Network calendar exists.
+6. **Authority:** ≥ 5 new referring domains per subsite within 90 days.
+   Zero spammy backlinks. Guest posting pipeline established.
+
+---
 
 ## 12. Decision Log
 
@@ -4402,6 +6120,146 @@ Phase Omega exit criteria:
   across 3 independent runs; the two findings above are open items to
   resolve before or during the still-pending 7-day formal window, not
   blockers on the mechanism itself.
+- 2026-07-25: Inserted **Phase 8 — Pipeline Efficiency, Deploy
+  Reliability, and Authority Hardening** as §11.7 (new phase, sits
+  between Phase 7 and Phase Omega in the ordering; numbered 11.7 rather
+  than 11.6 because Phase Omega already occupied 11.6, per the
+  established §9.5/9.6/9.7/9.8 insertion-order-not-final-order convention
+  in this doc). Bundles three otherwise-unrelated tracks driven by three
+  concurrent findings: (a) `logs/rejected-2026-07-{24,25}-*.json` shows
+  ~60% article-rejection rate driven almost entirely by
+  duplicate-title collisions detected *after* full-body generation, even
+  though `recent_titles` is already passed into `generate_article()` as a
+  soft constraint — fix is to move the check upstream via a
+  topic-selection pre-pass (Step 8.1) plus targeted-feedback regen on the
+  gates that must stay post-gen (Step 8.2/8.3); (b) all five deployable
+  subsites have been failing `git push` since 2026-07-23 with the
+  signature `bash: line 1: /dev/tty: No such device or address` (Git
+  Credential Manager fallback to bash-based askpass, no controlling TTY
+  under Task Scheduler) while `deploy.py::commit_and_push()` swallows the
+  failure as a WARNING — `run-openclaw.ps1` only flags generation
+  failures, so 3 days of no push went unnoticed; fix is a `GITHUB_TOKEN`
+  in `.env` injected via `-c http.extraheader=…` (Step 8.4), a
+  `verify-deploy-auth.py` health-check (Step 8.6), and deploy-failure
+  flagging in the scheduler wrapper (Step 8.6); (c) external review of
+  gardening.info-verse.org scored E-E-A-T at 4.5/10 and specifically
+  called out unsupported contrarian claims, no author identity, no
+  editorial policy, no source citations, no "last reviewed" dates — fix
+  is a required `sources` array in the tool schema plus a
+  claim→evidence→reasoning writing structure (Step 8.9), byline +
+  last-reviewed date in the single template (Step 8.8), one-time About /
+  Editorial Policy / Fact-Checking pages per subsite (Step 8.7), and an
+  editorial series taxonomy that deepens topical clustering (Step 8.12).
+  Two scoping choices decided via
+  AskUserQuestion before writing the phase: author identity =
+  **unnamed editorial team byline** ("Rootstock Editors" / "Kennelside
+  Editors" / …) with Carter Bolz named as the human editor in each
+  site's About page only (not real-name bylines on every article, not
+  fully-invented pseudonym staff); backfill = **forward-only** (existing
+  published posts stay as-is; only new generations get the E-E-A-T
+  upgrades). Sequencing inside the phase: Group B (git push,
+  Steps 8.4–8.6) ships first because it's the smallest change with
+  biggest immediate impact and unblocks the 3-day GH Pages backlog;
+  Group A (efficiency, 8.1–8.3) ships next because pre-gen validation
+  makes every Group C verification run cheaper; Group C (authority,
+  8.7–8.12) is the largest editorial change and lands last. Out of
+  scope (recorded in the phase body so it doesn't creep): backlink
+  acquisition (external), full technical SEO audit / CWV work (partly
+  in Phase 7), and backfilling authority signals to already-published
+  posts.
+- 2026-07-25 (same day, sourcing redesign): Rewrote Steps 8.9–8.11
+  before any implementation started, per explicit direction to make
+  sourcing a **layered defense** instead of a single generate-then-reject
+  gate — mirrors the same "known-before-generation" logic already
+  applied to duplicate titles in Step 8.1. Old single-pass design (a
+  `sources` schema field + a separate standalone contrarian-claim reject
+  gate) is replaced by three layers sharing one `required_sources`
+  number (2 normally, 3 for contrarian/myth-buster-patterned titles,
+  computed once via `validation.required_source_count(title)` right
+  after Step 8.1 commits the title): (1) Step 8.9 — generation-time
+  prompt instructions requiring sourced claims and an explicit
+  claim→evidence→reasoning paragraph structure, plus the `sources`
+  schema field; (2) Step 8.10 — the existing editor pass
+  (`revise_article()`) gets an audit-and-fix instruction to research and
+  add real sources if the draft still falls short, with the prior
+  "add no new links" fallback instruction narrowed to carve out an
+  exception for sourcing citations; (3) Step 8.11 — a brand-new,
+  code-triggered third model pass (`generator.add_sources()`, new
+  `stage="sources"` on the shared `_dispatch()` router) whose sole job is
+  adding sources, fired only if layers 1–2 still leave the article
+  under-sourced; if it still comes up short, hard-abort with
+  `insufficient-sources-after-3-passes` (no further retry — three
+  independent misses is a genuine defect, not a case to keep re-rolling).
+  The old standalone "contrarian-claim safety gate" step is retired as a
+  separate step; its regex detector moved into
+  `required_source_count()` so the threshold is computed once, not
+  redefined as a second isolated gate. Old Step 8.11 (series taxonomy)
+  renumbered to 8.12; Group C range updated to 8.7–8.12 everywhere it's
+  referenced in the phase body and exit criteria.
+- 2026-07-25 (same day, Step 8.4 credential-source correction): built the
+  originally-planned fix (a manually-created `GITHUB_TOKEN` PAT the user
+  pastes into `.env`) and, before asking the user to actually create one,
+  got direct pushback: "Why can't you github verify unless you have a
+  github token key? Just do it the way the pipeline does it, without a
+  pipeline key." Investigating `git config --get-regexp credential` showed
+  the real credential helper on this machine is GitHub CLI (`gh auth
+  git-credential`), not Git Credential Manager as the original root-cause
+  write-up assumed — and `gh auth status` showed an already-authenticated,
+  `repo`-scoped session with zero setup needed. Corrected design:
+  `deploy._get_github_token()` now tries `Config.GITHUB_TOKEN` first, then
+  falls back to shelling out to `gh auth token`, reusing the exact ambient
+  credential the pipeline already had instead of requiring a new
+  independently-managed secret. Also discovered live that the header scheme
+  matters: `AUTHORIZATION: bearer <token>` (the original design) is rejected
+  by GitHub as "invalid credentials" for both classic PATs and `gh`'s OAuth
+  tokens — HTTP Basic auth with a dummy `x-access-token` username and the
+  token as password is what actually works; switched `_run_git()` to that
+  scheme after verifying it live against a real repo. End-to-end verified
+  same day with **no `GITHUB_TOKEN` set in `.env` at all**:
+  `verify-deploy-auth.py` reported all 6 repos reachable, and
+  `python -m openclaw deploy --site <slug>` was run for all 5 pilot slugs to
+  backfill the 2026-07-23→2026-07-25 gap, each pushing cleanly. Lesson for
+  future credential-plumbing work in this project: check what's already
+  authenticated on the machine (`gh auth status`, `git config --get-regexp
+  credential`) before designing around a brand-new manually-managed secret —
+  the "constraint the model reliably violates belongs in code" rule
+  (§12, 2026-07-02) is about making resolution deterministic, not about
+  which credential source counts as valid.
+- 2026-07-25 (same day, local-model context-length root cause): a live
+  end-to-end smoke test of Group A on gardening failed at the full-body
+  `generate_article()` call with an LM Studio "context length" 400 error,
+  then also failed to fall back to Claude (credit balance exhausted).
+  Queried LM Studio's native `/api/v0/models` endpoint directly and found
+  `qwen/qwen3.6-35b-a3b` currently loaded with only an 8192-token
+  `loaded_context_length`, versus a `max_context_length` of 262144 and
+  versus the ~200K the user reports having configured. Initially assumed
+  this was a standing condition (misreading a substring match in the
+  2026-07-14 log as the real error), but the user asked whether the
+  context could have dropped over time and whether logs showed when —
+  re-investigated with an exact-string grep across every
+  `logs/openclaw-*.log` and found the real error appears in exactly one
+  file, `logs/openclaw-2026-07-25-techtools.log`, first at 19:32:35, with
+  no occurrence on any earlier date. Cross-referencing successful local
+  generations that same evening narrows it further: every site published
+  fine through 19:18:08 (`coffee`); `techtools`, next in the scheduled run
+  order at 19:29:14, is the first and only failure, repeating on both
+  retries. techtools' own prompt footprint isn't unusually large (its
+  persona file is one of the smaller ones, and it carries no per-site
+  topic/image-guide overhead), ruling out "this one site's prompt is just
+  bigger" as the explanation. Conclusion: the loaded context window
+  dropped within an ~11-minute window on 2026-07-25 evening, not via
+  multi-day drift — consistent with an LM Studio reload/idle-eviction
+  reverting to a smaller default rather than the user's configured ~200K,
+  though confirming *why* requires checking LM Studio itself (no log
+  surface for that is visible from this repo). Corrected the false
+  2026-07-14 claim in Step 8.1's write-up. Fix remains an infra action
+  (reload the model in LM Studio with a larger `--context-length`) that
+  only the user can do. Added `generator._local_provider_error_from_exc()`
+  as a secondary, code-level hardening: detects the "context length"
+  substring in the raw provider exception and raises `LocalProviderError`
+  with actionable guidance instead of the raw LM Studio error text. Does
+  not fix the underlying limit; only makes the next occurrence
+  self-diagnosing from the log line.
 
 ## 13. Open Questions
 
@@ -4410,3 +6268,4 @@ Phase Omega exit criteria:
 - Analytics source for Phase Omega - Jetpack Stats vs Google Analytics 4 vs Plausible vs the site's existing analytics. **Pre-decided in Phase 7 (§11.5 Step 7.3) in favor of GA4 with per-subsite properties**; Omega Step 1 (§11.6) is now a checkpoint on the Phase-7 install rather than a fresh source decision.
 - ~~Custom-domain source for Phase 5 pilot subsites~~ — RESOLVED 2026-07-13: chose free `carterman82.github.io/openclaw-<slug>/` URLs.
 - ~~Media handling for static export~~ — RESOLVED 2026-07-13: Staatic 1.12.5 bundles `/wp-content/uploads/` into per-subsite exports; verified in Step 5.4.
+- 2026-07-29: **Phase 9 — Network Growth** planned (Steps 9.1–9.7). Six growth strategies: (1) domain acquisition & DNS migration for all 5 pilot subsites + hub; (2) search engine indexing (Google Search Console + Bing); (3) niche-specific social media presences (Twitter/X, Instagram, Pinterest, Facebook, Reddit, Bluesky); (4) reader-retention infrastructure (RSS, newsletter signup, social sharing buttons, cross-site article links); (5) cross-site promotion & network effects (hub enrichment, article-level cross-links, network calendar); (6) authority building & backlink strategy (resource pages, broken-link building, guest posting, directories, HARO). Estimated annual cost: ~$60–85 for 6 domain registrations. Depends on Phase 8 exit and user budget approval.

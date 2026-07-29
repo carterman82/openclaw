@@ -118,6 +118,7 @@ def publish_post(
     seo_title: str | None = None,
     seo_plugin: str | None = None,
     featured_media: int | None = None,
+    series: str | None = None,
 ) -> dict:
     """POST an article to WordPress and return the created post JSON."""
     cfg = Config.load()
@@ -145,6 +146,10 @@ def publish_post(
         payload["slug"] = slug
     if featured_media:
         payload["featured_media"] = featured_media
+    if series:
+        series_id = _get_or_create_series_term(base_url, auth, series)
+        if series_id is not None:
+            payload["openclaw_series"] = [series_id]
 
     # Build SEO meta payload for the active plugin.
     seo_keys = _SEO_META_KEYS.get(seo_plugin, {}) if seo_plugin else {}
@@ -305,18 +310,27 @@ def get_site_name() -> str:
     return resp.json().get("name", "").strip()
 
 
-def list_recent_posts_for_linking(limit: int = 30) -> list[dict]:
-    """Return recent PUBLISHED posts as link candidates: {title, link, excerpt}.
+def list_recent_posts_for_linking(limit: int = 60) -> list[dict]:
+    """Return recent PUBLISHED posts as link candidates: {title, link, excerpt, series}.
 
     Uses the public endpoint (no auth) so drafts are excluded — we never want
     to surface an unpublished URL as an internal link candidate.
+    Step 8.12: cap bumped 30→60 to feed a wider candidate pool into the
+    generator's deeper internal-linking pass, and each candidate now carries
+    its `series` (Editorial Series taxonomy) term names so the model can
+    prefer same-series matches.
     """
     cfg = Config.load()
     per_page = max(1, min(limit, 100))
     try:
         resp = requests.get(
             f"{cfg.WP_BASE_URL}/wp-json/wp/v2/posts",
-            params={"per_page": per_page, "orderby": "date", "order": "desc"},
+            params={
+                "per_page": per_page,
+                "orderby": "date",
+                "order": "desc",
+                "_embed": "wp:term",
+            },
             timeout=30,
         )
     except requests.RequestException as exc:
@@ -333,9 +347,79 @@ def list_recent_posts_for_linking(limit: int = 30) -> list[dict]:
         title = _plain_text(post.get("title", {}).get("rendered", ""))
         link = (post.get("link") or "").strip()
         excerpt = _plain_text(post.get("excerpt", {}).get("rendered", ""))
+        series_names: list[str] = []
+        embedded_terms = (post.get("_embedded") or {}).get("wp:term") or []
+        for term_group in embedded_terms:
+            for term in term_group or []:
+                if term.get("taxonomy") == "openclaw_series":
+                    name = (term.get("name") or "").strip()
+                    if name:
+                        series_names.append(name)
         if title and link:
-            out.append({"title": title, "link": link, "excerpt": excerpt[:200]})
+            out.append({
+                "title": title,
+                "link": link,
+                "excerpt": excerpt[:200],
+                "series": series_names[0] if series_names else "",
+            })
     return out[:limit]
+
+
+def get_series_terms() -> list[str]:
+    """Return the current set of `openclaw_series` term names on this site.
+
+    Step 8.12: threaded into the generator's system prompt so the model can
+    reuse an existing series name rather than inventing a divergent variant
+    on each run. Returns [] on any error — series is optional, so a missing
+    taxonomy or REST failure just means the generator gets no candidates to
+    prefer from, not a hard failure.
+    """
+    cfg = Config.load()
+    try:
+        resp = requests.get(
+            f"{cfg.WP_BASE_URL}/wp-json/wp/v2/openclaw_series",
+            params={"per_page": 100, "orderby": "count", "order": "desc"},
+            timeout=15,
+        )
+    except requests.RequestException as exc:
+        logger.warning("get_series_terms failed: %s", exc)
+        return []
+    if not resp.ok:
+        logger.debug("get_series_terms returned %d (taxonomy not registered yet?)", resp.status_code)
+        return []
+    out: list[str] = []
+    for term in resp.json():
+        name = (term.get("name") or "").strip()
+        if name:
+            out.append(name)
+    return out
+
+
+def _get_or_create_series_term(base_url: str, auth: tuple[str, str], name: str) -> int | None:
+    """Return the `openclaw_series` term id for `name`, creating it if missing."""
+    resp = requests.get(
+        f"{base_url}/wp-json/wp/v2/openclaw_series",
+        params={"search": name, "per_page": 100},
+        auth=auth,
+        timeout=15,
+    )
+    if resp.ok:
+        for term in resp.json():
+            if (term.get("name") or "").strip().lower() == name.strip().lower():
+                return int(term["id"])
+    create = requests.post(
+        f"{base_url}/wp-json/wp/v2/openclaw_series",
+        json={"name": name},
+        auth=auth,
+        timeout=15,
+    )
+    if create.status_code in (200, 201):
+        return int(create.json()["id"])
+    logger.warning(
+        "Cannot create openclaw_series term %r (HTTP %d): %s",
+        name, create.status_code, create.text[:200],
+    )
+    return None
 
 
 def list_recent_post_titles(limit: int = 300) -> list[str]:

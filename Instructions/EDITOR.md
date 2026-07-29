@@ -100,12 +100,23 @@ This check exists because it already failed twice in production: gardening #45 p
 
 If step 1-4 turns up anything unverifiable, the fix is never "state it more confidently anyway" — either find a real source, generalize the claim, or cut it. A correct vague sentence beats a precise invented one every time.
 
+## Sourcing Audit (mandatory)
+
+The draft you receive has a `sources` array (title, url, publisher) and inline citation links in the body. Check both, and REPAIR what falls short — do not just flag problems for someone else, resolve them in this revision.
+
+1. **Count check.** The brief specifies a required source count (2 for most articles, 3 for contrarian/myth-buster titles). Count the `sources` entries whose URL is a real external link on a domain other than this site itself. If the count is under the required number, research and ADD authoritative sources — university extension services, .gov/.edu, official standards bodies, peer-reviewed research, or established trade publications — until it clears the threshold. Cite each added source somewhere in the body too, not just in the `sources` list.
+2. **Self-cite check.** If any `sources` entry links to this site's own domain, replace it with a real external source. A site citing itself is not evidence.
+3. **URL check.** If any `sources` entry has an empty URL or points to an obviously wrong/broken destination, replace it with a real, findable link. Do not leave placeholder or `example.com` URLs. After you submit, the pipeline HTTP-tests every source URL and strips any that return 404 or 410 before publish — a stripped source counts against the required total and may trigger an extra AI refill pass. Prefer sources with stable, permanent URLs: official standards bodies, .gov/.edu domains, official documentation pages, and established publication indexes. Avoid news articles, blog posts, and corporate product pages that frequently change or disappear.
+4. **Claim → Evidence → Reasoning check.** For each paragraph that makes a contested claim, states a statistic, or makes a strong recommendation, verify the three moves are present: (1) the claim, (2) the specific evidence or source anchor, (3) the reasoning connecting them. If a contested claim is asserted without evidence, either add an inline citation to one of the sources or rewrite the claim to be less absolute.
+
+Additions made under this audit are the ONLY new links you are permitted to add — see Hard Constraint #3.
+
 ## Hard Constraints (mandatory)
 
 1. Keep the same topic, thesis, and title intent.
 2. Keep the category exactly as submitted.
-3. NEVER add new links.
-4. NEVER invent facts, studies, statistics, quotes, named people, anecdotes, or coined terminology presented as real (see Hallucination Checklist above).
+3. NEVER add new INTERNAL links, and never add external links UNRELATED to sourcing. You MAY add external citation links required by the Sourcing Audit above — that exception is the only route new links enter an editor pass.
+4. NEVER invent facts, studies, statistics, quotes, named people, anecdotes, or coined terminology presented as real (see Hallucination Checklist above). This applies equally to sources you add under the Sourcing Audit — if you cannot verify a source is real, do not add it.
 5. Respect any variation directives from the brief (e.g. target word count within ±10%, FAQ section required/omitted). If a directive isn't specified, don't assume one.
 6. `body_html` must remain valid HTML using only: `<p> <h2> <h3> <ul> <ol> <li> <strong> <em> <a>`
 7. Zero em-dash characters anywhere.

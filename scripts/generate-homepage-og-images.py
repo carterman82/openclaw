@@ -38,7 +38,7 @@ import openclaw  # noqa: F401  (installs the *.localhost DNS shim)
 from openclaw.main import _activate_site
 from openclaw.config import Config
 from openclaw.publisher import upload_media
-from openclaw.deploy import DEPLOYABLE_SLUGS, trigger_staatic_export, commit_and_push
+from openclaw.deploy import DEPLOYABLE_SLUGS, trigger_staatic_export, commit_and_push, _get_github_token
 
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 _LOGO_DIR = _PROJECT_ROOT / "logos"
@@ -106,9 +106,13 @@ def process_site(slug: str, skip_deploy: bool) -> bool:
 
     if skip_deploy:
         return True
+    token = _get_github_token()
+    if not token:
+        print("  [FAIL] GITHUB_TOKEN not set in .env; skipping deploy.")
+        return False
     if not trigger_staatic_export(slug):
         return False
-    return commit_and_push(slug, "Step 7.4: homepage og:image")
+    return commit_and_push(slug, "Step 7.4: homepage og:image", token)
 
 
 def main() -> int:

@@ -72,6 +72,10 @@ python -m openclaw post --site catfancast --draft
 python -m openclaw post --site gardening --draft            # publish + export + push
 python -m openclaw post --site dogs --draft --skip-deploy   # publish only, skip static export/git push
 
+# Phase 8 Step 8.5: re-run static export + GitHub Pages push with no new article
+# (backfill a failed scheduled push, or catch a subsite up after a deploy outage)
+python -m openclaw deploy --site gardening
+
 # Generation-only smoke test: calls Claude, uses recent-title de-duplication, does NOT publish
 python scripts/smoke-trends.py
 

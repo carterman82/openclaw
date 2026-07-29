@@ -431,7 +431,7 @@ Use semantic variations as the default. **Verbatim keyphrase target: roughly 1 e
 - **Meta description**: 120–155 characters, contains the focus keyphrase **verbatim** (Yoast does exact-string matching — write the description around the keyphrase), states the concrete payoff, written to earn the click. Do NOT restate title or excerpt verbatim.
 - **URL slug**: short, lowercase, hyphenated, contains the focus keyphrase, no stop words.
 - **Internal links**: 2–4 natural anchor-text opportunities to other articles on the site, where genuinely relevant — never forced.
-- **External link(s)**: 1–2 citation-worthy outbound links to primary sources when a factual claim benefits from one.
+- **External link(s)**: 1–2 citation-worthy outbound links to primary sources when a factual claim benefits from one. Use stable, permanent URLs — official standards bodies, .gov/.edu, official documentation, Wikipedia — not news articles or corporate press pages that frequently go dead. Every external URL is HTTP-verified before publish; dead links (404/410) are stripped automatically.
 
 ### Yoast Field Requirements (mandatory)
 

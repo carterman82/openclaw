@@ -12,11 +12,22 @@
     Every attempt appends stdout+stderr to
     `logs/openclaw-YYYY-MM-DD-<slug>.log` in the project root.
 
-    After the run, if any site still failed, `logs/last-run-failed.flag` is
-    written containing the failing site list and the last 50 lines of the
-    most recent failing log. On a fully successful run, that flag file is
-    removed. Exit code is the number of sites that failed after retries
-    (0 = all succeeded).
+    Phase 8 Step 8.6: `python -m openclaw post` returns a distinct exit code 2
+    when the article published successfully but the Phase 5 static-export/
+    git-push deploy step failed (see openclaw/main.py). That case is NOT
+    retried here — retrying would generate and publish a whole new duplicate
+    article just to redo a git push. Instead it's recorded separately as a
+    "deploy failure" and surfaced via a `deploy_failed=<slugs>` line in the
+    flag payload, distinct from genuine generation failures (any other
+    non-zero exit code, which IS retried).
+
+    After the run, if any site had a generation failure and/or a deploy
+    failure, `logs/last-run-failed.flag` is written containing both failure
+    lists and the last 50 lines of the most recent failing log. On a fully
+    clean run (no generation failures, no deploy failures), that flag file is
+    removed. Exit code is the number of sites with a genuine generation
+    failure after retries (0 = all generations succeeded; deploy-only
+    failures don't affect the exit code but still drop the flag file).
 
 .PARAMETER Sites
     Optional list of site slugs to override the scheduled-sites.json set.
@@ -98,6 +109,7 @@ Write-Output "[$($RunStart.ToString('u'))] run-openclaw.ps1 starting; sites: $($
 $RetryWaits = @(60, 300)
 
 $Failures = @{}
+$DeployFailures = @{}
 $LastFailingLog = $null
 
 foreach ($slug in $siteSlugs) {
@@ -145,6 +157,15 @@ foreach ($slug in $siteSlugs) {
             break
         }
 
+        if ($siteExit -eq 2) {
+            # Published successfully, only the deploy (static export + git push)
+            # failed. Do NOT retry: a retry here would generate and publish an
+            # entirely new duplicate article just to redo a git push. Record it
+            # separately and move on to the next site.
+            Write-Output "${slug}: PUBLISHED but deploy failed (exit=2) on attempt $attempt -- not retrying"
+            break
+        }
+
         Write-Output "${slug}: FAIL exit=$siteExit on attempt $attempt"
         if ($attempt -le $RetryWaits.Count) {
             $wait = $RetryWaits[$attempt - 1]
@@ -153,7 +174,10 @@ foreach ($slug in $siteSlugs) {
         }
     }
 
-    if ($siteExit -ne 0) {
+    if ($siteExit -eq 2) {
+        $DeployFailures[$slug] = @{ log = $logPath }
+        $LastFailingLog = $logPath
+    } elseif ($siteExit -ne 0) {
         $Failures[$slug] = @{ exit = $siteExit; log = $logPath }
         $LastFailingLog = $logPath
     }
@@ -163,19 +187,30 @@ $RunEnd = Get-Date
 $Elapsed = $RunEnd - $RunStart
 Write-Output "[$($RunEnd.ToString('u'))] run-openclaw.ps1 finished in $([int]$Elapsed.TotalSeconds)s"
 
-if ($Failures.Count -gt 0) {
+if ($Failures.Count -gt 0 -or $DeployFailures.Count -gt 0) {
     $flagLines = @(
-        "openclaw run failed on $($Failures.Count) of $($siteSlugs.Count) site(s)."
+        "openclaw run: $($Failures.Count) generation failure(s), $($DeployFailures.Count) deploy failure(s) of $($siteSlugs.Count) site(s)."
         "Run started : $($RunStart.ToString('u'))"
         "Run finished: $($RunEnd.ToString('u'))"
         ""
-        "Failed sites:"
     )
-    foreach ($slug in $Failures.Keys) {
-        $flagLines += "  - $slug (exit=$($Failures[$slug].exit), log=$($Failures[$slug].log))"
+    if ($Failures.Count -gt 0) {
+        $flagLines += "Failed sites (generation):"
+        foreach ($slug in $Failures.Keys) {
+            $flagLines += "  - $slug (exit=$($Failures[$slug].exit), log=$($Failures[$slug].log))"
+        }
+        $flagLines += ""
+    }
+    if ($DeployFailures.Count -gt 0) {
+        # Grep-friendly single line (Step 8.6) alongside the human-readable list.
+        $flagLines += "deploy_failed=$(($DeployFailures.Keys) -join ',')"
+        $flagLines += "Deploy-failed sites (published locally; GitHub Pages push failed):"
+        foreach ($slug in $DeployFailures.Keys) {
+            $flagLines += "  - $slug (log=$($DeployFailures[$slug].log))"
+        }
+        $flagLines += ""
     }
     if ($LastFailingLog -and (Test-Path $LastFailingLog)) {
-        $flagLines += ""
         $flagLines += "Last 50 lines of $LastFailingLog :"
         $flagLines += (Get-Content $LastFailingLog -Tail 50)
     }

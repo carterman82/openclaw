@@ -99,8 +99,12 @@ add_action( 'wp_head', 'openclaw_base_ga4_snippet', 1 );
  * account, so — unlike OPENCLAW_GA4_ID — OPENCLAW_ADSENSE_ID is defined once
  * here in the parent theme rather than per child theme. Undefined = no
  * output, same fail-soft pattern as the GA4 snippet.
+ *
+ * Emits both the async loader script AND the <meta name="google-adsense-account">
+ * ownership-verification tag. AdSense's application review checks for the meta
+ * tag specifically; the loader script is what runs ads once approved.
  */
-// define( 'OPENCLAW_ADSENSE_ID', 'ca-pub-XXXXXXXXXXXXXXXX' );
+define( 'OPENCLAW_ADSENSE_ID', 'ca-pub-5175472694671499' );
 
 function openclaw_base_adsense_snippet(): void {
     if ( ! defined( 'OPENCLAW_ADSENSE_ID' ) || ! OPENCLAW_ADSENSE_ID ) {
@@ -108,10 +112,30 @@ function openclaw_base_adsense_snippet(): void {
     }
     $id = esc_attr( OPENCLAW_ADSENSE_ID );
     ?>
+<meta name="google-adsense-account" content="<?php echo $id; ?>">
 <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=<?php echo $id; ?>" crossorigin="anonymous"></script>
     <?php
 }
 add_action( 'wp_head', 'openclaw_base_adsense_snippet', 1 );
+
+/**
+ * Google Search Console site-ownership verification. Each subdomain must be
+ * added to GSC as its own property; when a child theme defines
+ * OPENCLAW_GSC_VERIFICATION with the verification token from GSC, this action
+ * emits the matching <meta> tag. Undefined = no output. Prefer the DNS TXT
+ * record method at the registrar when possible (one record verifies every
+ * subdomain); this constant is the per-subsite fallback.
+ */
+function openclaw_base_gsc_verification_snippet(): void {
+    if ( ! defined( 'OPENCLAW_GSC_VERIFICATION' ) || ! OPENCLAW_GSC_VERIFICATION ) {
+        return;
+    }
+    $token = esc_attr( OPENCLAW_GSC_VERIFICATION );
+    ?>
+<meta name="google-site-verification" content="<?php echo $token; ?>">
+    <?php
+}
+add_action( 'wp_head', 'openclaw_base_gsc_verification_snippet', 1 );
 
 /**
  * Register block-pattern category so parent patterns group under one heading in
@@ -131,6 +155,85 @@ add_action( 'init', 'openclaw_base_pattern_category' );
  * 3-col grid of thumbnail cards. Excluded on non-single or when nothing to
  * relate to.
  */
+/**
+ * [openclaw_byline] — editorial byline for the single-post template.
+ *
+ * Outputs "By <a href="/about/">{Site Name} Editors</a> · Published <time>
+ * · Reviewed <time>". Site name comes from get_bloginfo('name') so the
+ * byline self-adapts per subsite ("Rootstock Editors", "Kennelside Editors",
+ * etc.) without any per-child-theme configuration.
+ *
+ * Reviewed date comes from _openclaw_last_reviewed post meta (registered by
+ * mu-plugin openclaw-register-editorial-meta.php, which also seeds it from
+ * the publish date on first publish). If the meta is somehow missing or
+ * matches the publish date, the "Reviewed" chunk is suppressed to avoid
+ * showing "Published X · Reviewed X" as visual duplication.
+ */
+function openclaw_byline_shortcode( array|string $atts = [] ): string {
+    if ( ! is_singular( 'post' ) ) {
+        return '';
+    }
+    $post_id = (int) get_the_ID();
+    if ( ! $post_id ) {
+        return '';
+    }
+
+    // Prefer an explicit brand name (set by scripts/create-legal-pages.py from
+    // the same SITE_INFO used by the About/Fact-Checking copy). Falls back to
+    // the site's blogname on any site that hasn't been branded yet.
+    $brand      = get_option( 'openclaw_brand', '' );
+    if ( '' === $brand ) {
+        $brand = get_bloginfo( 'name' );
+    }
+    $byline     = trim( $brand ) . ' Editors';
+    $about_url  = esc_url( home_url( '/about/' ) );
+
+    $published_iso     = get_the_date( 'c', $post_id );
+    $published_display = get_the_date( '', $post_id );
+    $published_ymd     = get_the_date( 'Y-m-d', $post_id );
+
+    $reviewed_raw = get_post_meta( $post_id, '_openclaw_last_reviewed', true );
+    $reviewed_chunk = '';
+    if ( ! empty( $reviewed_raw ) && $reviewed_raw !== $published_ymd ) {
+        $reviewed_ts       = strtotime( $reviewed_raw );
+        $reviewed_iso      = $reviewed_ts ? date( 'c', $reviewed_ts ) : esc_attr( $reviewed_raw );
+        $reviewed_display  = $reviewed_ts ? date_i18n( get_option( 'date_format' ), $reviewed_ts ) : esc_html( $reviewed_raw );
+        $reviewed_chunk = sprintf(
+            ' · Reviewed <time datetime="%s">%s</time>',
+            esc_attr( $reviewed_iso ),
+            esc_html( $reviewed_display )
+        );
+    }
+
+    // Editorial-series chip (Step 8.12). Renders next to the byline when the
+    // post has an openclaw_series term assigned. Silent when the taxonomy is
+    // unassigned so the byline degrades cleanly on pre-8.12 posts.
+    $series_chunk = '';
+    $series_terms = get_the_terms( $post_id, 'openclaw_series' );
+    if ( ! is_wp_error( $series_terms ) && ! empty( $series_terms ) ) {
+        $series_term = $series_terms[0];
+        $series_link = get_term_link( $series_term );
+        if ( ! is_wp_error( $series_link ) ) {
+            $series_chunk = sprintf(
+                ' <a class="openclaw-series-chip" href="%s">%s</a>',
+                esc_url( $series_link ),
+                esc_html( $series_term->name )
+            );
+        }
+    }
+
+    return sprintf(
+        '<div class="openclaw-byline">By <a href="%s" rel="author">%s</a> · Published <time datetime="%s">%s</time>%s%s</div>',
+        $about_url,
+        esc_html( $byline ),
+        esc_attr( $published_iso ),
+        esc_html( $published_display ),
+        $reviewed_chunk,
+        $series_chunk
+    );
+}
+add_shortcode( 'openclaw_byline', 'openclaw_byline_shortcode' );
+
 function openclaw_related_posts_shortcode( array|string $atts = [] ): string {
     $atts = shortcode_atts( [ 'count' => 3 ], is_array( $atts ) ? $atts : [] );
     $count = max( 1, (int) $atts['count'] );
@@ -145,16 +248,24 @@ function openclaw_related_posts_shortcode( array|string $atts = [] ): string {
 
     $category_ids = wp_get_post_categories( $current_id );
     $tag_ids      = wp_get_post_tags( $current_id, [ 'fields' => 'ids' ] );
+    $series_terms = get_the_terms( $current_id, 'openclaw_series' );
+    $series_ids   = ( ! is_wp_error( $series_terms ) && ! empty( $series_terms ) )
+        ? wp_list_pluck( $series_terms, 'term_id' )
+        : [];
     $found_ids    = [];
 
-    // Priority 1: same category.
-    if ( $category_ids ) {
+    // Priority 1 (Step 8.12): same editorial series.
+    if ( $series_ids ) {
         $q = new WP_Query( [
             'post_type'      => 'post',
             'post_status'    => 'publish',
             'posts_per_page' => $count,
             'post__not_in'   => [ $current_id ],
-            'category__in'   => $category_ids,
+            'tax_query'      => [ [
+                'taxonomy' => 'openclaw_series',
+                'field'    => 'term_id',
+                'terms'    => $series_ids,
+            ] ],
             'orderby'        => 'date',
             'order'          => 'DESC',
             'fields'         => 'ids',
@@ -163,7 +274,24 @@ function openclaw_related_posts_shortcode( array|string $atts = [] ): string {
         $found_ids = $q->posts;
     }
 
-    // Priority 2: fill with same-tag posts.
+    // Priority 2: fill with same-category posts.
+    if ( count( $found_ids ) < $count && $category_ids ) {
+        $need = $count - count( $found_ids );
+        $q = new WP_Query( [
+            'post_type'      => 'post',
+            'post_status'    => 'publish',
+            'posts_per_page' => $need,
+            'post__not_in'   => array_merge( [ $current_id ], $found_ids ),
+            'category__in'   => $category_ids,
+            'orderby'        => 'date',
+            'order'          => 'DESC',
+            'fields'         => 'ids',
+            'no_found_rows'  => true,
+        ] );
+        $found_ids = array_merge( $found_ids, $q->posts );
+    }
+
+    // Priority 3: fill with same-tag posts.
     if ( count( $found_ids ) < $count && $tag_ids ) {
         $need = $count - count( $found_ids );
         $q = new WP_Query( [
@@ -180,7 +308,7 @@ function openclaw_related_posts_shortcode( array|string $atts = [] ): string {
         $found_ids = array_merge( $found_ids, $q->posts );
     }
 
-    // Priority 3: top up with most-recent.
+    // Priority 4: top up with most-recent.
     if ( count( $found_ids ) < $count ) {
         $need = $count - count( $found_ids );
         $q = new WP_Query( [

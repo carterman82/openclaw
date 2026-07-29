@@ -10,15 +10,18 @@ import os
 import random
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from html import escape as html_escape
 from html import unescape as html_unescape
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlparse
 
+import httpx
+
 from .config import Config
-from .deploy import deploy_after_publish, is_deployable
-from .generator import generate_article, revise_article
+from .deploy import DEPLOYABLE_SLUGS, deploy_after_publish, is_deployable
+from .generator import add_sources, generate_article, propose_topics, revise_article
 from .images import (
     attribution_html,
     find_unsplash_image,
@@ -28,6 +31,7 @@ from .images import (
 )
 from .publisher import (
     get_category_names,
+    get_series_terms,
     get_seo_plugin,
     get_site_name,
     list_recent_post_titles,
@@ -37,7 +41,13 @@ from .publisher import (
     upload_media,
 )
 from .trends import gather_trending_signals
-from .validation import dump_rejected_article, find_title_collision, validate_article
+from .validation import (
+    count_valid_sources,
+    dump_rejected_article,
+    find_title_collision,
+    required_source_count,
+    validate_article,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -382,6 +392,57 @@ def _build_unsplash_query_ladder(article: dict) -> list[str]:
     return ladder
 
 
+def _render_sources_section(article: dict, site_host: str) -> str:
+    """Append a `<section class="openclaw-sources">` block listing the article's
+    sources. Silently returns the body unchanged when there are no valid sources
+    to render — an under-sourced article is caught by Step 8.11's gate, not by
+    hiding an empty "Sources & Further Reading" heading.
+
+    Self-citing sources (URL host matches the site's own domain) are filtered
+    out so the block is always genuine external evidence, matching the count
+    that `count_valid_sources` reports upstream.
+    """
+    body = article["body_html"]
+    sources = article.get("sources")
+    if not isinstance(sources, list) or not sources:
+        return body
+    site_host_lc = (site_host or "").lower().lstrip("www.")
+
+    items: list[str] = []
+    for entry in sources:
+        if not isinstance(entry, dict):
+            continue
+        title = (entry.get("title") or "").strip()
+        url = (entry.get("url") or "").strip()
+        publisher = (entry.get("publisher") or "").strip()
+        if not title or not url:
+            continue
+        m = re.match(r"https?://([^/]+)", url, re.IGNORECASE)
+        if m:
+            host = m.group(1).lower().lstrip("www.")
+            if site_host_lc and (host == site_host_lc or host.endswith("." + site_host_lc)):
+                continue
+        anchor = (
+            f'<a href="{html_escape(url, quote=True)}" '
+            f'rel="noopener" target="_blank">{html_escape(title)}</a>'
+        )
+        if publisher:
+            items.append(f"<li>{anchor} &mdash; {html_escape(publisher)}</li>")
+        else:
+            items.append(f"<li>{anchor}</li>")
+
+    if not items:
+        return body
+
+    section = (
+        '<section class="openclaw-sources">'
+        '<h2>Sources &amp; Further Reading</h2>'
+        f'<ul>{"".join(items)}</ul>'
+        '</section>'
+    )
+    return body.rstrip() + "\n\n" + section
+
+
 def _fetch_and_attach_image(article: dict) -> tuple[dict | None, int | None, str]:
     """Generate via local Flux, fall back to OpenAI, then Unsplash, then no image.
 
@@ -547,6 +608,86 @@ def _find_duplicate_title(title: str, recent_titles: list[str]) -> str | None:
     definition of "duplicate."
     """
     return find_title_collision(title, recent_titles)
+
+
+# Phase 8 Step 8.1: how many candidate topics to propose per pre-generation
+# pass, and how many times to reroll the whole set if every candidate
+# collides with an existing title.
+_TOPIC_PREGEN_CANDIDATES_N = 5
+_TOPIC_PREGEN_MAX_REROLLS = 2
+
+# Phase 8 Step 8.2: total pre-review generation attempts (initial + targeted
+# regens) before a persistent gate failure aborts the run.
+_PRE_REVIEW_MAX_ATTEMPTS = 3
+
+
+def _select_topic_pregen(
+    *,
+    category: str | None,
+    recent_titles: list[str],
+    wp_categories: tuple[str, ...],
+    site_name: str | None,
+    site_host: str,
+    trending_signals: dict | None,
+) -> str | None:
+    """Pick + validate a topic BEFORE the expensive full-body generation call.
+
+    The ~60% post-generation rejection rate seen in
+    logs/rejected-2026-07-{24,25}-*.json was driven almost entirely by
+    duplicate-title collisions caught only after a full article had already
+    been written. This proposes `_TOPIC_PREGEN_CANDIDATES_N` candidates,
+    checks each against the full post catalog via `find_title_collision`,
+    and returns the first survivor's title. Rerolls the whole candidate set
+    up to `_TOPIC_PREGEN_MAX_REROLLS` times if every candidate collides.
+
+    Returns None if the proposal call itself errors or every reroll is
+    exhausted with no survivor — callers must treat None as "fall back to
+    the pre-8.1 behavior of letting generate_article() pick the topic
+    itself," never as a hard failure.
+    """
+    for attempt in range(1, _TOPIC_PREGEN_MAX_REROLLS + 2):
+        try:
+            candidates = propose_topics(
+                candidates_n=_TOPIC_PREGEN_CANDIDATES_N,
+                category=category,
+                avoidance_titles=recent_titles,
+                categories=wp_categories,
+                site_name=site_name,
+                site_host=site_host,
+                trending_signals=trending_signals,
+            )
+        except Exception as exc:  # noqa: BLE001 - pre-pass failure must never block generation
+            logger.warning(
+                "Topic pre-pass failed (attempt %d/%d): %s: %s. Falling back to "
+                "in-generation topic pick.",
+                attempt, _TOPIC_PREGEN_MAX_REROLLS + 1, type(exc).__name__, exc,
+            )
+            return None
+        for candidate in candidates:
+            title = candidate.get("title", "")
+            if not title:
+                continue
+            collision = find_title_collision(title, recent_titles) if recent_titles else None
+            if not collision:
+                logger.info(
+                    "Topic pre-pass: committed %r (angle=%r) on attempt %d/%d.",
+                    title, candidate.get("angle"), attempt, _TOPIC_PREGEN_MAX_REROLLS + 1,
+                )
+                return title
+            logger.info(
+                "Topic pre-pass: candidate %r collides with existing post %r.",
+                title, collision,
+            )
+        logger.warning(
+            "Topic pre-pass: all %d candidate(s) collided on attempt %d/%d; rerolling.",
+            len(candidates), attempt, _TOPIC_PREGEN_MAX_REROLLS + 1,
+        )
+    logger.warning(
+        "Topic pre-pass: exhausted %d attempt(s) with no surviving candidate; "
+        "falling back to in-generation topic pick.",
+        _TOPIC_PREGEN_MAX_REROLLS + 1,
+    )
+    return None
 
 
 # Step 3.8.10 (2026-07-18): animefancast.com tuning found the local model
@@ -869,6 +1010,105 @@ def _neutralise_article(article: dict) -> int:
     return total
 
 
+def _check_url_live(url: str) -> tuple[bool, str]:
+    """HEAD-check a URL (fallback to GET on 405). Returns (is_live, reason).
+
+    Conservative policy: only HTTP 404 and 410 are treated as definitively
+    dead. Timeouts, 403s, SSL errors, and connection failures are assumed
+    live to avoid false positives against bot-blocking or flaky hosts.
+    """
+    _UA = {"User-Agent": "Mozilla/5.0 (compatible; openclaw-link-check/1.0)"}
+    try:
+        with httpx.Client(follow_redirects=True, timeout=8.0) as client:
+            resp = client.head(url, headers=_UA)
+            if resp.status_code == 405:
+                resp = client.get(url, headers=_UA)
+            if resp.status_code in (404, 410):
+                return False, f"HTTP {resp.status_code}"
+            return True, f"HTTP {resp.status_code}"
+    except httpx.TimeoutException:
+        return True, "timeout (assumed live)"
+    except (httpx.ConnectError, httpx.RemoteProtocolError, httpx.UnsupportedProtocol):
+        return True, "connection error (assumed live)"
+    except Exception as exc:
+        return True, f"check error (assumed live): {type(exc).__name__}"
+
+
+def _check_and_strip_dead_links(article: dict, wp_host: str) -> dict[str, int]:
+    """HTTP-verify all external URLs in sources and body_html. Strip dead ones in-place.
+
+    Checks all unique external URLs concurrently using HEAD requests. Only
+    HTTP 404/410 responses are treated as dead to minimize false positives
+    against bot-blocking hosts. Returns {"dead_sources": N, "dead_inline": M}.
+    """
+    sources = article.get("sources") or []
+    body = article.get("body_html") or ""
+
+    urls_to_check: set[str] = set()
+    for entry in sources:
+        if isinstance(entry, dict):
+            url = (entry.get("url") or "").strip()
+            if url and _safe_url_scheme(url):
+                urls_to_check.add(url)
+    for m in _A_TAG_RE.finditer(body):
+        href_m = _HREF_RE.search(m.group(1))
+        if href_m:
+            href = href_m.group(1)
+            if _safe_url_scheme(href) and _host_of(href) != wp_host:
+                urls_to_check.add(href)
+
+    if not urls_to_check:
+        return {"dead_sources": 0, "dead_inline": 0}
+
+    logger.info("Link health: checking %d unique external URL(s).", len(urls_to_check))
+    results: dict[str, tuple[bool, str]] = {}
+    with ThreadPoolExecutor(max_workers=min(len(urls_to_check), 8)) as pool:
+        future_to_url = {pool.submit(_check_url_live, url): url for url in urls_to_check}
+        for future in as_completed(future_to_url):
+            url = future_to_url[future]
+            try:
+                results[url] = future.result()
+            except Exception as exc:
+                results[url] = (True, f"future error: {type(exc).__name__} (assumed live)")
+
+    dead_source_count = 0
+    live_sources = []
+    for entry in sources:
+        if not isinstance(entry, dict):
+            live_sources.append(entry)
+            continue
+        url = (entry.get("url") or "").strip()
+        is_live, reason = results.get(url, (True, "not checked"))
+        logger.debug("Link check source %r → %s", url[:80] if url else "", reason)
+        if is_live:
+            live_sources.append(entry)
+        else:
+            dead_source_count += 1
+            logger.warning("Link check: dead source %r (%s) stripped.", url, reason)
+    article["sources"] = live_sources
+
+    dead_inline_count = 0
+
+    def _maybe_strip_inline(match: re.Match[str]) -> str:
+        nonlocal dead_inline_count
+        attrs, text = match.group(1), match.group(2)
+        href_m = _HREF_RE.search(attrs)
+        if not href_m:
+            return match.group(0)
+        href = href_m.group(1)
+        if not _safe_url_scheme(href) or _host_of(href) == wp_host:
+            return match.group(0)
+        is_live, reason = results.get(href, (True, "not checked"))
+        if is_live:
+            return match.group(0)
+        dead_inline_count += 1
+        logger.warning("Link check: dead inline %r (%s) stripped.", href, reason)
+        return text
+
+    article["body_html"] = _A_TAG_RE.sub(_maybe_strip_inline, body)
+    return {"dead_sources": dead_source_count, "dead_inline": dead_inline_count}
+
+
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m openclaw",
@@ -917,6 +1157,54 @@ def _build_parser() -> argparse.ArgumentParser:
         ),
     )
     post.add_argument(
+        "--skip-topic-pass",
+        action="store_true",
+        help=(
+            "Skip the Step 8.1 pre-generation topic pre-pass and let "
+            "generate_article() pick its own topic in-line (pre-8.1 behavior). "
+            "Ignored when --topic is given (there is no topic to pre-pick)."
+        ),
+    )
+    post.add_argument(
+        "--skip-link-check",
+        action="store_true",
+        help=(
+            "Skip the pre-publish HTTP reachability check for external source "
+            "URLs and inline links. Useful for offline testing or when target "
+            "URLs are on a private network."
+        ),
+    )
+    post.add_argument(
+        "--tolerate-revise-regressions",
+        action="store_true",
+        help=(
+            "Step 8.3: if the editor pass's SECOND targeted attempt still "
+            "leaves/introduces a gate problem, ship the pre-revise body "
+            "(unedited but gate-clean) instead of aborting. Off by default "
+            "so scheduled runs stay strict."
+        ),
+    )
+    post.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable debug logging.",
+    )
+
+    deploy = sub.add_parser(
+        "deploy",
+        help=(
+            "Re-run the Phase 5 static export + GitHub Pages push for a pilot "
+            "subsite without generating or publishing a new article. Useful for "
+            "backfilling a push that failed on a previous scheduled run (Step 8.5)."
+        ),
+    )
+    deploy.add_argument(
+        "--site",
+        metavar="SLUG",
+        required=True,
+        help="Pilot subsite slug to deploy (must be in openclaw.deploy.DEPLOYABLE_SLUGS).",
+    )
+    deploy.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Enable debug logging.",
@@ -971,7 +1259,7 @@ def main(argv: list[str] | None = None) -> int:
                 variation_directives, length_band = _roll_variation_directives()
             if variation_directives:
                 logger.info("Variation directives: %s", variation_directives)
-            recent_titles = [] if args.topic else list_recent_post_titles()
+            recent_titles = [] if args.topic else list_recent_post_titles(limit=1000)
             if recent_titles:
                 logger.info(
                     "Loaded %d post title(s) (full catalog) for topic de-duplication.",
@@ -980,6 +1268,12 @@ def main(argv: list[str] | None = None) -> int:
             link_candidates = list_recent_posts_for_linking()
             if link_candidates:
                 logger.info("Loaded %d internal-link candidates.", len(link_candidates))
+            existing_series = get_series_terms()
+            if existing_series:
+                logger.info(
+                    "Loaded %d existing openclaw_series term(s): %s",
+                    len(existing_series), ", ".join(existing_series),
+                )
             if args.topic:
                 trending_signals = None
             else:
@@ -991,21 +1285,51 @@ def main(argv: list[str] | None = None) -> int:
                     site_name=site_name or None,
                     reddit_enabled=not args.skip_reddit,
                 )
+            committed_topic: str | None = None
+            if not args.topic and not args.skip_topic_pass:
+                committed_topic = _select_topic_pregen(
+                    category=category,
+                    recent_titles=recent_titles,
+                    wp_categories=wp_categories,
+                    site_name=site_name or None,
+                    site_host=site_host,
+                    trending_signals=trending_signals,
+                )
+
+            gen_topic = committed_topic or args.topic
+            # Trending signals fed the topic PICK; once a topic is committed
+            # pre-generation, the full-body call has nothing left to decide
+            # with them, so only pass them through on the pre-8.1 fallback path.
+            gen_trending_signals = None if committed_topic else trending_signals
+
+            # Step 8.9: contrarian/myth-buster titles need 3 sources not 2.
+            # required_sources is computed once from whatever title we know
+            # going in (pre-pass commit or --topic) and threaded through
+            # every generate/revise call so the schema, prompt, and later
+            # audit layers all read the same number.
+            required_sources = required_source_count(gen_topic or "")
+            logger.info(
+                "Sourcing requirement: %d source(s) for this article (title=%r).",
+                required_sources, gen_topic,
+            )
+
             logger.info(
                 "Calling Claude (topic=%r, category=%r).",
-                args.topic,
+                gen_topic,
                 category,
             )
             article = generate_article(
-                topic=args.topic,
+                topic=gen_topic,
                 category=category,
                 recent_titles=recent_titles,
                 categories=wp_categories,
                 site_name=site_name or None,
                 site_host=site_host,
                 internal_link_candidates=link_candidates,
-                trending_signals=trending_signals,
+                trending_signals=gen_trending_signals,
                 variation_directives=variation_directives,
+                required_sources=required_sources,
+                existing_series=existing_series,
             )
 
             def _generation_problem(article: dict) -> str | None:
@@ -1028,35 +1352,48 @@ def main(argv: list[str] | None = None) -> int:
             if edits:
                 logger.info("Applied %d neutraliser edits to initial draft.", edits)
 
+            # Step 8.2: up to 2 targeted regens (3 attempts total). Each regen
+            # threads the immediately-preceding attempt's specific rejection
+            # reason into the prompt as a "don't repeat this" constraint,
+            # instead of silently reusing the exact prompt that just failed.
             problem = _generation_problem(article)
-            if problem:
+            attempt = 1
+            while problem and attempt < _PRE_REVIEW_MAX_ATTEMPTS:
+                attempt += 1
                 logger.warning(
-                    "Generated article has a problem (%s); regenerating once.", problem
+                    "Generated article has a problem (%s); regenerating "
+                    "(attempt %d/%d) with targeted feedback.",
+                    problem, attempt, _PRE_REVIEW_MAX_ATTEMPTS,
                 )
-                dump_rejected_article(article, site_host, f"pre-review: {problem}")
+                dump_rejected_article(article, site_host, f"pre-review (attempt {attempt - 1}): {problem}")
                 article = generate_article(
-                    topic=args.topic,
+                    topic=gen_topic,
                     category=category,
                     recent_titles=recent_titles,
                     categories=wp_categories,
                     site_name=site_name or None,
                     site_host=site_host,
                     internal_link_candidates=link_candidates,
-                    trending_signals=trending_signals,
+                    trending_signals=gen_trending_signals,
                     variation_directives=variation_directives,
+                    rejection_reason=problem,
+                    required_sources=required_sources,
+                    existing_series=existing_series,
                 )
                 edits = _neutralise_article(article)
                 if edits:
-                    logger.info("Applied %d neutraliser edits to regenerated draft.", edits)
-                problem = _generation_problem(article)
-                if problem:
-                    logger.error(
-                        "Regenerated article still has a problem (%s); aborting without "
-                        "publishing.",
-                        problem,
+                    logger.info(
+                        "Applied %d neutraliser edits to attempt %d draft.", edits, attempt
                     )
-                    dump_rejected_article(article, site_host, f"pre-review-retry: {problem}")
-                    return 1
+                problem = _generation_problem(article)
+            if problem:
+                logger.error(
+                    "Article still has a problem after %d attempt(s) (%s); aborting "
+                    "without publishing.",
+                    attempt, problem,
+                )
+                dump_rejected_article(article, site_host, f"pre-review (attempt {attempt}): {problem}")
+                return 1
 
             word_count = len(_strip_html(article["body_html"]).split())
             logger.info(
@@ -1076,11 +1413,13 @@ def main(argv: list[str] | None = None) -> int:
                 logger.info("Editor pass skipped (--skip-review).")
             else:
                 logger.info("Running second-pass editor review.")
+                pre_revise_article = article
                 article = revise_article(
-                    article,
+                    pre_revise_article,
                     categories=wp_categories,
                     site_host=site_host,
                     variation_directives=variation_directives,
+                    required_sources=required_sources,
                 )
                 edits = _neutralise_article(article)
                 if edits:
@@ -1095,14 +1434,112 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 word_count = revised_word_count
 
+                # Step 8.10: log the observed source count after editor
+                # audit-and-repair. Feeds the observation window that decides
+                # whether Step 8.11's third pass is doing meaningful work.
+                sources_after_revise = count_valid_sources(article, site_host)
+                logger.info(
+                    "sources_after_revise=%d required=%d",
+                    sources_after_revise, required_sources,
+                )
+
+                # Step 8.3: the pre-revise draft already passed
+                # _generation_problem() once (it's the same `article` the
+                # pre-review loop above just cleared). If the editor pass
+                # itself leaves/introduces a problem, re-revise from that
+                # known-clean pre-revise draft (not the broken revision) with
+                # the specific reason threaded in, instead of aborting
+                # immediately and discarding a draft that only needed editing
+                # skipped, not a full rewrite.
                 post_revise_problem = _generation_problem(article)
                 if post_revise_problem:
-                    logger.error(
-                        "Editor pass left/introduced a problem (%s); aborting without "
-                        "publishing.",
+                    logger.warning(
+                        "Editor pass left/introduced a problem (%s); running one "
+                        "additional targeted revise pass.",
                         post_revise_problem,
                     )
-                    dump_rejected_article(article, site_host, f"post-revise: {post_revise_problem}")
+                    dump_rejected_article(
+                        article, site_host, f"post-revise (attempt 1): {post_revise_problem}"
+                    )
+                    article = revise_article(
+                        pre_revise_article,
+                        categories=wp_categories,
+                        site_host=site_host,
+                        variation_directives=variation_directives,
+                        rejection_reason=post_revise_problem,
+                        required_sources=required_sources,
+                    )
+                    edits = _neutralise_article(article)
+                    if edits:
+                        logger.info(
+                            "Applied %d neutraliser edits after second editor pass.", edits
+                        )
+                    word_count = len(_strip_html(article["body_html"]).split())
+                    post_revise_problem = _generation_problem(article)
+                    if post_revise_problem:
+                        if args.tolerate_revise_regressions:
+                            logger.warning(
+                                "Second editor pass still has a problem (%s); shipping "
+                                "the pre-revise body instead (--tolerate-revise-regressions).",
+                                post_revise_problem,
+                            )
+                            dump_rejected_article(
+                                article, site_host,
+                                f"post-revise (attempt 2, tolerated): {post_revise_problem}",
+                            )
+                            article = pre_revise_article
+                            word_count = len(_strip_html(article["body_html"]).split())
+                        else:
+                            logger.error(
+                                "Second editor pass still has a problem (%s); aborting "
+                                "without publishing.",
+                                post_revise_problem,
+                            )
+                            dump_rejected_article(
+                                article, site_host,
+                                f"post-revise (attempt 2): {post_revise_problem}",
+                            )
+                            return 1
+
+            # Step 8.11: sourcing layer 3 — dedicated third pass. Fires only
+            # when layers 1 (generator) and 2 (editor audit) both leave the
+            # article under `required_sources`. Runs regardless of
+            # --skip-review because the sourcing requirement is on the article
+            # itself, not on the editor pass — a --skip-review run whose
+            # generator forgot sources still needs them added before it can
+            # publish. Hard aborts if this third pass also fails to reach the
+            # threshold; no fourth retry (three independent attempts is
+            # treated as a genuine defect).
+            current_sources = count_valid_sources(article, site_host)
+            if current_sources < required_sources:
+                logger.warning(
+                    "sources_before_add_pass=%d required=%d — running dedicated "
+                    "add_sources third pass.",
+                    current_sources, required_sources,
+                )
+                try:
+                    fresh_sources = add_sources(article, required_sources, site_host)
+                    article["sources"] = fresh_sources
+                except Exception as exc:  # noqa: BLE001 - abort path handles it below
+                    logger.error(
+                        "add_sources third pass raised %s: %s",
+                        type(exc).__name__, exc,
+                    )
+                final_sources = count_valid_sources(article, site_host)
+                logger.info(
+                    "sources_after_add_pass=%d required=%d",
+                    final_sources, required_sources,
+                )
+                if final_sources < required_sources:
+                    logger.error(
+                        "Article still has %d valid source(s) after 3 passes "
+                        "(need %d); aborting without publishing.",
+                        final_sources, required_sources,
+                    )
+                    dump_rejected_article(
+                        article, site_host,
+                        f"insufficient-sources-after-3-passes ({final_sources}/{required_sources})",
+                    )
                     return 1
 
             keyphrase = article.get("focus_keyphrase") or ""
@@ -1170,6 +1607,40 @@ def main(argv: list[str] | None = None) -> int:
                     rel_fixes,
                 )
 
+            if args.skip_link_check:
+                logger.info("Link health check skipped (--skip-link-check).")
+            else:
+                dead = _check_and_strip_dead_links(article, wp_host)
+                if dead["dead_sources"] or dead["dead_inline"]:
+                    logger.warning(
+                        "Dead-link purge: %d source URL(s) and %d inline link(s) stripped.",
+                        dead["dead_sources"], dead["dead_inline"],
+                    )
+                    if dead["dead_sources"]:
+                        post_strip_count = count_valid_sources(article, site_host)
+                        if post_strip_count < required_sources:
+                            logger.warning(
+                                "sources_after_dead_strip=%d required=%d — running "
+                                "add_sources refill pass.",
+                                post_strip_count, required_sources,
+                            )
+                            try:
+                                refill_sources = add_sources(
+                                    article, required_sources, site_host
+                                )
+                                article["sources"] = refill_sources
+                                logger.info(
+                                    "sources_after_refill=%d required=%d",
+                                    count_valid_sources(article, site_host),
+                                    required_sources,
+                                )
+                            except Exception as exc:
+                                logger.error(
+                                    "add_sources refill after dead-link strip raised "
+                                    "%s: %s — continuing with %d source(s).",
+                                    type(exc).__name__, exc, post_strip_count,
+                                )
+
             word_count = len(_strip_html(article["body_html"]).split())
             existing_titles = list_recent_post_titles(limit=1000)
             validation = validate_article(
@@ -1177,6 +1648,8 @@ def main(argv: list[str] | None = None) -> int:
                 word_count=word_count,
                 length_band=length_band,
                 existing_titles=existing_titles,
+                required_sources=required_sources,
+                site_host=site_host,
             )
             if not validation.ok:
                 dump_rejected_article(article, site_host, validation.reason or "unknown")
@@ -1187,6 +1660,19 @@ def main(argv: list[str] | None = None) -> int:
                 )
                 return 1
             logger.info("Validation gate: pass (words=%d).", word_count)
+
+            # Step 8.9: render the sources block into body_html before the
+            # image credit (Unsplash appends its own <p class="image-credit">
+            # at the very bottom, which reads better after Sources & Further
+            # Reading than sandwiched between body and sources). Also log the
+            # observed source count vs. required — a persistent gap between
+            # them motivates Steps 8.10/8.11.
+            sources_count = count_valid_sources(article, site_host)
+            logger.info(
+                "sources_after_generate=%d required=%d",
+                sources_count, required_sources,
+            )
+            article["body_html"] = _render_sources_section(article, site_host)
 
             image, featured_media_id, final_body = _fetch_and_attach_image(article)
 
@@ -1212,6 +1698,7 @@ def main(argv: list[str] | None = None) -> int:
                 seo_title=article.get("seo_title"),
                 seo_plugin=seo_plugin,
                 featured_media=featured_media_id,
+                series=article.get("series") or None,
             )
             if image and featured_media_id and image.get("attribution"):
                 track_download(image["attribution"])
@@ -1233,9 +1720,39 @@ def main(argv: list[str] | None = None) -> int:
                         "Deploy failed for %r (post is published; deploy owed).",
                         args.site,
                     )
+                    # Distinct exit code (Step 8.6): the post itself succeeded, so
+                    # this must not look like a generation failure to callers (a
+                    # retry would generate a whole new duplicate article instead
+                    # of just retrying the push). run-openclaw.ps1 treats exit 2
+                    # as "published, deploy owed" and reports it without retrying.
+                    return 2
             return 0
         except Exception as exc:
             logger.exception("Run failed: %s", exc)
+            return 1
+
+    if args.command == "deploy":
+        try:
+            if not is_deployable(args.site):
+                logger.error(
+                    "%r is not a deployable slug (openclaw.deploy.DEPLOYABLE_SLUGS: %s).",
+                    args.site,
+                    sorted(DEPLOYABLE_SLUGS),
+                )
+                return 1
+            _activate_site(args.site)
+            Config.load()
+            logger.info("Deploy-only run for %r (no generate/publish).", args.site)
+            if deploy_after_publish(args.site, "Backfill deploy (no new post)"):
+                logger.info(
+                    "Deployed to https://carterman82.github.io/openclaw-%s/",
+                    args.site,
+                )
+                return 0
+            logger.error("Deploy failed for %r.", args.site)
+            return 1
+        except Exception as exc:
+            logger.exception("Deploy run failed: %s", exc)
             return 1
 
     return 0

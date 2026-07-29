@@ -177,12 +177,93 @@ def find_title_collision(title: str, existing_titles: list[str]) -> str | None:
     return None
 
 
+# --- Sourcing requirement (Phase 8 Steps 8.9-8.11) --------------------------
+# Contrarian / myth-buster titles create a heavier burden of proof — the
+# 2026-07-25 external review specifically called out that provocative titles
+# like "The Rooting Hormone Myth", "Fresh Wood Chips Kill Your Roses", and
+# "The Real Reason Your Compost Isn't Hot" published without any sources.
+# Regexes match on the LOWERCASED title. Every entry here corresponds to a
+# specific pattern flagged in the review or a common phrasing of the same
+# rhetorical move.
+_CONTRARIAN_TITLE_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(pat) for pat in (
+        r"\bmyth\b",
+        r"\bmyths\b",
+        r"\bdebunk",
+        r"\bisn'?t (?:the|a|your)\b",
+        r"\baren'?t (?:the|a|your)\b",
+        r"\bthe real (?:reason|problem|cause|truth)\b",
+        r"\bactually\b",
+        r"\bwhy .+ doesn'?t\b",
+        r"\bwhy .+ don'?t\b",
+        r"\bwhy .+ won'?t\b",
+        r"\bwrong about\b",
+        r"\byou'?re wrong\b",
+        r"\byou'?ve been\b",
+        r"\bstop (?:doing|using|believing)\b",
+        r"\bkills? your\b",  # "Fresh Wood Chips Kill Your Roses"
+        r"\bwill (?:kill|ruin|destroy)\b",
+        r"\bnot (?:really|actually|the|a)\b",
+    )
+)
+
+
+def required_source_count(title: str) -> int:
+    """How many real, authoritative sources this article must ship with.
+
+    Returns 3 for titles matching the contrarian/myth-buster pattern list
+    (heavier burden of proof for provocative claims), else 2. This is the
+    single shared threshold every sourcing layer reads — it's never
+    redefined in main.py, generator.py, or the WP-side validation gate.
+    """
+    if not title:
+        return 2
+    lowered = title.lower()
+    for pat in _CONTRARIAN_TITLE_PATTERNS:
+        if pat.search(lowered):
+            return 3
+    return 2
+
+
+def count_valid_sources(article: dict, site_host: str) -> int:
+    """Count usable source entries on an article — needed by Steps 8.10/8.11.
+
+    A source counts when it has a non-empty title AND a non-empty URL AND its
+    URL host does not match the site's own domain (self-citation doesn't count
+    as external evidence). Sources with an empty URL are treated as
+    unverifiable — the writer named the source but did not link to it — and
+    are not counted here either, since a citation the reader cannot follow
+    provides no evidence to anyone auditing the article after the fact.
+    """
+    sources = article.get("sources")
+    if not isinstance(sources, list):
+        return 0
+    site_host_lc = (site_host or "").lower().lstrip("www.")
+    valid = 0
+    for entry in sources:
+        if not isinstance(entry, dict):
+            continue
+        title = (entry.get("title") or "").strip()
+        url = (entry.get("url") or "").strip()
+        if not title or not url:
+            continue
+        m = re.match(r"https?://([^/]+)", url, re.IGNORECASE)
+        if m:
+            host = m.group(1).lower().lstrip("www.")
+            if site_host_lc and (host == site_host_lc or host.endswith("." + site_host_lc)):
+                continue
+        valid += 1
+    return valid
+
+
 def validate_article(
     article: dict,
     *,
     word_count: int,
     length_band: tuple[int, int] | None,
     existing_titles: list[str],
+    required_sources: int = 2,
+    site_host: str = "",
 ) -> ValidationResult:
     """Run every Step 6.1 check. Returns the first failure found, or ok=True."""
     body = article.get("body_html") or ""
@@ -217,6 +298,34 @@ def validate_article(
     collision = find_title_collision(title, existing_titles)
     if collision:
         return ValidationResult(False, f"title collides with existing post {collision!r}")
+
+    # Step 8.11: sourcing final backstop. main.py's 3-pass count check is the
+    # primary enforcement; this second check exists so a bug in that
+    # control-flow can't silently ship an under-sourced or self-citing
+    # article. Also catches self-citation independently of the count check
+    # (which already filters self-cites out of its count, but doesn't reject
+    # a mixed valid+self-cite mix).
+    sources = article.get("sources")
+    if isinstance(sources, list):
+        site_host_lc = (site_host or "").lower().lstrip("www.")
+        for i, entry in enumerate(sources):
+            if not isinstance(entry, dict):
+                continue
+            url = (entry.get("url") or "").strip()
+            m = re.match(r"https?://([^/]+)", url, re.IGNORECASE)
+            if m and site_host_lc:
+                host = m.group(1).lower().lstrip("www.")
+                if host == site_host_lc or host.endswith("." + site_host_lc):
+                    return ValidationResult(
+                        False,
+                        f"sources-self-citation: sources[{i}] points at own site {host!r}",
+                    )
+    valid_source_count = count_valid_sources(article, site_host)
+    if valid_source_count < required_sources:
+        return ValidationResult(
+            False,
+            f"sources-too-few: {valid_source_count} valid source(s), need {required_sources}",
+        )
 
     return ValidationResult(True)
 

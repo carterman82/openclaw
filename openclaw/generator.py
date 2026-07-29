@@ -9,6 +9,7 @@ model is disabled, the Claude path is byte-identical to pre-3.8 behavior.
 from __future__ import annotations
 
 import dataclasses
+import functools
 import json
 import logging
 import re
@@ -33,7 +34,7 @@ _REQUIRED_ARTICLE_FIELDS: Final[tuple[str, ...]] = (
     "title", "body_html", "category", "tags", "excerpt", "slug",
     "focus_keyphrase", "seo_title", "meta_description", "image_alt_text",
     "image_prompt", "unsplash_query", "unique_angle_justification",
-    "internal_links_used", "external_links_used",
+    "internal_links_used", "external_links_used", "sources",
 )
 _PROJECT_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 _INSTRUCTIONS_DIR: Final[Path] = _PROJECT_ROOT / "Instructions"
@@ -103,7 +104,7 @@ def _load_editor_guide() -> str:
         return ""
 
 
-def _build_tool_schema(categories: tuple[str, ...]) -> dict:
+def _build_tool_schema(categories: tuple[str, ...], required_sources: int = 2) -> dict:
     return {
         "name": "submit_article",
         "description": "Submit the generated article to be published.",
@@ -126,18 +127,36 @@ def _build_tool_schema(categories: tuple[str, ...]) -> dict:
                 "unique_angle_justification": {"type": "string"},
                 "internal_links_used": {"type": "array", "items": {"type": "string"}},
                 "external_links_used": {"type": "array", "items": {"type": "string"}},
+                "sources": {
+                    "type": "array",
+                    "minItems": required_sources,
+                    "maxItems": 5,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "title": {"type": "string"},
+                            "url": {"type": "string"},
+                            "publisher": {"type": "string"},
+                        },
+                        "required": ["title", "url", "publisher"],
+                    },
+                },
+                "series": {"type": "string"},
             },
             "required": [
                 "title", "body_html", "category", "tags", "excerpt", "slug",
                 "focus_keyphrase", "seo_title", "meta_description", "image_alt_text",
                 "image_prompt", "unsplash_query", "unique_angle_justification",
-                "internal_links_used", "external_links_used",
+                "internal_links_used", "external_links_used", "sources",
             ],
         },
     }
 
 
-def _build_system_prompt(categories: tuple[str, ...], site_host: str) -> str:
+def _build_system_prompt(
+    categories: tuple[str, ...], site_host: str, required_sources: int = 2
+) -> str:
     base_rules = (
         "You are a careful nonfiction explainer writing for a small evergreen blog. "
         "Every article you produce MUST:\n"
@@ -237,13 +256,35 @@ def _build_system_prompt(categories: tuple[str, ...], site_host: str) -> str:
         "SEO spam, social media, or paywalled news. Anchor text must be descriptive "
         "(never 'click here' or 'this article'). Report every external URL you "
         "actually placed in the body in `external_links_used`.\n"
+        f"- ground every non-obvious claim, statistic, or recommendation in a "
+        f"real, checkable source: university extension services, .gov/.edu, "
+        f"official standards bodies, peer-reviewed research, or established "
+        f"trade publications. Populate the `sources` field with at least "
+        f"{required_sources} sources you actually relied on. Each entry needs "
+        f"`title` (the article/document title), `url` (a real link a reader can "
+        f"open — do NOT invent URLs; if you don't have one, leave it empty and "
+        f"pick a different source you can actually cite), and `publisher` (the "
+        f"organization that published it: 'Royal Horticultural Society', "
+        f"'American Kennel Club', 'Specialty Coffee Association', etc.). Do "
+        f"NOT cite this site itself as a source for its own claims.\n"
+        "- when a paragraph makes a claim that contradicts common wisdom, states "
+        "a statistic, or makes a strong recommendation, structure it in three "
+        "moves: (1) state the claim plainly, (2) name the specific evidence or "
+        "source backing it (weave the citation inline or use one of your "
+        "`sources` entries as an anchored `<a>` link), (3) explain the "
+        "reasoning connecting the evidence to the claim. Never assert a "
+        "contested or surprising claim without this structure — a bare "
+        "provocative statement with no evidence chain is the exact pattern "
+        "reviewers flag as untrustworthy.\n"
         "- if the user message lists candidate articles for INTERNAL linking, weave "
-        "in 1-3 of them WHEN GENUINELY RELEVANT, formatted as "
+        "in 3-5 of them WHEN GENUINELY RELEVANT, formatted as "
         "`<a href=\"EXACT_URL\">descriptive anchor</a>` (no rel/target on internal "
-        "links). Do NOT invent internal URLs — only use the URLs explicitly listed. "
-        "If no candidate is genuinely relevant, leave `internal_links_used` empty "
-        "rather than forcing a link. Report every internal URL you used in "
-        "`internal_links_used`."
+        "links). Prefer candidates in the same editorial series as the one you "
+        "assign to this article, then same-category, then anything genuinely on-topic. "
+        "Do NOT invent internal URLs — only use the URLs explicitly listed. If "
+        "fewer than 3 candidates are genuinely relevant, link to the ones that are "
+        "and stop — never force a link to an off-topic piece just to hit the count. "
+        "Report every internal URL you used in `internal_links_used`."
     )
     data_handling = _DATA_HANDLING
 
@@ -345,16 +386,57 @@ def _build_linking_candidates_message(candidates: list[dict] | None) -> str:
     lines = []
     for c in candidates:
         excerpt = (c.get("excerpt") or "").strip()
+        series = (c.get("series") or "").strip()
+        prefix = f"[series: {series}] " if series else ""
         if excerpt:
-            lines.append(f"- \"{c['title']}\" — {c['link']} — {excerpt}")
+            lines.append(f"- {prefix}\"{c['title']}\" — {c['link']} — {excerpt}")
         else:
-            lines.append(f"- \"{c['title']}\" — {c['link']}")
+            lines.append(f"- {prefix}\"{c['title']}\" — {c['link']}")
     return (
         "\n\nInternal-linking candidates (existing published articles on this site). "
-        "When 1-3 of these are genuinely relevant to your topic, link to them in the "
-        "body using their EXACT URL. Never invent or modify a URL. If none fit, link "
-        "to none.\n"
+        "When 3-5 of these are genuinely relevant to your topic, link to them in the "
+        "body using their EXACT URL. Prefer candidates whose `[series: X]` matches the "
+        "series you assign to this article, then same-category, then anything else. "
+        "Never invent or modify a URL. If fewer than 3 are genuinely relevant, link "
+        "to the ones that are and leave the rest — do not force-link off-topic pieces "
+        "just to hit the count.\n"
         + _wrap_data("\n".join(lines), "link_candidates")
+    )
+
+
+def _build_series_message(existing_series: list[str] | None) -> str:
+    """List the site's existing openclaw_series terms so the model can prefer
+    reusing one rather than inventing a divergent variant on every run. Empty
+    input = no message = optional field the model can leave null."""
+    if not existing_series:
+        return (
+            "\n\nEditorial series (`series` field): OPTIONAL. Leave null unless the "
+            "article is a natural fit for a recurring editorial theme worth naming "
+            "(e.g. 'Myth Files', 'Deep Dive'). Do not invent a series just to fill "
+            "the field."
+        )
+    lines = "\n".join(f"- {s}" for s in existing_series)
+    return (
+        "\n\nEditorial series (`series` field): OPTIONAL. If this article fits an "
+        "existing series listed below, set `series` to that exact name (verbatim, "
+        "case-sensitive). Otherwise leave it null. Do NOT invent a slight variant "
+        "of an existing name (e.g. 'Myth File' vs. 'Myth Files') — reuse the exact "
+        "existing name or leave null.\n"
+        + _wrap_data(lines, "existing_series")
+    )
+
+
+def _build_rejection_feedback_message(rejection_reason: str | None) -> str:
+    """Step 8.2: thread the previous attempt's specific gate-rejection reason
+    into the regen prompt as an explicit negative constraint, instead of
+    silently repeating the exact same instructions that just failed.
+    """
+    if not rejection_reason:
+        return ""
+    return (
+        "\n\nYour previous attempt at this article was rejected because: "
+        f"{rejection_reason}. Do not repeat this. Write a materially "
+        "different draft that avoids the specific problem named above."
     )
 
 
@@ -399,6 +481,25 @@ class LocalProviderError(Exception):
     """
 
 
+def _local_provider_error_from_exc(exc: Exception, base_url: str) -> "LocalProviderError":
+    """Build a `LocalProviderError` from an API/HTTP exception, upgrading the
+    message with actionable guidance when it's an LM Studio context-length
+    overflow (2026-07-25: root-caused to the model being loaded with only an
+    8192-token window vs. Instructions/STYLE.md alone being ~15k tokens).
+    """
+    message = str(exc)
+    if "context length" in message.lower():
+        api_root = base_url.rsplit("/v1", 1)[0]
+        return LocalProviderError(
+            "local model's loaded context window is smaller than this "
+            f"prompt (check with `curl {api_root}/api/v0/models` — look for "
+            "loaded_context_length); reload the model in LM Studio with a "
+            f"larger --context-length (e.g. 32768) to fix. Original error: "
+            f"{type(exc).__name__}: {message}"
+        )
+    return LocalProviderError(f"HTTP/API error: {type(exc).__name__}: {exc}")
+
+
 def _validate_article_payload(payload: dict) -> None:
     """Ensure every required article field is present and non-empty.
 
@@ -424,29 +525,31 @@ def _generate_with_claude(
     system_prompt: str,
     user_message: str,
     tool_schema: dict,
+    validate_fn=_validate_article_payload,
 ) -> dict:
     """Call Claude Sonnet 4.6 with tool-use. Returns parsed tool arguments."""
     cfg = Config.load()
     client = anthropic.Anthropic(api_key=cfg.ANTHROPIC_API_KEY)
+    tool_name = tool_schema["name"]
     response = client.messages.create(
         model=MODEL,
         max_tokens=MAX_TOKENS,
         system=system_prompt,
         messages=[{"role": "user", "content": user_message}],
         tools=[tool_schema],
-        tool_choice={"type": "tool", "name": "submit_article"},
+        tool_choice={"type": "tool", "name": tool_name},
     )
     article = None
     for block in response.content:
-        if getattr(block, "type", None) == "tool_use" and block.name == "submit_article":
+        if getattr(block, "type", None) == "tool_use" and block.name == tool_name:
             article = dict(block.input)
             break
     if article is None:
         raise RuntimeError(
-            f"Claude did not return a submit_article tool call. "
+            f"Claude did not return a {tool_name} tool call. "
             f"stop_reason={response.stop_reason!r}"
         )
-    _validate_article_payload(article)
+    validate_fn(article)
     return article
 
 
@@ -509,6 +612,7 @@ def _generate_with_local(
     model_name: str,
     cfg: Config | None = None,
     stage: str = "generate",
+    validate_fn=_validate_article_payload,
 ) -> dict:
     """Call an OpenAI-compatible local server (LM Studio) with JSON schema mode.
 
@@ -580,7 +684,7 @@ def _generate_with_local(
         )
     except (openai.APIError, openai.APIConnectionError, openai.APITimeoutError,
             httpx.HTTPError) as exc:
-        raise LocalProviderError(f"HTTP/API error: {type(exc).__name__}: {exc}") from exc
+        raise _local_provider_error_from_exc(exc, base_url) from exc
 
     if not response.choices:
         dump_fallback_response(stage, model_name, None, reason="no choices in response")
@@ -614,7 +718,7 @@ def _generate_with_local(
             f"content was not valid JSON: {exc}. Preview: {raw_content[:200]!r}"
         ) from exc
     try:
-        _validate_article_payload(article)
+        validate_fn(article)
     except ValueError as exc:
         dump_fallback_response(stage, model_name, response, reason="payload validation failed")
         raise LocalProviderError(f"payload validation failed: {exc}") from exc
@@ -631,6 +735,9 @@ def generate_article(
     internal_link_candidates: list[dict] | None = None,
     trending_signals: dict | None = None,
     variation_directives: str | None = None,
+    rejection_reason: str | None = None,
+    required_sources: int = 2,
+    existing_series: list[str] | None = None,
 ) -> dict:
     """Generate one article. Routes to local model with Claude fallback.
 
@@ -645,6 +752,10 @@ def generate_article(
     `trending_signals` is the dict returned by `trends.gather_trending_signals`.
     `variation_directives` is a caller-rolled instruction line (length band, FAQ
     on/off, hook type) appended to the user message so structure varies per run.
+    `rejection_reason` (Step 8.2) is the human-readable reason a PRIOR attempt
+    at this same article was rejected by a post-generation gate; when given,
+    it's threaded into the prompt as an explicit "don't repeat this" constraint
+    instead of silently reusing the same prompt that just failed.
     """
     effective_categories = categories or ALLOWED_CATEGORIES
     if category and category not in effective_categories:
@@ -655,15 +766,17 @@ def generate_article(
         raise ValueError("site_host is required (hostname of WP_BASE_URL).")
     cfg = Config.load()
 
-    system_prompt = _build_system_prompt(effective_categories, site_host)
+    system_prompt = _build_system_prompt(effective_categories, site_host, required_sources)
     user_message = (
         _build_user_message(topic, category, site_name)
         + _build_avoidance_message(recent_titles)
         + _build_linking_candidates_message(internal_link_candidates)
+        + _build_series_message(existing_series)
         + _build_trending_message(trending_signals)
         + (f"\n\n{variation_directives}" if variation_directives else "")
+        + _build_rejection_feedback_message(rejection_reason)
     )
-    tool_schema = _build_tool_schema(effective_categories)
+    tool_schema = _build_tool_schema(effective_categories, required_sources)
 
     article = _dispatch(cfg, system_prompt, user_message, tool_schema)
 
@@ -675,14 +788,168 @@ def generate_article(
     return article
 
 
-def _build_editor_system_prompt(categories: tuple[str, ...], site_host: str) -> str:
+def _build_topic_tool_schema(candidates_n: int, categories: tuple[str, ...]) -> dict:
+    return {
+        "name": "propose_topics",
+        "description": "Propose candidate article topics for pre-generation review.",
+        "input_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "candidates": {
+                    "type": "array",
+                    "minItems": candidates_n,
+                    "maxItems": candidates_n,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "title": {"type": "string"},
+                            "focus_keyphrase": {"type": "string"},
+                            "angle": {"type": "string"},
+                        },
+                        "required": ["title", "focus_keyphrase", "angle"],
+                    },
+                },
+            },
+            "required": ["candidates"],
+        },
+    }
+
+
+def _build_topic_system_prompt(categories: tuple[str, ...], site_host: str) -> str:
+    base_rules = (
+        "You are proposing candidate article topics for a small evergreen blog, "
+        "one step before any article is actually written. Every candidate's "
+        f"implied category must come from this closed list: {', '.join(categories)}. "
+        "For each candidate, provide:\n"
+        "- `title`: the working article title\n"
+        "- `focus_keyphrase`: 2-4 words a reader would type into Google to find "
+        "this article\n"
+        "- `angle`: 1-2 sentences naming which of the Topic selection guide's "
+        "angle-types this takes and the specific credibility source you would "
+        "ground it on (same standard the full article schema requires of "
+        "unique_angle_justification)\n"
+        "Candidates must be genuinely distinct from one another: different "
+        "subjects, not reworded angles on the same subject."
+    )
+    data_handling = _DATA_HANDLING
+
+    description = _load_description(site_host)
+    description_section = (
+        "\n\n# Site description\n\n" + _wrap_data(description, "site_description")
+    )
+
+    topic_guide = _load_topic_guide(site_host)
+    if topic_guide:
+        topic_guide_section = (
+            "\n\n# Topic selection guide\n\n" + _wrap_data(topic_guide, "topic_guide")
+        )
+    else:
+        topic_guide_section = ""
+
+    return (
+        base_rules + data_handling + description_section + topic_guide_section
+        + "\n\nSubmit your candidates by calling the propose_topics tool."
+    )
+
+
+def _build_topic_user_message(
+    candidates_n: int,
+    category: str | None,
+    site_name: str | None,
+) -> str:
+    if site_name:
+        parts = [
+            f"Propose {candidates_n} distinct candidate topics suited to the "
+            f"audience of '{site_name}'."
+        ]
+    else:
+        parts = [f"Propose {candidates_n} distinct candidate topics."]
+    if category:
+        parts.append(f"All candidates should fit category: {category}.")
+    else:
+        parts.append("Choose the best-fitting category per candidate from the allowed list.")
+    return " ".join(parts)
+
+
+def _validate_topics_payload(payload: dict, candidates_n: int) -> None:
+    """Validator for `propose_topics`'s schema, threaded into `_dispatch` as `validate_fn`."""
+    if not isinstance(payload, dict):
+        raise ValueError(f"topics payload must be a dict, got {type(payload).__name__}")
+    candidates = payload.get("candidates")
+    if not isinstance(candidates, list) or not candidates:
+        raise ValueError("topics payload missing a non-empty 'candidates' array")
+    for i, candidate in enumerate(candidates):
+        if not isinstance(candidate, dict):
+            raise ValueError(f"candidates[{i}] must be an object")
+        for field in ("title", "focus_keyphrase", "angle"):
+            value = candidate.get(field)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"candidates[{i}] missing/empty field {field!r}")
+
+
+def propose_topics(
+    candidates_n: int = 5,
+    category: str | None = None,
+    avoidance_titles: list[str] | None = None,
+    categories: tuple[str, ...] | None = None,
+    site_name: str | None = None,
+    site_host: str | None = None,
+    trending_signals: dict | None = None,
+) -> list[dict]:
+    """Propose `candidates_n` candidate topics before any full article is written.
+
+    Step 8.1: the single biggest driver of the ~60% post-generation rejection
+    rate (`logs/rejected-2026-07-{24,25}-*.json`) was duplicate-title
+    collisions caught only after a full 1200-2000 word article had already
+    been generated, even though the avoidance list was already available at
+    prompt time. This pass lets `main.py` check each candidate's title
+    against the full post catalog (`validation.find_title_collision`) for
+    the cost of one small tool call, before spending tokens on the article
+    itself.
+
+    Returns a list of `{title, focus_keyphrase, angle}` dicts.
+    """
+    effective_categories = categories or ALLOWED_CATEGORIES
+    if not site_host:
+        raise ValueError("site_host is required (hostname of WP_BASE_URL).")
+    cfg = Config.load()
+
+    system_prompt = _build_topic_system_prompt(effective_categories, site_host)
+    user_message = (
+        _build_topic_user_message(candidates_n, category, site_name)
+        + _build_avoidance_message(avoidance_titles)
+        + _build_trending_message(trending_signals)
+    )
+    tool_schema = _build_topic_tool_schema(candidates_n, effective_categories)
+    validate_fn = functools.partial(_validate_topics_payload, candidates_n=candidates_n)
+
+    payload = _dispatch(
+        cfg, system_prompt, user_message, tool_schema,
+        stage="propose_topics", validate_fn=validate_fn,
+    )
+    return payload["candidates"]
+
+
+def _build_editor_system_prompt(
+    categories: tuple[str, ...], site_host: str, required_sources: int = 2
+) -> str:
     editor_guide = _load_editor_guide()
+    sourcing_note = (
+        f"\n\n**Sourcing requirement for this article:** at least "
+        f"{required_sources} real, checkable external sources in the `sources` "
+        f"array (title, url, publisher). Self-citing the current site does not "
+        f"count. If the draft ships with fewer, add real ones as part of this "
+        f"revision — see the Sourcing Audit section of the editor guide."
+    )
     if editor_guide:
         logger.info("Loaded EDITOR.md (%d chars).", len(editor_guide))
         editor_rules = (
             editor_guide
             + f"\n\n**Allowed categories (keep the submitted one exactly):** "
             f"{', '.join(categories)}."
+            + sourcing_note
         )
     else:
         logger.warning("EDITOR.md not found; editor using minimal inline rules.")
@@ -690,8 +957,12 @@ def _build_editor_system_prompt(categories: tuple[str, ...], site_host: str) -> 
             "You are a copy editor. Revise the draft article for helpfulness, "
             "redundancy, style compliance, and SEO field accuracy. Return the "
             "complete revised article via the submit_article tool. Keep the "
-            "same topic and category. Add no new links. Invent no facts. "
+            "same topic and category. Do not add new internal links or "
+            "external links unrelated to sourcing; you MAY add external "
+            "citation links required to satisfy the sourcing requirement "
+            "below. Invent no facts. "
             f"Allowed categories: {', '.join(categories)}."
+            + sourcing_note
         )
 
     description = _load_description(site_host)
@@ -715,6 +986,8 @@ def revise_article(
     categories: tuple[str, ...] | None = None,
     site_host: str | None = None,
     variation_directives: str | None = None,
+    rejection_reason: str | None = None,
+    required_sources: int = 2,
 ) -> dict:
     """Second-pass editor: audit a generated draft and return the revised article.
 
@@ -723,13 +996,19 @@ def revise_article(
     The category is code-guarded: if the editor changes it, the original is
     restored. Link additions are not trusted here; `main.py`'s anchor
     validation still runs on the revised body.
+    `rejection_reason` (Step 8.3) is the human-readable reason a PRIOR revise
+    attempt on this same draft left/introduced a post-generation gate
+    problem; when given, it's threaded into the prompt as an explicit
+    "don't repeat this" constraint on the retry pass.
     """
     effective_categories = categories or ALLOWED_CATEGORIES
     if not site_host:
         raise ValueError("site_host is required (hostname of WP_BASE_URL).")
     cfg = Config.load()
 
-    system_prompt = _build_editor_system_prompt(effective_categories, site_host)
+    system_prompt = _build_editor_system_prompt(
+        effective_categories, site_host, required_sources
+    )
     draft_json = json.dumps(article, ensure_ascii=False, indent=2)
     user_message = (
         "Review and revise the draft article below, then submit the complete "
@@ -740,8 +1019,9 @@ def revise_article(
             f"{variation_directives}"
             if variation_directives else ""
         )
+        + _build_rejection_feedback_message(rejection_reason)
     )
-    tool_schema = _build_tool_schema(effective_categories)
+    tool_schema = _build_tool_schema(effective_categories, required_sources)
 
     revised = _dispatch(cfg, system_prompt, user_message, tool_schema, stage="revise")
 
@@ -767,6 +1047,134 @@ def revise_article(
     return revised
 
 
+# --- Step 8.11: dedicated sources-only third pass ----------------------------
+# Fires from main.py only when Steps 8.9 + 8.10 both leave the article under
+# `required_sources`. Narrow single-purpose call — the model sees the article
+# as read-only context and is asked ONLY for a fresh sources array of the
+# right length. It never touches title/body/anything else.
+def _build_sources_tool_schema(required_sources: int) -> dict:
+    return {
+        "name": "submit_sources",
+        "description": "Submit a list of real, checkable external sources for the article.",
+        "input_schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "sources": {
+                    "type": "array",
+                    "minItems": required_sources,
+                    "maxItems": 5,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "title": {"type": "string"},
+                            "url": {"type": "string"},
+                            "publisher": {"type": "string"},
+                        },
+                        "required": ["title", "url", "publisher"],
+                    },
+                },
+            },
+            "required": ["sources"],
+        },
+    }
+
+
+def _validate_sources_payload(payload: dict, required_sources: int) -> None:
+    """Validator for `submit_sources`'s schema, threaded into `_dispatch` as
+    `validate_fn`. Enforces the same shape the schema advertises so a
+    provider that ignores `minItems` (some local models do) still fails
+    fast rather than silently ships one source."""
+    if not isinstance(payload, dict):
+        raise ValueError(f"sources payload must be a dict, got {type(payload).__name__}")
+    sources = payload.get("sources")
+    if not isinstance(sources, list):
+        raise ValueError("sources payload missing 'sources' array")
+    if len(sources) < required_sources:
+        raise ValueError(
+            f"sources payload has {len(sources)} entries; need at least {required_sources}"
+        )
+    for i, entry in enumerate(sources):
+        if not isinstance(entry, dict):
+            raise ValueError(f"sources[{i}] must be an object")
+        for field in ("title", "url", "publisher"):
+            value = entry.get(field)
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(f"sources[{i}] missing/empty field {field!r}")
+
+
+def _build_sources_system_prompt(site_host: str, required_sources: int) -> str:
+    base_rules = (
+        "You are a research assistant adding real, checkable sources to an "
+        "article that was drafted and edited without enough of them. You are "
+        f"NOT rewriting the article. Your only task is to return {required_sources} "
+        "to 5 authoritative sources you would cite for the claims in the draft "
+        "below.\n\n"
+        "Requirements for every source:\n"
+        "- `title`: the source document's title exactly as it appears\n"
+        "- `url`: a REAL link a reader can open. Do not invent URLs. If you "
+        "cannot recall a real URL for a source, pick a different source you "
+        "can actually cite. Placeholder or `example.com` links are treated as "
+        "invalid.\n"
+        "- `publisher`: the organization behind the source (e.g. 'Royal "
+        "Horticultural Society', 'American Kennel Club', 'Specialty Coffee "
+        "Association', 'Cornell Cooperative Extension').\n\n"
+        "Only real, authoritative sources count: standards bodies, "
+        "professional associations, government agencies, university extension "
+        "services, peer-reviewed research, primary source documents, or "
+        "established editorially-independent trade publications. Individual "
+        "bloggers, social-media posts, and forum threads do not count.\n\n"
+        f"Do NOT cite the current site ({site_host}) as a source for its own "
+        "claims.\n\n"
+        "Return the sources by calling the submit_sources tool. Return NO "
+        "other fields — only sources."
+    )
+    return base_rules + _DATA_HANDLING
+
+
+def add_sources(article: dict, required_sources: int, site_host: str) -> list[dict]:
+    """Narrow-scope third pass: ask the model for a fresh, fully-populated
+    `sources` array of at least `required_sources` entries, without touching
+    any other field of the article.
+
+    Returns the list of source dicts. Raises on total failure (both providers
+    down / model refuses to comply) — main.py treats a raise here as a hard
+    abort, matching how the pre-review and post-revise gates handle their
+    own terminal failures.
+    """
+    if not site_host:
+        raise ValueError("site_host is required for add_sources.")
+    cfg = Config.load()
+
+    system_prompt = _build_sources_system_prompt(site_host, required_sources)
+    # Show the model the article's title + body + any existing (insufficient)
+    # sources as read-only context. Keep the payload tight — no schema, no
+    # link-candidate list, no trending signals, no persona/style guide — the
+    # only decision is which real-world sources back these specific claims.
+    context = {
+        "title": article.get("title"),
+        "focus_keyphrase": article.get("focus_keyphrase"),
+        "body_html": article.get("body_html"),
+        "existing_sources": article.get("sources") or [],
+    }
+    user_message = (
+        "The article below needs a properly-populated `sources` array with at "
+        f"least {required_sources} real, authoritative external sources. Read "
+        "the title, focus keyphrase, and body, then return the sources you "
+        "would cite for its claims.\n\n"
+        + _wrap_data(json.dumps(context, ensure_ascii=False, indent=2), "article_context")
+    )
+    tool_schema = _build_sources_tool_schema(required_sources)
+    validate_fn = functools.partial(_validate_sources_payload, required_sources=required_sources)
+
+    payload = _dispatch(
+        cfg, system_prompt, user_message, tool_schema,
+        stage="sources", validate_fn=validate_fn,
+    )
+    return payload["sources"]
+
+
 def _is_anthropic_credit_error(exc: BaseException) -> bool:
     """True when the Anthropic client failed because the account is out of credits.
 
@@ -783,6 +1191,7 @@ def _retry_local_hotter(
     user_message: str,
     tool_schema: dict,
     stage: str,
+    validate_fn=_validate_article_payload,
 ) -> dict:
     """Retry the local model with a hotter sampling profile.
 
@@ -805,7 +1214,7 @@ def _retry_local_hotter(
     return _generate_with_local(
         system_prompt, user_message, tool_schema,
         hotter.LOCAL_MODEL_BASE_URL, hotter.LOCAL_MODEL_NAME,
-        cfg=hotter, stage=stage,
+        cfg=hotter, stage=stage, validate_fn=validate_fn,
     )
 
 
@@ -815,6 +1224,7 @@ def _dispatch(
     user_message: str,
     tool_schema: dict,
     stage: str = "generate",
+    validate_fn=_validate_article_payload,
 ) -> dict:
     """Route: local -> Claude fallback if LOCAL_MODEL_ENABLED; else Claude direct.
 
@@ -822,9 +1232,14 @@ def _dispatch(
     credits, retry local once more with a hotter sampling profile before
     raising — otherwise a single Qwen loop with a $0 Anthropic balance would
     crash the whole run.
+
+    `validate_fn` defaults to the full-article payload check; callers with a
+    different tool schema (e.g. `propose_topics`'s smaller candidates schema)
+    pass their own validator so a lighter-weight call doesn't get rejected
+    for "missing" fields that were never part of its schema.
     """
     if not cfg.LOCAL_MODEL_ENABLED:
-        article = _generate_with_claude(system_prompt, user_message, tool_schema)
+        article = _generate_with_claude(system_prompt, user_message, tool_schema, validate_fn)
         logger.info("provider=claude status=success stage=%s", stage)
         return article
 
@@ -834,7 +1249,7 @@ def _dispatch(
             "(LOCAL_MODEL_ENABLED=true but LOCAL_MODEL_BASE_URL/LOCAL_MODEL_NAME missing)",
             stage,
         )
-        article = _generate_with_claude(system_prompt, user_message, tool_schema)
+        article = _generate_with_claude(system_prompt, user_message, tool_schema, validate_fn)
         logger.info("provider=claude status=success stage=%s", stage)
         return article
 
@@ -842,7 +1257,7 @@ def _dispatch(
         article = _generate_with_local(
             system_prompt, user_message, tool_schema,
             cfg.LOCAL_MODEL_BASE_URL, cfg.LOCAL_MODEL_NAME,
-            cfg=cfg, stage=stage,
+            cfg=cfg, stage=stage, validate_fn=validate_fn,
         )
         logger.info(
             "provider=local status=success stage=%s model=%s",
@@ -855,7 +1270,7 @@ def _dispatch(
             stage, type(local_exc).__name__, local_exc,
         )
         try:
-            article = _generate_with_claude(system_prompt, user_message, tool_schema)
+            article = _generate_with_claude(system_prompt, user_message, tool_schema, validate_fn)
             logger.info("provider=claude status=success stage=%s", stage)
             return article
         except anthropic.BadRequestError as claude_exc:
@@ -868,7 +1283,7 @@ def _dispatch(
             )
             try:
                 article = _retry_local_hotter(
-                    cfg, system_prompt, user_message, tool_schema, stage,
+                    cfg, system_prompt, user_message, tool_schema, stage, validate_fn,
                 )
                 logger.info(
                     "provider=local status=success stage=%s model=%s (hotter retry)",
