@@ -147,6 +147,17 @@ class Config:
     # ads.txt into each deployable subsite's export root. When unset, no
     # ads.txt is written and no commit is made for it.
     ADSENSE_PUBLISHER_ID: str | None = None
+    # Phase 9 Step 9.8: Google Analytics + Search Console credentials for
+    # analytics-driven topic generation.  GA4_PROPERTY_ID is the numeric
+    # property ID (without "G-" prefix).  *_SERVICE_ACCOUNT_KEY is the path
+    # to a Google Cloud service account .json key file on disk.  SC_SITE_URL
+    # is the registered Search Console site URL (e.g.
+    # "https://dogs.info-verse.org").  Both service account keys can point to
+    # the same Google Cloud service account if one account covers all APIs.
+    GA4_PROPERTY_ID: str = ""
+    GA4_SERVICE_ACCOUNT_KEY: str | None = None
+    SC_SITE_URL: str = ""
+    SC_SERVICE_ACCOUNT_KEY: str | None = None
 
     @classmethod
     def load(cls) -> "Config":
@@ -196,4 +207,12 @@ class Config:
             LOCAL_IMAGE_ENABLED=local_image_enabled_raw in _TRUE_STRINGS,
             GITHUB_TOKEN=_normalize_optional(os.getenv("GITHUB_TOKEN")),
             ADSENSE_PUBLISHER_ID=_normalize_optional(os.getenv("ADSENSE_PUBLISHER_ID")),
+            GA4_PROPERTY_ID=os.getenv("GA4_PROPERTY_ID", ""),
+            GA4_SERVICE_ACCOUNT_KEY=_normalize_optional(
+                os.getenv("GA4_SERVICE_ACCOUNT_KEY")
+            ),
+            SC_SITE_URL=os.getenv("SC_SITE_URL", ""),
+            SC_SERVICE_ACCOUNT_KEY=_normalize_optional(
+                os.getenv("SC_SERVICE_ACCOUNT_KEY")
+            ),
         )

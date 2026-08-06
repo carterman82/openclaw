@@ -138,6 +138,148 @@ function openclaw_base_gsc_verification_snippet(): void {
 add_action( 'wp_head', 'openclaw_base_gsc_verification_snippet', 1 );
 
 /**
+ * Social media OG / meta tags.
+ *
+ * Each child theme defines OPENCLAW_SOCIAL_PROFILES — an associative array of
+ * ['platform_handle' => 'full_url']. This function emits the matching <meta>
+ * tags in <head>:
+ *   - twitter:site       → @handle (from X URL)
+ *   - og:profile:url     → Facebook profile
+ *   - al:android/url     → Android deep-link (if android:// present)
+ *   - al:ios:url         → iOS deep-link (if ios:// present)
+ *   - og:url / og:title  → current page (always emitted)
+ *
+ * Undefined constant = no output, same fail-soft pattern as GA4 / AdSense.
+ */
+function openclaw_social_meta_tags(): void {
+    $profiles = defined( 'OPENCLAW_SOCIAL_PROFILES' ) ? OPENCLAW_SOCIAL_PROFILES : [];
+    if ( empty( $profiles ) ) {
+        return;
+    }
+
+    // Standard Open Graph required tags.
+    ?>
+<meta property="og:url" content="<?php echo esc_attr( esc_url( home_url( add_filter( 'request_uri', '__return_empty_string' ) ) ) ); ?>">
+<meta property="og:title" content="<?php echo esc_attr( wp_get_document_title() ); ?>">
+    <?php
+
+    // Platform-specific tags.
+    foreach ( $profiles as $handle => $url ) {
+        if ( stripos( $handle, 'x.com' ) !== false || stripos( $handle, 'twitter.com' ) !== false ) {
+            $screen_name = trim( $handle, '@' );
+            $screen_name = str_replace( [ 'https://x.com/', 'https://twitter.com/' ], '', $screen_name );
+            ?>
+<meta name="twitter:site" content="@<?php echo esc_attr( $screen_name ); ?>">
+            <?php
+        }
+        if ( stripos( $handle, 'facebook.com' ) !== false ) {
+            ?>
+<meta property="og:profile:url" content="<?php echo esc_attr( $url ); ?>">
+            <?php
+        }
+        if ( stripos( $handle, 'android://' ) === 0 ) {
+            ?>
+<meta property="al:android:url" content="<?php echo esc_attr( $url ); ?>">
+            <?php
+        }
+        if ( stripos( $handle, 'ios://' ) === 0 ) {
+            ?>
+<meta property="al:ios:url" content="<?php echo esc_attr( $url ); ?>">
+            <?php
+        }
+    }
+    ?>
+<!-- /openclaw social meta tags -->
+    <?php
+}
+add_action( 'wp_head', 'openclaw_social_meta_tags', 2 );
+
+/**
+ * [openclaw_social_links] — renders social media icon links with inline SVGs.
+ *
+ * Usage (in footer HTML):
+ *   [openclaw_social_links]
+ *
+ * Each child theme defines OPENCLAW_SOCIAL_PROFILES — an associative array
+ * mapping platform identifiers to full URLs. The shortcode reads the constant
+ * and renders a <div class="openclaw-social-links"> with inline SVG icons.
+ *
+ * Supported platform handles (for SVG selection):
+ *   x.com / twitter.com, facebook.com, instagram.com, linkedin.com,
+ *   reddit.com, bluesky.social, youtube.com, tiktok.com
+ */
+function openclaw_social_links_shortcode( array|string $atts = [] ): string {
+    $profiles = defined( 'OPENCLAW_SOCIAL_PROFILES' ) ? OPENCLAW_SOCIAL_PROFILES : [];
+    if ( empty( $profiles ) ) {
+        return '';
+    }
+
+    ob_start();
+    ?>
+<div class="openclaw-social-links" aria-label="Social media">
+    <?php foreach ( $profiles as $handle => $url ) : ?>
+        <a href="<?php echo esc_url( $url ); ?>" rel="noopener" target="_blank" aria-label="<?php echo esc_attr( openclaw_social_label( $handle ) ); ?>">
+            <?php echo openclaw_social_svg( $handle ); ?>
+        </a>
+    <?php endforeach; ?>
+</div>
+    <?php
+    return (string) ob_get_clean();
+}
+add_shortcode( 'openclaw_social_links', 'openclaw_social_links_shortcode' );
+
+/**
+ * Return a human-readable label for a social platform handle.
+ */
+function openclaw_social_label( string $handle ): string {
+    if ( stripos( $handle, 'x.com' ) !== false || stripos( $handle, 'twitter.com' ) !== false ) return 'Follow on X';
+    if ( stripos( $handle, 'facebook.com' ) !== false ) return 'Follow on Facebook';
+    if ( stripos( $handle, 'instagram.com' ) !== false ) return 'Follow on Instagram';
+    if ( stripos( $handle, 'linkedin.com' ) !== false ) return 'Follow on LinkedIn';
+    if ( stripos( $handle, 'reddit.com' ) !== false ) return 'Visit Reddit';
+    if ( stripos( $handle, 'bluesky.social' ) !== false ) return 'Follow on Bluesky';
+    if ( stripos( $handle, 'youtube.com' ) !== false ) return 'Subscribe on YouTube';
+    if ( stripos( $handle, 'tiktok.com' ) !== false ) return 'Follow on TikTok';
+    return 'Social link';
+}
+
+/**
+ * Return inline SVG for a social platform handle.
+ */
+function openclaw_social_svg( string $handle ): string {
+    // X (Twitter)
+    if ( stripos( $handle, 'x.com' ) !== false || stripos( $handle, 'twitter.com' ) !== false ) {
+        return '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M14.16 1.9l2.18.48-4.72 5.4L16 14.1h-5.6l-4.32-5.8L.42 14.1H.06l5.04-5.8L.1 1.9h5.72l3.9 5.22zm-.92 11.52h1.72L4.82 2.98H2.98z"/></svg>';
+    }
+    // Facebook
+    if ( stripos( $handle, 'facebook.com' ) !== false ) {
+        return '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="7.25" fill="#1877F2"/><path d="M9.2 9.5h1.8l.25-2h-2.05v-1.3c0-.6.14-1 .9-1h1.05V3.2a7.5 7.5 0 00-1.5-.15c-1.5 0-2.5.9-2.5 2.6v1.4H5.3v2h1.55v6.15c.5.07 1 .1 1.5.1V9.5z" fill="#fff"/></svg>';
+    }
+    // Instagram
+    if ( stripos( $handle, 'instagram.com' ) !== false ) {
+        return '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="3.5" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="8" r="3.2" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="12.2" cy="3.8" r="1" fill="currentColor"/></svg>';
+    }
+    // LinkedIn
+    if ( stripos( $handle, 'linkedin.com' ) !== false ) {
+        return '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1.5" y="1.5" width="13" height="13" rx="2" fill="#0A66C2"/><text x="8" y="11.5" text-anchor="middle" fill="#fff" font-size="8" font-weight="bold" font-family="sans-serif">in</text></svg>';
+    }
+    // Reddit
+    if ( stripos( $handle, 'reddit.com' ) !== false ) {
+        return '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="#FF4500"/><circle cx="8" cy="7.5" r="4.5" fill="#FF4500"/><circle cx="6.2" cy="6.5" r="1.2" fill="#fff"/><circle cx="9.8" cy="6.5" r="1.2" fill="#fff"/><path d="M5.5 9.5c0 0 1 1.5 2.5 1.5s2.5-1.5 2.5-1.5" fill="none" stroke="#fff" stroke-width=".8"/></svg>';
+    }
+    // Bluesky
+    if ( stripos( $handle, 'bluesky.social' ) !== false ) {
+        return '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 1.2C5.5 1.2 3 2 2.2 4.5c-.3 1-.2 2 .1 2.8.4.9 1 1.5 1.5 1.8-.2.5-.5 1.2-.3 2.1.2.8 1 1.3 2 1.3h1c.8 0 1.3-.3 1.6-.7.3-.4.4-.9.4-1.4 0-.3 0-.5-.1-.7.5-.3 1.2-.9 1.5-1.8.3-.8.4-1.8.1-2.8C13 2 10.5 1.2 8 1.2z"/></svg>';
+    }
+    // YouTube
+    if ( stripos( $handle, 'youtube.com' ) !== false ) {
+        return '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="1.5" y="2.5" width="13" height="11" rx="3" fill="#FF0000"/><polygon points="6.5,5 6.5,11 11,8" fill="#fff"/></svg>';
+    }
+    // TikTok (default fallback)
+    return '<svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 2v4.5a2.5 2.5 0 11-2.5 2.5V7a4 4 0 104 4v-2.5a5.5 5.5 0 01-5.5 5.5v2.5A8 8 0 118 2z"/></svg>';
+}
+
+/**
  * Register block-pattern category so parent patterns group under one heading in
  * the inserter.
  */
@@ -544,3 +686,164 @@ function openclaw_auto_ad_slot_mid_content( string $content ): string {
     return substr_replace( $content, $slot, $insert_pos, 0 );
 }
 add_filter( 'the_content', 'openclaw_auto_ad_slot_mid_content', 21 );
+
+/**
+ * [openclaw_share_bar] — social sharing bar rendered after the article body.
+ *
+ * Outputs X, Facebook, Reddit, LinkedIn share links + a "Copy link" button.
+ * Uses current post title and URL. The copy-link button uses a minimal inline
+ * navigator.clipboard.writeText call — no external JS dependency.
+ */
+function openclaw_share_bar_shortcode( array|string $atts = [] ): string {
+    if ( ! is_singular( 'post' ) ) {
+        return '';
+    }
+    $title = get_the_title();
+    $url   = get_permalink();
+    if ( ! $title || ! $url ) {
+        return '';
+    }
+    $encoded_title = rawurlencode( $title );
+    $encoded_url   = rawurlencode( $url );
+    ob_start();
+    ?>
+    <div class="openclaw-share-bar">
+        <span>Share:</span>
+        <a href="https://twitter.com/intent/tweet?text=<?php echo $encoded_title; ?>&url=<?php echo $encoded_url; ?>" rel="noopener" target="_blank" aria-label="Share on X">X</a>
+        <a href="https://www.facebook.com/sharer/sharer.php?u=<?php echo $encoded_url; ?>" rel="noopener" target="_blank" aria-label="Share on Facebook">FB</a>
+        <a href="https://www.reddit.com/submit?url=<?php echo $encoded_url; ?>&title=<?php echo $encoded_title; ?>" rel="noopener" target="_blank" aria-label="Share on Reddit">Reddit</a>
+        <a href="https://www.linkedin.com/sharing/share-offsite/?url=<?php echo $encoded_url; ?>" rel="noopener" target="_blank" aria-label="Share on LinkedIn">in</a>
+        <button onclick="navigator.clipboard.writeText('<?php echo esc_attr( $url ); ?>')" aria-label="Copy link">Copy link</button>
+    </div>
+    <?php
+    return (string) ob_get_clean();
+}
+add_shortcode( 'openclaw_share_bar', 'openclaw_share_bar_shortcode' );
+
+/**
+ * [openclaw_network_crosslink] — "From other Info Verse sites" sidebar.
+ *
+ * Fetches the latest post from each of the five subsite RSS feeds and renders
+ * them as a compact list of links. Fail-soft: if a subsite feed is unreachable,
+ * skip it silently. Uses the same RSS-fetching approach as
+ * openclaw_hub_fetch_subsite_posts() in the hub theme.
+ */
+function openclaw_network_crosslink_shortcode( array|string $atts = [] ): string {
+    if ( ! is_singular( 'post' ) ) {
+        return '';
+    }
+
+    $subsite_origins = [
+        'https://techtools.info-verse.org',
+        'https://gardening.info-verse.org',
+        'https://dogs.info-verse.org',
+        'https://boardgames.info-verse.org',
+        'https://coffee.info-verse.org',
+        // Local development.
+        'http://techtools.localhost:8088',
+        'http://gardening.localhost:8088',
+        'http://dogs.localhost:8088',
+        'http://boardgames.localhost:8088',
+        'http://coffee.localhost:8088',
+    ];
+
+    $all_posts = [];
+    foreach ( $subsite_origins as $origin ) {
+        // Skip our own site.
+        $current_origin = esc_url( home_url() );
+        if ( str_starts_with( $current_origin, $origin ) ) {
+            continue;
+        }
+
+        // Try REST API first (works on live WordPress and local dev).
+        $api_url = trailingslashit( $origin ) . 'wp-json/wp/v2/posts?per_page=1&orderby=date&filter[ignore_sticky_posts]=true';
+        $res     = wp_remote_get( $api_url, [
+            'timeout'   => 5,
+            'redirection' => 0,
+        ] );
+
+        if ( ! is_wp_error( $res ) ) {
+            $code = (int) wp_remote_retrieve_response_code( $res );
+            if ( $code >= 200 && $code < 300 ) {
+                $body = wp_remote_retrieve_body( $res );
+                if ( $body !== '' ) {
+                    $data = @json_decode( $body, true );
+                    if ( isset( $data[0] ) ) {
+                        $title = html_entity_decode( wp_strip_all_tags( $data[0]['title']['rendered'] ), ENT_QUOTES, 'UTF-8' );
+                        $link  = $data[0]['link'];
+                        if ( $title !== '' && $link !== get_permalink() ) {
+                            $all_posts[] = [ 'title' => $title, 'link' => $link ];
+                        }
+                        continue; // Got a post via REST API.
+                    }
+                }
+            }
+        }
+
+        // Fallback: try RSS feed (only works on live WordPress with dynamic feeds).
+        $feed_url = trailingslashit( $origin ) . 'feed/';
+        $res      = wp_remote_get( $feed_url, [
+            'timeout'     => 5,
+            'redirection' => 2,
+            'user-agent'  => 'openclaw-base-crosslink/1.0',
+        ] );
+
+        if ( is_wp_error( $res ) ) {
+            continue;
+        }
+
+        $code = (int) wp_remote_retrieve_response_code( $res );
+        $body = wp_remote_retrieve_body( $res );
+        if ( $code < 200 || $code >= 300 || $body === '' ) {
+            continue;
+        }
+
+        // Only parse as XML if content type indicates it.
+        $ct = wp_remote_retrieve_header( $res, 'content-type' );
+        if ( $ct && ! stripos( $ct, 'xml' ) && ! stripos( $ct, 'atom' ) && ! stripos( $ct, 'rss' ) ) {
+            continue; // Static HTML export — skip.
+        }
+
+        $body = preg_replace( '/[\x00-\x08\x0B\x0C\x0E-\x1F]/', '', $body );
+        $prev_errors = libxml_use_internal_errors( true );
+        $xml         = @simplexml_load_string( $body );
+        libxml_clear_errors();
+        libxml_use_internal_errors( $prev_errors );
+
+        if ( ! $xml || ! isset( $xml->channel->item ) ) {
+            continue;
+        }
+
+        foreach ( $xml->channel->item as $item ) {
+            $title = (string) $item->title;
+            $link  = (string) $item->link;
+            if ( $title !== '' && $link !== '' ) {
+                if ( $link !== get_permalink() ) {
+                    $all_posts[] = [
+                        'title' => html_entity_decode( wp_strip_all_tags( $title ), ENT_QUOTES, 'UTF-8' ),
+                        'link'  => $link,
+                    ];
+                }
+                break;
+            }
+        }
+    }
+
+    if ( empty( $all_posts ) ) {
+        return '';
+    }
+
+    ob_start();
+    ?>
+    <section class="openclaw-crosslink">
+        <h2 class="openclaw-crosslink-heading"><?php esc_html_e( 'From other Info Verse sites', 'openclaw-base' ); ?></h2>
+        <ul class="openclaw-crosslink-list">
+            <?php foreach ( $all_posts as $post ) : ?>
+                <li><a href="<?php echo esc_url( $post['link'] ); ?>" rel="noopener"><?php echo esc_html( $post['title'] ); ?></a></li>
+            <?php endforeach; ?>
+        </ul>
+    </section>
+    <?php
+    return (string) ob_get_clean();
+}
+add_shortcode( 'openclaw_network_crosslink', 'openclaw_network_crosslink_shortcode' );

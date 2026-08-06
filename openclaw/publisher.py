@@ -365,6 +365,49 @@ def list_recent_posts_for_linking(limit: int = 60) -> list[dict]:
     return out[:limit]
 
 
+def list_recent_post_categories(limit: int = 30) -> list[dict]:
+    """Return recent published posts with their categories.
+
+    Returns ``[{title, categories: [str, ...]}]`` for the ``limit`` most
+    recent published posts.  Uses the same public endpoint as
+    ``list_recent_posts_for_linking`` (no auth needed).
+
+    Returns ``[]`` on any failure — never raises.
+    """
+    cfg = Config.load()
+    category_map = _load_categories(cfg.WP_BASE_URL, (cfg.WP_USERNAME, cfg.WP_APP_PASSWORD))
+    name_to_id = {name: id_ for name, id_ in category_map.items()}
+    per_page = max(1, min(limit, 100))
+    try:
+        resp = requests.get(
+            f"{cfg.WP_BASE_URL}/wp-json/wp/v2/posts",
+            params={
+                "per_page": per_page,
+                "orderby": "date",
+                "order": "desc",
+                "status": "publish",
+            },
+            timeout=30,
+        )
+    except requests.RequestException as exc:
+        logger.warning("list_recent_post_categories failed: %s", exc)
+        return []
+    if not resp.ok:
+        logger.warning(
+            "list_recent_post_categories returned %d: %s",
+            resp.status_code, resp.text[:200],
+        )
+        return []
+    out: list[dict] = []
+    for post in resp.json():
+        title = _plain_text(post.get("title", {}).get("rendered", ""))
+        cat_ids: list[int] = post.get("categories") or []
+        cat_names = [name for name, id_ in name_to_id.items() if id_ in cat_ids]
+        if title:
+            out.append({"title": title, "categories": cat_names})
+    return out[:limit]
+
+
 def get_series_terms() -> list[str]:
     """Return the current set of `openclaw_series` term names on this site.
 
@@ -420,6 +463,69 @@ def _get_or_create_series_term(base_url: str, auth: tuple[str, str], name: str) 
         name, create.status_code, create.text[:200],
     )
     return None
+
+
+def list_cross_site_posts(subsite_urls: list[str], limit: int = 15) -> list[dict]:
+    """Return recent PUBLISHED posts from a list of subsite URLs.
+
+    Each subsite is fetched via the public REST endpoint (no auth). Results
+    are merged, sorted by date descending, capped at `limit`, and each
+    candidate carries an extra `source_subsite` key with the subsite's
+    hostname so the caller can tag cross-site links appropriately.
+
+    Returns ``[]`` on any failure — never raises.
+    """
+    cfg = Config.load()
+    auth = (cfg.WP_USERNAME, cfg.WP_APP_PASSWORD)
+    per_page = max(1, min(limit, 100))
+    all_posts: list[dict] = []
+
+    for subsite_url in subsite_urls:
+        try:
+            resp = requests.get(
+                f"{subsite_url}/wp-json/wp/v2/posts",
+                params={
+                    "per_page": per_page,
+                    "orderby": "date",
+                    "order": "desc",
+                    "status": "publish",
+                    "_embed": "wp:term",
+                },
+                timeout=30,
+            )
+        except requests.RequestException as exc:
+            logger.warning("list_cross_site_posts failed for %s: %s", subsite_url, exc)
+            continue
+        if not resp.ok:
+            logger.warning(
+                "list_cross_site_posts returned %d for %s: %s",
+                resp.status_code, subsite_url, resp.text[:200],
+            )
+            continue
+        hostname = urlparse(subsite_url).netloc.lower()
+        for post in resp.json():
+            title = _plain_text(post.get("title", {}).get("rendered", ""))
+            link = (post.get("link") or "").strip()
+            excerpt = _plain_text(post.get("excerpt", {}).get("rendered", ""))
+            series_names: list[str] = []
+            embedded_terms = (post.get("_embedded") or {}).get("wp:term") or []
+            for term_group in embedded_terms:
+                for term in term_group or []:
+                    if term.get("taxonomy") == "openclaw_series":
+                        name = (term.get("name") or "").strip()
+                        if name:
+                            series_names.append(name)
+            if title and link:
+                all_posts.append({
+                    "title": title,
+                    "link": link,
+                    "excerpt": excerpt[:200],
+                    "series": series_names[0] if series_names else "",
+                    "source_subsite": hostname,
+                })
+
+    all_posts.sort(key=lambda p: p.get("link", ""), reverse=True)
+    return all_posts[:limit]
 
 
 def list_recent_post_titles(limit: int = 300) -> list[str]:

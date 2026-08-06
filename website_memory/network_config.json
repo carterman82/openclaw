@@ -1,0 +1,25 @@
+{
+    "description": "Network configuration for the Info Verse WordPress multisite. Defines all subsites, their production URLs, and cross-linking rules.",
+    "subsite_urls": {
+        "techtools": "https://techtools.info-verse.org",
+        "dogs": "https://dogs.info-verse.org",
+        "gardening": "https://gardening.info-verse.org",
+        "boardgames": "https://boardgames.info-verse.org",
+        "coffee": "https://coffee.info-verse.org"
+    },
+    "production_hosts": [
+        "techtools.info-verse.org",
+        "dogs.info-verse.org",
+        "gardening.info-verse.org",
+        "boardgames.info-verse.org",
+        "coffee.info-verse.org",
+        "info-verse.org"
+    ],
+    "cross_linking_rules": {
+        "max_cross_site_links_per_article": 2,
+        "target_cross_site_frequency": "1-2 per 10 articles",
+        "exclude_current_site": true,
+        "exclude_hub": true,
+        "note": "Cross-site links are tagged with [cross-site: hostname] in the linking candidates message. The generator is instructed to link to 1-2 cross-site articles per 10 on average, only when genuinely relevant."
+    }
+}

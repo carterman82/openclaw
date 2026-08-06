@@ -34,6 +34,8 @@ from .publisher import (
     get_series_terms,
     get_seo_plugin,
     get_site_name,
+    list_cross_site_posts,
+    list_recent_post_categories,
     list_recent_post_titles,
     list_recent_posts_for_linking,
     publish_post,
@@ -92,6 +94,57 @@ def _activate_site(slug: str | None) -> None:
 
 
 _WEBSITE_MEMORY_DIR: Path = Path(__file__).resolve().parent.parent / "website_memory"
+_NETWORK_CONFIG_PATH: Path = _WEBSITE_MEMORY_DIR / "network_config.json"
+
+
+def _slug_from_host(host: str) -> str | None:
+    """Extract subsite slug from a host string.
+
+    Examples:
+      "techtools.localhost:8088" → "techtools"
+      "techtools.info-verse.org" → "techtools"
+      "info-verse.org" → None (naked apex = hub)
+      "localhost:8088" → None (primary site)
+    """
+    if not host:
+        return None
+    part = host.split(".")[0].lower().split(":")[0]
+    if part in ("www", "localhost", "info-verse"):
+        return None
+    return part
+
+
+def _load_network_config(site_host: str) -> dict:
+    """Load website_memory/network_config.json.
+
+    Returns a dict with:
+      - `subsite_urls`: {slug: production_url} mapping
+      - `production_hosts`: list of all known production hostnames
+        (used by _validate_anchors to allow cross-site links)
+    Returns {} when the file is absent — cross-site linking is optional
+    and a missing file simply means no cross-site links are fetched.
+    """
+    try:
+        data = json.loads(_NETWORK_CONFIG_PATH.read_text(encoding="utf-8"))
+        logger.info(
+            "Loaded network_config.json: %d subsite(s), %d production host(s).",
+            len(data.get("subsite_urls", {})),
+            len(data.get("production_hosts", [])),
+        )
+        return data
+    except FileNotFoundError:
+        logger.warning(
+            "No network_config.json at %s — cross-site linking disabled.",
+            _NETWORK_CONFIG_PATH,
+        )
+        return {}
+    except (json.JSONDecodeError, TypeError) as exc:
+        logger.warning(
+            "network_config.json at %s is invalid JSON: %s — skipping.",
+            _NETWORK_CONFIG_PATH,
+            exc,
+        )
+        return {}
 
 
 def _load_trends_config(site_host: str) -> tuple[list[str], list[str]]:
@@ -121,6 +174,24 @@ def _load_trends_config(site_host: str) -> tuple[list[str], list[str]]:
     except (json.JSONDecodeError, TypeError) as exc:
         logger.warning("Trends config at %s is invalid JSON: %s — skipping.", path, exc)
         return [], []
+
+
+def _load_analytics_config(site_host: str) -> dict:
+    """Return analytics snapshot from analytics.gather_analytics_signals().
+
+    Wraps the call so that a missing/invalid cache file or a failed API
+    call never blocks the publish path — returns {} on any failure, just
+    like ``_load_trends_config``.
+    """
+    try:
+        from . import analytics
+        return analytics.gather_analytics_signals(site_host)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Analytics config failed for %r: %s — skipping analytics signals.",
+            site_host, exc,
+        )
+        return {}
 
 
 def _strip_html(html: str) -> str:
@@ -259,7 +330,10 @@ def _strip_em_dashes(text: str) -> tuple[str, int]:
 
 
 def _validate_anchors(
-    body_html: str, candidate_urls: set[str], wp_host: str,
+    body_html: str,
+    candidate_urls: set[str],
+    wp_host: str,
+    cross_site_hosts: frozenset[str] | None = None,
 ) -> tuple[str, int]:
     """Walk every <a> in the final HTML, drop unauthorized/unsafe ones.
 
@@ -271,8 +345,11 @@ def _validate_anchors(
       - href is missing
       - href scheme is anything other than http/https
       - href points to the WP host but is not in the candidate set
+      - href points to a cross-site host not in `cross_site_hosts`
     """
     stripped = 0
+    if cross_site_hosts is None:
+        cross_site_hosts = frozenset()
 
     def repl(match: re.Match[str]) -> str:
         nonlocal stripped
@@ -287,6 +364,9 @@ def _validate_anchors(
             return text
         href_host = _host_of(href)
         if href_host == wp_host and href not in candidate_urls:
+            stripped += 1
+            return text
+        if href_host and href_host != wp_host and href_host not in cross_site_hosts:
             stripped += 1
             return text
         return match.group(0)
@@ -596,6 +676,49 @@ def _pick_random_category(wp_categories: tuple[str, ...]) -> str:
     return random.choice(selectable or list(wp_categories))
 
 
+# Phase 9 Step 9.8: category diversity guard.
+# When analytics data pushes the pre-pass toward a single category, this
+# detects concentration and forces rerolls toward underrepresented ones.
+_CATEGORY_DIVERSITY_WINDOW = 10  # last N posts to check
+_CATEGORY_DIVERSITY_THRESHOLD = 0.5  # flag if one category >= 50% of window
+
+
+def _check_category_diversity(
+    recent_categories: list[list[str]],
+    wp_categories: tuple[str, ...],
+) -> tuple[set[str], bool]:
+    """Check if recent posts are concentrated in one category.
+
+    Returns ``(overrepresented, is_concentrated)`` where:
+    - ``overrepresented``: set of categories that appear in >= 50% of the
+      last N posts (empty if distribution is healthy)
+    - ``is_concentrated``: True if any single category dominates
+
+    When concentrated, returns the set of underrepresented categories that
+    should be prioritized.
+    """
+    if len(recent_categories) < _CATEGORY_DIVERSITY_WINDOW:
+        return set(), False
+
+    cat_counts: dict[str, int] = {}
+    for cats in recent_categories:
+        for c in cats:
+            cat_counts[c] = cat_counts.get(c, 0) + 1
+
+    is_concentrated = False
+    overrepresented: set[str] = set()
+    for cat, count in cat_counts.items():
+        if count / len(recent_categories) >= _CATEGORY_DIVERSITY_THRESHOLD:
+            overrepresented.add(cat)
+            is_concentrated = True
+
+    if not is_concentrated:
+        return set(), False
+
+    underrepresented = set(wp_categories) - overrepresented - set(cat_counts.keys())
+    return underrepresented, True
+
+
 def _find_duplicate_title(title: str, recent_titles: list[str]) -> str | None:
     """Return the colliding recent title if `title` is an exact or near-exact repeat.
 
@@ -629,6 +752,7 @@ def _select_topic_pregen(
     site_name: str | None,
     site_host: str,
     trending_signals: dict | None,
+    recent_categories: list[list[str]] | None = None,
 ) -> str | None:
     """Pick + validate a topic BEFORE the expensive full-body generation call.
 
@@ -655,6 +779,7 @@ def _select_topic_pregen(
                 site_name=site_name,
                 site_host=site_host,
                 trending_signals=trending_signals,
+                analytics_signals=analytics_signals,
             )
         except Exception as exc:  # noqa: BLE001 - pre-pass failure must never block generation
             logger.warning(
@@ -669,6 +794,27 @@ def _select_topic_pregen(
                 continue
             collision = find_title_collision(title, recent_titles) if recent_titles else None
             if not collision:
+                # Category diversity check (only when no explicit --category).
+                if not category and recent_categories:
+                    underrepresented, is_concentrated = _check_category_diversity(
+                        recent_categories, wp_categories,
+                    )
+                    if is_concentrated:
+                        candidate_cats = set(
+                            candidate.get("category", "").split()
+                        ) if candidate.get("category") else set()
+                        if candidate_cats and candidate_cats.issubset(
+                            set(wp_categories) - underrepresented
+                        ):
+                            logger.info(
+                                "Topic pre-pass: candidate %r in overrepresented "
+                                "category (%s); forcing reroll with underrepresented: "
+                                "%s.",
+                                title,
+                                ", ".join(sorted(overrepresented)),
+                                ", ".join(sorted(underrepresented)),
+                            )
+                            continue
                 logger.info(
                     "Topic pre-pass: committed %r (angle=%r) on attempt %d/%d.",
                     title, candidate.get("angle"), attempt, _TOPIC_PREGEN_MAX_REROLLS + 1,
@@ -1268,6 +1414,24 @@ def main(argv: list[str] | None = None) -> int:
             link_candidates = list_recent_posts_for_linking()
             if link_candidates:
                 logger.info("Loaded %d internal-link candidates.", len(link_candidates))
+            # Phase 9 Step 9.5: fetch cross-site posts from known subsites.
+            network_cfg = _load_network_config(site_host)
+            cross_site_urls = network_cfg.get("subsite_urls", {})
+            cross_site_list: list[dict] = []
+            current_slug = args.site or _slug_from_host(wp_host)
+            if cross_site_urls and current_slug:
+                other_urls = [
+                    cross_site_urls.get(slug)
+                    for slug in cross_site_urls
+                    if slug != current_slug
+                ]
+                cross_site_list = list_cross_site_posts(other_urls, limit=15)
+                logger.info(
+                    "Loaded %d cross-site link candidates from %d subsite(s).",
+                    len(cross_site_list), len(other_urls),
+                )
+            # Merge cross-site into link_candidates (cross-site at end).
+            link_candidates = link_candidates + cross_site_list
             existing_series = get_series_terms()
             if existing_series:
                 logger.info(
@@ -1285,8 +1449,20 @@ def main(argv: list[str] | None = None) -> int:
                     site_name=site_name or None,
                     reddit_enabled=not args.skip_reddit,
                 )
+            # Phase 9 Step 9.8: load analytics signals (fail-soft).
+            analytics_signals = _load_analytics_config(site_host)
             committed_topic: str | None = None
             if not args.topic and not args.skip_topic_pass:
+                # Phase 9 Step 9.8: category diversity guard — fetch recent
+                # post categories once and thread into the pre-pass.
+                recent_categories: list[list[str]] = []
+                if not args.category:
+                    recent_categories = [
+                        post["categories"]
+                        for post in list_recent_post_categories(
+                            limit=_CATEGORY_DIVERSITY_WINDOW,
+                        )
+                    ]
                 committed_topic = _select_topic_pregen(
                     category=category,
                     recent_titles=recent_titles,
@@ -1294,13 +1470,16 @@ def main(argv: list[str] | None = None) -> int:
                     site_name=site_name or None,
                     site_host=site_host,
                     trending_signals=trending_signals,
+                    recent_categories=recent_categories or None,
                 )
 
             gen_topic = committed_topic or args.topic
             # Trending signals fed the topic PICK; once a topic is committed
             # pre-generation, the full-body call has nothing left to decide
             # with them, so only pass them through on the pre-8.1 fallback path.
+            # Same logic applies to analytics signals.
             gen_trending_signals = None if committed_topic else trending_signals
+            gen_analytics_signals = None if committed_topic else analytics_signals
 
             # Step 8.9: contrarian/myth-buster titles need 3 sources not 2.
             # required_sources is computed once from whatever title we know
@@ -1327,6 +1506,7 @@ def main(argv: list[str] | None = None) -> int:
                 site_host=site_host,
                 internal_link_candidates=link_candidates,
                 trending_signals=gen_trending_signals,
+                analytics_signals=gen_analytics_signals,
                 variation_directives=variation_directives,
                 required_sources=required_sources,
                 existing_series=existing_series,
@@ -1375,6 +1555,7 @@ def main(argv: list[str] | None = None) -> int:
                     site_host=site_host,
                     internal_link_candidates=link_candidates,
                     trending_signals=gen_trending_signals,
+                    analytics_signals=gen_analytics_signals,
                     variation_directives=variation_directives,
                     rejection_reason=problem,
                     required_sources=required_sources,
@@ -1590,8 +1771,11 @@ def main(argv: list[str] | None = None) -> int:
 
             wp_host = _host_of(Config.load().WP_BASE_URL)
             candidate_urls = {c["link"] for c in link_candidates}
+            # Phase 9 Step 9.5: build cross-site host set for _validate_anchors.
+            network_cfg = _load_network_config(site_host)
+            cross_site_hosts = frozenset(network_cfg.get("production_hosts", []))
             article["body_html"], stripped = _validate_anchors(
-                article["body_html"], candidate_urls, wp_host,
+                article["body_html"], candidate_urls, wp_host, cross_site_hosts,
             )
             if stripped:
                 logger.warning(

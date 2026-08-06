@@ -1,0 +1,95 @@
+- generic [active] [ref=f25e1]:
+  - link "Skip to content" [ref=f25e2] [cursor=pointer]:
+    - /url: "#wp--skip-link--target"
+  - generic [ref=f25e3]:
+    - banner [ref=f25e4]:
+      - generic [ref=f25e6]:
+        - paragraph [ref=f25e7]:
+          - link "Info Verse" [ref=f25e8] [cursor=pointer]:
+            - /url: http://hub.localhost:8088
+        - paragraph [ref=f25e9]: Network
+    - main [ref=f25e10]:
+      - generic [ref=f25e11]:
+        - heading "Info Verse" [level=1] [ref=f25e12]
+        - paragraph [ref=f25e13]: A network of independent editorial sites, each covering one subject in depth. Pick a fandom to start reading.
+      - generic [ref=f25e14]:
+        - generic [ref=f25e15]:
+          - generic [ref=f25e16]:
+            - generic [ref=f25e17]:
+              - heading "Tech Tools Info Verse" [level=2] [ref=f25e18]
+              - paragraph [ref=f25e19]: Practical SaaS, AI, and productivity writing for founders, freelancers, and operators who live in software.
+            - link "Visit site →" [ref=f25e20] [cursor=pointer]:
+              - /url: https://techtools.info-verse.org/
+          - 'link "The Legal Entity That Protects Your IP: LLC vs. Sole Proprietorship for Tech Founders" [ref=f25e22] [cursor=pointer]':
+            - /url: https://techtools.info-verse.org/2026/07/27/llc-vs-sole-proprietorship-tech-founders/
+            - 'heading "The Legal Entity That Protects Your IP: LLC vs. Sole Proprietorship for Tech Founders" [level=3] [ref=f25e25]'
+        - generic [ref=f25e26]:
+          - generic [ref=f25e27]:
+            - generic [ref=f25e28]:
+              - heading "Gardening Info Verse" [level=2] [ref=f25e29]
+              - paragraph [ref=f25e30]: Home-gardening editorial for hobbyists — plants, soil, pests, and design, from windowsill to backyard border.
+            - link "Visit site →" [ref=f25e31] [cursor=pointer]:
+              - /url: https://gardening.info-verse.org/
+          - 'link "The 12-Inch Rule for Heirloom Tomatoes: Why Depth Matters More Than Water" [ref=f25e33] [cursor=pointer]':
+            - /url: https://gardening.info-verse.org/2026/07/30/12-inch-rule-heirloom-tomatoes-depth/
+            - 'heading "The 12-Inch Rule for Heirloom Tomatoes: Why Depth Matters More Than Water" [level=3] [ref=f25e36]'
+        - generic [ref=f25e37]:
+          - generic [ref=f25e38]:
+            - generic [ref=f25e39]:
+              - heading "Dog Info Verse" [level=2] [ref=f25e40]
+              - paragraph [ref=f25e41]: Enthusiast writing on breed history, behavior, health, and training — for real dogs and the people who own them.
+            - link "Visit site →" [ref=f25e42] [cursor=pointer]:
+              - /url: https://dogs.info-verse.org/
+          - link "Your Puppy’s Socialization Window Isn’t a Deadline. It’s a Baseline. You’re Missing the Second Wave." [ref=f25e44] [cursor=pointer]:
+            - /url: https://dogs.info-verse.org/2026/07/30/puppy-socialization-second-wave-fear-regression/
+            - heading "Your Puppy’s Socialization Window Isn’t a Deadline. It’s a Baseline. You’re Missing the Second Wave." [level=3] [ref=f25e47]
+        - generic [ref=f25e48]:
+          - generic [ref=f25e49]:
+            - generic [ref=f25e50]:
+              - heading "Boardgames Info Verse" [level=2] [ref=f25e51]
+              - paragraph [ref=f25e52]: Tabletop editorial for players who already own a shelf of games — mechanics, strategy, and the history of the medium.
+            - link "Visit site →" [ref=f25e53] [cursor=pointer]:
+              - /url: https://boardgames.info-verse.org/
+          - 'link "Root: Why Your Opening Move Decides the Game" [ref=f25e55] [cursor=pointer]':
+            - /url: https://boardgames.info-verse.org/2026/07/30/root-opening-move-decides-game/
+            - 'heading "Root: Why Your Opening Move Decides the Game" [level=3] [ref=f25e58]'
+        - generic [ref=f25e59]:
+          - generic [ref=f25e60]:
+            - generic [ref=f25e61]:
+              - heading "Coffee Info Verse" [level=2] [ref=f25e62]
+              - paragraph [ref=f25e63]: Home-brewing editorial for pour-over converts, espresso hobbyists, and French-press loyalists leveling up their cup.
+            - link "Visit site →" [ref=f25e64] [cursor=pointer]:
+              - /url: https://coffee.info-verse.org/
+          - 'link "Coffea Canephora: The Genetic Reality Behind the Label Robusta" [ref=f25e66] [cursor=pointer]':
+            - /url: https://coffee.info-verse.org/2026/07/30/canephora-not-robusta-genetic-category/
+            - 'heading "Coffea Canephora: The Genetic Reality Behind the Label Robusta" [level=3] [ref=f25e69]'
+    - contentinfo [ref=f25e70]:
+      - contentinfo [ref=f25e71]:
+        - generic [ref=f25e72]:
+          - generic [ref=f25e73]:
+            - heading "About Info Verse" [level=4] [ref=f25e74]
+            - paragraph [ref=f25e75]: Info Verse is a network of independent, single-topic editorial sites. Each site covers one subject in depth rather than many subjects shallowly.
+          - generic [ref=f25e76]:
+            - heading "Legal" [level=4] [ref=f25e77]
+            - list [ref=f25e78]:
+              - listitem [ref=f25e79]:
+                - link "About" [ref=f25e80] [cursor=pointer]:
+                  - /url: /about/
+              - listitem [ref=f25e81]:
+                - link "Privacy" [ref=f25e82] [cursor=pointer]:
+                  - /url: /privacy/
+              - listitem [ref=f25e83]:
+                - link "Contact" [ref=f25e84] [cursor=pointer]:
+                  - /url: /contact/
+          - generic [ref=f25e85]:
+            - heading "Newsletter" [level=4] [ref=f25e86]
+            - generic [ref=f25e87]:
+              - textbox "Email address" [ref=f25e88]:
+                - /placeholder: Your email
+              - button "Subscribe" [ref=f25e89] [cursor=pointer]
+        - generic [ref=f25e90]:
+          - paragraph [ref=f25e91]: © Info Verse
+          - paragraph [ref=f25e92]: Five sites. One editorial voice.
+        - link "Follow on X" [ref=f25e94] [cursor=pointer]:
+          - /url: https://twitter.com/InfoVerseNet
+          - text: X

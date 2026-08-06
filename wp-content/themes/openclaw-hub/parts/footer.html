@@ -33,6 +33,20 @@
             <!-- /wp:list -->
         </div>
         <!-- /wp:column -->
+
+        <!-- wp:column {"width":"20%"} -->
+        <div class="wp-block-column" style="flex-basis:20%">
+            <!-- wp:heading {"level":4,"fontSize":"xs","style":{"typography":{"textTransform":"uppercase","letterSpacing":"0.08em"},"color":{"text":"var:preset|color|openclaw-muted"}}} -->
+            <h4 class="wp-block-heading has-openclaw-muted-color has-text-color has-xs-font-size" style="letter-spacing:0.08em;text-transform:uppercase">Newsletter</h4>
+            <!-- /wp:heading -->
+            <!-- wp:html -->
+            <form action="https://buttondown.com/api/emails/embed-subscribe/bolz" method="post" class="openclaw-newsletter-form" target="_blank" rel="noopener">
+                <input type="email" name="bd-email" placeholder="Your email" aria-label="Email address" required />
+                <input type="submit" value="Subscribe" />
+            </form>
+            <!-- /wp:html -->
+        </div>
+        <!-- /wp:column -->
     </div>
     <!-- /wp:columns -->
 
@@ -47,5 +61,9 @@
         <!-- /wp:paragraph -->
     </div>
     <!-- /wp:group -->
+
+    <!-- wp:html -->
+    [openclaw_social_links]
+    <!-- /wp:html -->
 </footer>
 <!-- /wp:group -->

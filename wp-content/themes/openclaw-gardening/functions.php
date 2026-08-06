@@ -15,3 +15,10 @@ add_filter( 'openclaw_base_google_fonts_url', function () {
 // tracking snippet output (see openclaw-base's wp_head hook). Fill in once
 // the GA4 property for Rootstock exists.
 define( 'OPENCLAW_GA4_ID', 'G-EMJRNCZR10' );
+
+// Social media profiles for Step 9.3 (Phase 9).
+// Placeholder URLs — update when actual accounts are created.
+define( 'OPENCLAW_SOCIAL_PROFILES', [
+    'https://facebook.com/GardeningInfoVerse'  => 'https://facebook.com/GardeningInfoVerse',
+    'https://instagram.com/gardening_infoverse'=> 'https://instagram.com/gardening_infoverse',
+] );

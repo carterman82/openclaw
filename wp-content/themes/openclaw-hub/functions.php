@@ -18,6 +18,13 @@ if ( ! defined( 'ABSPATH' ) ) {
 // one GA4 property; use GA content_group / stream URL filters to split.
 define( 'OPENCLAW_GA4_ID', 'G-EMJRNCZR10' );
 
+// Social media profiles for Step 9.3 (Phase 9).
+// Network coordination account — hub links to its own social presence.
+// Placeholder URLs — update when actual accounts are created.
+define( 'OPENCLAW_SOCIAL_PROFILES', [
+    'https://x.com/Infoversenet'  => 'https://x.com/Infoversenet',
+] );
+
 /**
  * Enqueue the child theme's own style.css. The parent (openclaw-base) only
  * enqueues its own stylesheet by absolute template dir URI, so a block child

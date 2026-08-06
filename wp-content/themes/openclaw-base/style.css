@@ -475,3 +475,150 @@ a:hover {
 .wp-block-post-content h2 {
     scroll-margin-top: 24px;
 }
+
+/* Social share bar (Step 9.4). */
+.openclaw-share-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 0 32px 0;
+    color: var(--wp--preset--color--openclaw-muted);
+    font-size: 14px;
+    flex-wrap: wrap;
+}
+
+.openclaw-share-bar span {
+    font-weight: 600;
+    color: var(--wp--preset--color--openclaw-text);
+}
+
+.openclaw-share-bar a,
+.openclaw-share-bar button {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    border: 1px solid color-mix(in srgb, var(--wp--preset--color--openclaw-muted) 40%, transparent);
+    background: var(--wp--preset--color--openclaw-surface);
+    color: var(--wp--preset--color--openclaw-text);
+    cursor: pointer;
+    transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.openclaw-share-bar a:hover,
+.openclaw-share-bar button:hover {
+    border-color: var(--wp--preset--color--openclaw-primary);
+    color: var(--wp--preset--color--openclaw-primary);
+}
+
+/* Newsletter form (Step 9.4). */
+.openclaw-newsletter-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.openclaw-newsletter-form input[type="email"] {
+    padding: 8px 12px;
+    border: 1px solid color-mix(in srgb, var(--wp--preset--color--openclaw-muted) 40%, transparent);
+    border-radius: 8px;
+    background: var(--wp--preset--color--openclaw-surface);
+    color: var(--wp--preset--color--openclaw-text);
+    font-size: 14px;
+    font-family: var(--wp--preset--font-family--openclaw-body);
+    width: 100%;
+}
+
+.openclaw-newsletter-form input[type="email"]:focus {
+    outline: 2px solid var(--wp--preset--color--openclaw-primary);
+    outline-offset: 1px;
+}
+
+.openclaw-newsletter-form input[type="submit"] {
+    padding: 8px 16px;
+    background: var(--wp--preset--color--openclaw-primary);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    cursor: pointer;
+}
+
+.openclaw-newsletter-form input[type="submit"]:hover {
+    opacity: 0.9;
+}
+
+/* Network crosslink sidebar (Step 9.5). */
+.openclaw-crosslink {
+    margin-top: 48px;
+    padding-top: 32px;
+    border-top: 1px solid color-mix(in srgb, var(--wp--preset--color--openclaw-muted) 30%, transparent);
+}
+
+.openclaw-crosslink-heading {
+    font-family: var(--wp--preset--font-family--openclaw-display);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--wp--preset--color--openclaw-muted);
+    margin: 0 0 16px 0;
+}
+
+.openclaw-crosslink-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.openclaw-crosslink-list li {
+    margin: 0;
+    padding: 8px 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--wp--preset--color--openclaw-muted) 15%, transparent);
+}
+
+.openclaw-crosslink-list li:last-child {
+    border-bottom: none;
+}
+
+.openclaw-crosslink-list a {
+    color: var(--wp--preset--color--openclaw-text);
+    font-size: 15px;
+    line-height: 1.45;
+}
+
+.openclaw-crosslink-list a:hover {
+    color: var(--wp--preset--color--openclaw-primary);
+}
+
+/* Social links (Step 9.3) — SVG icon buttons. */
+.openclaw-social-links {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    padding: 16px 0 8px 0;
+}
+
+.openclaw-social-links a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    padding: 0;
+    border: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.openclaw-social-links a svg {
+    width: 16px;
+    height: 16px;
+}
+
+.openclaw-social-links a:hover {
+    transform: scale(1.1);
+}

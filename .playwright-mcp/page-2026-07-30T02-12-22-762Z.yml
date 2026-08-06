@@ -1,0 +1,539 @@
+- generic [active] [ref=e1]:
+  - link "Skip to content" [ref=e2] [cursor=pointer]:
+    - /url: "#wp--skip-link--target"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - link [ref=e8] [cursor=pointer]:
+        - /url: http://techtools.localhost:8088/
+        - img "Tech Tools Info Verse" [ref=e9]
+      - list [ref=e11]:
+        - listitem [ref=e12]:
+          - link "AI Tools" [ref=e13] [cursor=pointer]:
+            - /url: http://techtools.localhost:8088/category/ai-tools/
+        - listitem [ref=e14]:
+          - link "Automation & Workflows" [ref=e15] [cursor=pointer]:
+            - /url: http://techtools.localhost:8088/category/automation-workflows/
+        - listitem [ref=e16]:
+          - link "Best Of" [ref=e17] [cursor=pointer]:
+            - /url: http://techtools.localhost:8088/category/best-of/
+        - listitem [ref=e18]:
+          - link "Business" [ref=e19] [cursor=pointer]:
+            - /url: http://techtools.localhost:8088/category/business/
+        - listitem [ref=e20]:
+          - link "Design" [ref=e21] [cursor=pointer]:
+            - /url: http://techtools.localhost:8088/category/design/
+        - listitem [ref=e22]:
+          - link "Freelance" [ref=e23] [cursor=pointer]:
+            - /url: http://techtools.localhost:8088/category/freelance/
+        - listitem [ref=e24]:
+          - link "Guides & Tutorials" [ref=e25] [cursor=pointer]:
+            - /url: http://techtools.localhost:8088/category/guides-tutorials/
+        - listitem [ref=e26]:
+          - link "Marketing" [ref=e27] [cursor=pointer]:
+            - /url: http://techtools.localhost:8088/category/marketing/
+        - listitem [ref=e28]:
+          - link "Productivity Tools" [ref=e29] [cursor=pointer]:
+            - /url: http://techtools.localhost:8088/category/productivity-tools/
+    - main [ref=e30]:
+      - list [ref=e32]:
+        - listitem [ref=e33]:
+          - generic [ref=e34]:
+            - figure [ref=e35]:
+              - link [ref=e36] [cursor=pointer]:
+                - /url: http://techtools.localhost:8088/2026/07/30/ai-output-over-optimized/
+                - img "Your AI Output Isn’t Generic. It’s Over-Optimized." [ref=e37]
+            - generic [ref=e38]:
+              - link "AI Tools" [ref=e40] [cursor=pointer]:
+                - /url: http://techtools.localhost:8088/category/ai-tools/
+              - heading [level=2] [ref=e41]:
+                - link "Your AI Output Isn’t Generic. It’s Over-Optimized." [ref=e42] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/30/ai-output-over-optimized/
+              - paragraph [ref=e44]:
+                - text: AI output isn’t generic because it’s bad. It’s generic because it’s over-optimized. Learn how to use AI for structure and editing without erasing your human voice.
+                - link "Read" [ref=e45] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/30/ai-output-over-optimized/
+              - time [ref=e47]: July 30, 2026
+        - listitem [ref=e48]:
+          - generic [ref=e49]:
+            - figure [ref=e50]:
+              - link [ref=e51] [cursor=pointer]:
+                - /url: http://techtools.localhost:8088/2026/07/29/client-handoff-one-pager-automation/
+                - img "Your Client Handoff Process Isn’t Broken. It’s Just Unstructured." [ref=e52]
+            - generic [ref=e53]:
+              - link "Automation & Workflows" [ref=e55] [cursor=pointer]:
+                - /url: http://techtools.localhost:8088/category/automation-workflows/
+              - heading [level=2] [ref=e56]:
+                - link "Your Client Handoff Process Isn’t Broken. It’s Just Unstructured." [ref=e57] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/29/client-handoff-one-pager-automation/
+              - paragraph [ref=e59]:
+                - text: Your client handoff process is broken because it relies on forwarded emails, not structure. The one-pager handoff forces context transfer into five data points before delivery starts.
+                - link "Read" [ref=e60] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/29/client-handoff-one-pager-automation/
+              - time [ref=e62]: July 29, 2026
+      - generic [ref=e64]:
+        - list [ref=e65]:
+          - listitem [ref=e66]:
+            - generic [ref=e68]:
+              - figure [ref=e69]:
+                - link [ref=e70] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/29/annual-report-design-architecture/
+                  - img "Your Annual Report Design Isn’t Marketing. It’s Architecture." [ref=e71]
+              - generic [ref=e72]:
+                - link "Design" [ref=e74] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/design/
+                - heading [level=3] [ref=e75]:
+                  - link "Your Annual Report Design Isn’t Marketing. It’s Architecture." [ref=e76] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/29/annual-report-design-architecture/
+                - time [ref=e78]: July 29, 2026
+          - listitem [ref=e79]:
+            - generic [ref=e81]:
+              - figure [ref=e82]:
+                - link [ref=e83] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/29/3-person-org-chart-solo-founders/
+                  - img "The 3-Person Org Chart That Saves Solo Founders From Burnout" [ref=e84]
+              - generic [ref=e85]:
+                - link "Business" [ref=e87] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/business/
+                - heading [level=3] [ref=e88]:
+                  - link "The 3-Person Org Chart That Saves Solo Founders From Burnout" [ref=e89] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/29/3-person-org-chart-solo-founders/
+                - time [ref=e91]: July 29, 2026
+          - listitem [ref=e92]:
+            - generic [ref=e94]:
+              - figure [ref=e95]:
+                - link [ref=e96] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/28/ai-resume-screener-rejects-top-talent/
+                  - img "AI Resume Screeners Filter Out Top Talent. The 2023 NBER Study Proves It." [ref=e97]
+              - generic [ref=e98]:
+                - link "AI Tools" [ref=e100] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/ai-tools/
+                - heading [level=3] [ref=e101]:
+                  - link "AI Resume Screeners Filter Out Top Talent. The 2023 NBER Study Proves It." [ref=e102] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/28/ai-resume-screener-rejects-top-talent/
+                - time [ref=e104]: July 28, 2026
+          - listitem [ref=e105]:
+            - generic [ref=e107]:
+              - figure [ref=e108]:
+                - link [ref=e109] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/28/second-brain-audit-note-taking-app-junk-drawer/
+                  - 'img "The Second Brain Audit: Why Your Note-Taking App Is Just a Digital Junk Drawer" [ref=e110]'
+              - generic [ref=e111]:
+                - link "Productivity Tools" [ref=e113] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/productivity-tools/
+                - heading [level=3] [ref=e114]:
+                  - 'link "The Second Brain Audit: Why Your Note-Taking App Is Just a Digital Junk Drawer" [ref=e115] [cursor=pointer]':
+                    - /url: http://techtools.localhost:8088/2026/07/28/second-brain-audit-note-taking-app-junk-drawer/
+                - time [ref=e117]: July 28, 2026
+          - listitem [ref=e118]:
+            - generic [ref=e120]:
+              - figure [ref=e121]:
+                - link [ref=e122] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/27/four-year-vesting-schedule-saves-50-50-founder-split/
+                  - img "The 4-Year Vesting Schedule That Saves the 50/50 Founder Split" [ref=e123]
+              - generic [ref=e124]:
+                - link "Business" [ref=e126] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/business/
+                - heading [level=3] [ref=e127]:
+                  - link "The 4-Year Vesting Schedule That Saves the 50/50 Founder Split" [ref=e128] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/27/four-year-vesting-schedule-saves-50-50-founder-split/
+                - time [ref=e130]: July 27, 2026
+          - listitem [ref=e131]:
+            - generic [ref=e133]:
+              - figure [ref=e134]:
+                - link [ref=e135] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/27/llc-vs-sole-proprietorship-tech-founders/
+                  - 'img "The Legal Entity That Protects Your IP: LLC vs. Sole Proprietorship for Tech Founders" [ref=e136]'
+              - generic [ref=e137]:
+                - link "Business" [ref=e139] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/business/
+                - heading [level=3] [ref=e140]:
+                  - 'link "The Legal Entity That Protects Your IP: LLC vs. Sole Proprietorship for Tech Founders" [ref=e141] [cursor=pointer]':
+                    - /url: http://techtools.localhost:8088/2026/07/27/llc-vs-sole-proprietorship-tech-founders/
+                - time [ref=e143]: July 27, 2026
+          - listitem [ref=e144]:
+            - generic [ref=e146]:
+              - figure [ref=e147]:
+                - link [ref=e148] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/26/ai-pet-tech-is-not-smart/
+                  - img "AI Pet Tech Is Not Smart. It’s Just Pattern Matching on Your Cat." [ref=e149]
+              - generic [ref=e150]:
+                - link "AI Tools" [ref=e152] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/ai-tools/
+                - heading [level=3] [ref=e153]:
+                  - link "AI Pet Tech Is Not Smart. It’s Just Pattern Matching on Your Cat." [ref=e154] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/26/ai-pet-tech-is-not-smart/
+                - time [ref=e156]: July 26, 2026
+          - listitem [ref=e157]:
+            - generic [ref=e159]:
+              - figure [ref=e160]:
+                - link [ref=e161] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/26/50-50-founder-split-liquidity-crisis/
+                  - img "The 50/50 Founder Split Kills Companies. Here’s the Liquidity Trap." [ref=e162]
+              - generic [ref=e163]:
+                - link "Business" [ref=e165] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/business/
+                - heading [level=3] [ref=e166]:
+                  - link "The 50/50 Founder Split Kills Companies. Here’s the Liquidity Trap." [ref=e167] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/26/50-50-founder-split-liquidity-crisis/
+                - time [ref=e169]: July 26, 2026
+          - listitem [ref=e170]:
+            - generic [ref=e172]:
+              - figure [ref=e173]:
+                - link [ref=e174] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/26/startup-tech-stacks-scale-without-enterprise-cost/
+                  - img "Startup Tech Stacks Are Not Broken. They’re Just Optimized for Scale, Not Survival." [ref=e175]
+              - generic [ref=e176]:
+                - link "Best Of" [ref=e178] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/best-of/
+                - heading [level=3] [ref=e179]:
+                  - link "Startup Tech Stacks Are Not Broken. They’re Just Optimized for Scale, Not Survival." [ref=e180] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/26/startup-tech-stacks-scale-without-enterprise-cost/
+                - time [ref=e182]: July 26, 2026
+          - listitem [ref=e183]:
+            - generic [ref=e185]:
+              - figure [ref=e186]:
+                - link [ref=e187] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/25/404-page-is-best-salesperson-math/
+                  - img "The 404 Page Is Your Best Salesperson. Here’s the Math." [ref=e188]
+              - generic [ref=e189]:
+                - link "Marketing" [ref=e191] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/marketing/
+                - heading [level=3] [ref=e192]:
+                  - link "The 404 Page Is Your Best Salesperson. Here’s the Math." [ref=e193] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/25/404-page-is-best-salesperson-math/
+                - time [ref=e195]: July 25, 2026
+          - listitem [ref=e196]:
+            - generic [ref=e198]:
+              - figure [ref=e199]:
+                - link [ref=e200] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/25/ai-image-generators-create-noise/
+                  - img "AI Image Generators Don’t Create Images. They Create Noise." [ref=e201]
+              - generic [ref=e202]:
+                - link "AI Tools" [ref=e204] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/ai-tools/
+                - heading [level=3] [ref=e205]:
+                  - link "AI Image Generators Don’t Create Images. They Create Noise." [ref=e206] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/25/ai-image-generators-create-noise/
+                - time [ref=e208]: July 25, 2026
+          - listitem [ref=e209]:
+            - generic [ref=e211]:
+              - figure [ref=e212]:
+                - link [ref=e213] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/25/hiring-process-measures-confidence-not-execution/
+                  - img "Your Hiring Process Is Not Broken. It’s Just Measuring Confidence, Not Execution." [ref=e214]
+              - generic [ref=e215]:
+                - link "Business" [ref=e217] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/business/
+                - heading [level=3] [ref=e218]:
+                  - link "Your Hiring Process Is Not Broken. It’s Just Measuring Confidence, Not Execution." [ref=e219] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/25/hiring-process-measures-confidence-not-execution/
+                - time [ref=e221]: July 25, 2026
+          - listitem [ref=e222]:
+            - generic [ref=e224]:
+              - figure [ref=e225]:
+                - link [ref=e226] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/24/freelance-rate-is-filter/
+                  - img "Your Freelance Rate Isn’t a Number. It’s a Filter." [ref=e227]
+              - generic [ref=e228]:
+                - link "Freelance" [ref=e230] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/freelance/
+                - heading [level=3] [ref=e231]:
+                  - link "Your Freelance Rate Isn’t a Number. It’s a Filter." [ref=e232] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/24/freelance-rate-is-filter/
+                - time [ref=e234]: July 24, 2026
+          - listitem [ref=e235]:
+            - generic [ref=e237]:
+              - figure [ref=e238]:
+                - link [ref=e239] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/24/hiring-mistake-costs-six-months-reference-check/
+                  - img "The Hiring Mistake That Costs You Six Months. The Reference Check Nobody Does." [ref=e240]
+              - generic [ref=e241]:
+                - link "Business" [ref=e243] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/business/
+                - heading [level=3] [ref=e244]:
+                  - link "The Hiring Mistake That Costs You Six Months. The Reference Check Nobody Does." [ref=e245] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/24/hiring-mistake-costs-six-months-reference-check/
+                - time [ref=e247]: July 24, 2026
+          - listitem [ref=e248]:
+            - generic [ref=e250]:
+              - figure [ref=e251]:
+                - link [ref=e252] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/23/automation-is-not-broken-trigger-first/
+                  - img "Your Automation Is Not Broken. It’s Just Trigger-First." [ref=e253]
+              - generic [ref=e254]:
+                - link "Automation & Workflows" [ref=e256] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/automation-workflows/
+                - heading [level=3] [ref=e257]:
+                  - link "Your Automation Is Not Broken. It’s Just Trigger-First." [ref=e258] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/23/automation-is-not-broken-trigger-first/
+                - time [ref=e260]: July 23, 2026
+          - listitem [ref=e261]:
+            - generic [ref=e263]:
+              - figure [ref=e264]:
+                - link [ref=e265] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/23/output-first-automation-trigger-first-fail/
+                  - img "The Automation That Ran Successfully (And Still Failed)" [ref=e266]
+              - generic [ref=e267]:
+                - link "Automation & Workflows" [ref=e269] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/automation-workflows/
+                - heading [level=3] [ref=e270]:
+                  - link "The Automation That Ran Successfully (And Still Failed)" [ref=e271] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/23/output-first-automation-trigger-first-fail/
+                - time [ref=e273]: July 23, 2026
+          - listitem [ref=e274]:
+            - generic [ref=e276]:
+              - figure [ref=e277]:
+                - link [ref=e278] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/22/30-percent-client-problem-fire-them-math/
+                  - img "The 30% Client Problem. Here’s the Exact Math That Decides When to Fire Them." [ref=e279]
+              - generic [ref=e280]:
+                - link "Business" [ref=e282] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/business/
+                - heading [level=3] [ref=e283]:
+                  - link "The 30% Client Problem. Here’s the Exact Math That Decides When to Fire Them." [ref=e284] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/22/30-percent-client-problem-fire-them-math/
+                - time [ref=e286]: July 22, 2026
+          - listitem [ref=e287]:
+            - generic [ref=e289]:
+              - figure [ref=e290]:
+                - link [ref=e291] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/22/design-system-costs-nothing/
+                  - img "The Design System That Costs Nothing. The One That Costs $12k." [ref=e292]
+              - generic [ref=e293]:
+                - link "Design" [ref=e295] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/design/
+                - heading [level=3] [ref=e296]:
+                  - link "The Design System That Costs Nothing. The One That Costs $12k." [ref=e297] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/22/design-system-costs-nothing/
+                - time [ref=e299]: July 22, 2026
+          - listitem [ref=e300]:
+            - generic [ref=e302]:
+              - figure [ref=e303]:
+                - link [ref=e304] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/21/time-blocking-calendar-energy-not-tasks/
+                  - img "The Time-Blocking Calendar Only Works When You Design It Around Energy, Not Tasks" [ref=e305]
+              - generic [ref=e306]:
+                - link "Productivity Tools" [ref=e308] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/productivity-tools/
+                - heading [level=3] [ref=e309]:
+                  - link "The Time-Blocking Calendar Only Works When You Design It Around Energy, Not Tasks" [ref=e310] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/21/time-blocking-calendar-energy-not-tasks/
+                - time [ref=e312]: July 21, 2026
+          - listitem [ref=e313]:
+            - generic [ref=e315]:
+              - figure [ref=e316]:
+                - link [ref=e317] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/21/pomodoro-technique-fails-measures-time-not-focus/
+                  - img "The Pomodoro Technique Fails Because It Measures Time, Not Focus" [ref=e318]
+              - generic [ref=e319]:
+                - link "Productivity Tools" [ref=e321] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/productivity-tools/
+                - heading [level=3] [ref=e322]:
+                  - link "The Pomodoro Technique Fails Because It Measures Time, Not Focus" [ref=e323] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/21/pomodoro-technique-fails-measures-time-not-focus/
+                - time [ref=e325]: July 21, 2026
+          - listitem [ref=e326]:
+            - generic [ref=e328]:
+              - figure [ref=e329]:
+                - link [ref=e330] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/21/ai-prompt-library-pattern/
+                  - img "AI Prompt Templates Are a Trap. The Prompt Library Pattern Fixes It." [ref=e331]
+              - generic [ref=e332]:
+                - link "AI Tools" [ref=e334] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/ai-tools/
+                - heading [level=3] [ref=e335]:
+                  - link "AI Prompt Templates Are a Trap. The Prompt Library Pattern Fixes It." [ref=e336] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/21/ai-prompt-library-pattern/
+                - time [ref=e338]: July 21, 2026
+          - listitem [ref=e339]:
+            - generic [ref=e341]:
+              - figure [ref=e342]:
+                - link [ref=e343] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/20/webhook-first-automation-polling-vs-webhooks-2/
+                  - img "Polling Automations Burn Credits. Webhooks Do Not. Here’s the Difference." [ref=e344]
+              - generic [ref=e345]:
+                - link "Automation & Workflows" [ref=e347] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/automation-workflows/
+                - heading [level=3] [ref=e348]:
+                  - link "Polling Automations Burn Credits. Webhooks Do Not. Here’s the Difference." [ref=e349] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/20/webhook-first-automation-polling-vs-webhooks-2/
+                - time [ref=e351]: July 20, 2026
+          - listitem [ref=e352]:
+            - generic [ref=e354]:
+              - figure [ref=e355]:
+                - link [ref=e356] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/20/10-percent-day-protocol-freelance-capacity/
+                  - img "The 10% Day Protocol Keeps Freelance Businesses Alive When Executive Function Fails" [ref=e357]
+              - generic [ref=e358]:
+                - link "Freelance" [ref=e360] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/freelance/
+                - heading [level=3] [ref=e361]:
+                  - link "The 10% Day Protocol Keeps Freelance Businesses Alive When Executive Function Fails" [ref=e362] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/20/10-percent-day-protocol-freelance-capacity/
+                - time [ref=e364]: July 20, 2026
+          - listitem [ref=e365]:
+            - generic [ref=e367]:
+              - figure [ref=e368]:
+                - link [ref=e369] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/20/time-tracking-software-measures-hours-not-what-pays/
+                  - img "Your Time Tracking Software Measures Hours. Not the Thing That Actually Pays." [ref=e370]
+              - generic [ref=e371]:
+                - link "Productivity Tools" [ref=e373] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/productivity-tools/
+                - heading [level=3] [ref=e374]:
+                  - link "Your Time Tracking Software Measures Hours. Not the Thing That Actually Pays." [ref=e375] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/20/time-tracking-software-measures-hours-not-what-pays/
+                - time [ref=e377]: July 20, 2026
+          - listitem [ref=e378]:
+            - generic [ref=e380]:
+              - figure [ref=e381]:
+                - link [ref=e382] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/19/automation-breaks-midnight-error-handling/
+                  - img "Your Automation Breaks at Midnight. The Error Handling Nobody Does." [ref=e383]
+              - generic [ref=e384]:
+                - link "Automation & Workflows" [ref=e386] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/automation-workflows/
+                - heading [level=3] [ref=e387]:
+                  - link "Your Automation Breaks at Midnight. The Error Handling Nobody Does." [ref=e388] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/19/automation-breaks-midnight-error-handling/
+                - time [ref=e390]: July 19, 2026
+          - listitem [ref=e391]:
+            - generic [ref=e393]:
+              - figure [ref=e394]:
+                - link [ref=e395] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/19/marketing-attribution-model-lying-cost-per-qualified-meeting/
+                  - img "Your Marketing Attribution Model Is Lying to You. Here’s the One Number That Actually Pays." [ref=e396]
+              - generic [ref=e397]:
+                - link "Marketing" [ref=e399] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/marketing/
+                - heading [level=3] [ref=e400]:
+                  - link "Your Marketing Attribution Model Is Lying to You. Here’s the One Number That Actually Pays." [ref=e401] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/19/marketing-attribution-model-lying-cost-per-qualified-meeting/
+                - time [ref=e403]: July 19, 2026
+          - listitem [ref=e404]:
+            - generic [ref=e406]:
+              - figure [ref=e407]:
+                - link [ref=e408] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/17/weekly-update-cadence-cut-revision-requests/
+                  - img "The Weekly Update That Cuts Your Revision Requests in Half" [ref=e409]
+              - generic [ref=e410]:
+                - link "Freelance" [ref=e412] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/freelance/
+                - heading [level=3] [ref=e413]:
+                  - link "The Weekly Update That Cuts Your Revision Requests in Half" [ref=e414] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/17/weekly-update-cadence-cut-revision-requests/
+                - time [ref=e416]: July 17, 2026
+          - listitem [ref=e417]:
+            - generic [ref=e419]:
+              - figure [ref=e420]:
+                - link [ref=e421] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/16/client-owes-money-when-to-walk-away-vs-sue/
+                  - 'img "The Client Who Owes You $14k: When to Walk Away vs. When to Sue" [ref=e422]'
+              - generic [ref=e423]:
+                - link "Business" [ref=e425] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/business/
+                - heading [level=3] [ref=e426]:
+                  - 'link "The Client Who Owes You $14k: When to Walk Away vs. When to Sue" [ref=e427] [cursor=pointer]':
+                    - /url: http://techtools.localhost:8088/2026/07/16/client-owes-money-when-to-walk-away-vs-sue/
+                - time [ref=e429]: July 16, 2026
+          - listitem [ref=e430]:
+            - generic [ref=e432]:
+              - figure [ref=e433]:
+                - link [ref=e434] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/16/paid-scoping-phase-freelance-client-filter/
+                  - img "The Scope Creep That Costs You More Than the Client’s Changes" [ref=e435]
+              - generic [ref=e436]:
+                - link "Freelance" [ref=e438] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/freelance/
+                - heading [level=3] [ref=e439]:
+                  - link "The Scope Creep That Costs You More Than the Client’s Changes" [ref=e440] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/16/paid-scoping-phase-freelance-client-filter/
+                - time [ref=e442]: July 16, 2026
+          - listitem [ref=e443]:
+            - generic [ref=e445]:
+              - figure [ref=e446]:
+                - link [ref=e447] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/2026/07/16/paid-test-project-freelance-client-filter-3/
+                  - img "The Paid Test Project Is the Best Client Filter You’re Not Using" [ref=e448]
+              - generic [ref=e449]:
+                - link "Guides & Tutorials" [ref=e451] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/guides-tutorials/
+                - heading [level=3] [ref=e452]:
+                  - link "The Paid Test Project Is the Best Client Filter You’re Not Using" [ref=e453] [cursor=pointer]:
+                    - /url: http://techtools.localhost:8088/2026/07/16/paid-test-project-freelance-client-filter-3/
+                - time [ref=e455]: July 16, 2026
+        - navigation "Pagination" [ref=e456]:
+          - generic [ref=e457]:
+            - text: "1"
+            - link "2" [ref=e458] [cursor=pointer]:
+              - /url: "?query-2-page=2"
+          - link "Next Page" [ref=e459] [cursor=pointer]:
+            - /url: /?query-2-page=2
+            - text: Next Page
+            - generic [ref=e460]: »
+    - contentinfo [ref=e461]:
+      - contentinfo [ref=e462]:
+        - generic [ref=e463]:
+          - paragraph [ref=e465]:
+            - link "Tech Tools Info Verse" [ref=e466] [cursor=pointer]:
+              - /url: http://techtools.localhost:8088
+          - generic [ref=e467]:
+            - heading "Explore" [level=4] [ref=e468]
+            - list [ref=e469]:
+              - listitem [ref=e470]:
+                - link "AI Tools" [ref=e471] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/ai-tools/
+              - listitem [ref=e472]:
+                - link "Automation & Workflows" [ref=e473] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/automation-workflows/
+              - listitem [ref=e474]:
+                - link "Best Of" [ref=e475] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/best-of/
+              - listitem [ref=e476]:
+                - link "Business" [ref=e477] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/business/
+              - listitem [ref=e478]:
+                - link "Design" [ref=e479] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/design/
+              - listitem [ref=e480]:
+                - link "Freelance" [ref=e481] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/freelance/
+              - listitem [ref=e482]:
+                - link "Guides & Tutorials" [ref=e483] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/guides-tutorials/
+              - listitem [ref=e484]:
+                - link "Marketing" [ref=e485] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/marketing/
+              - listitem [ref=e486]:
+                - link "Productivity Tools" [ref=e487] [cursor=pointer]:
+                  - /url: http://techtools.localhost:8088/category/productivity-tools/
+          - generic [ref=e488]:
+            - heading "Legal" [level=4] [ref=e489]
+            - list [ref=e490]:
+              - listitem [ref=e491]:
+                - link "About" [ref=e492] [cursor=pointer]:
+                  - /url: /about/
+              - listitem [ref=e493]:
+                - link "Editorial Policy" [ref=e494] [cursor=pointer]:
+                  - /url: /editorial-policy/
+              - listitem [ref=e495]:
+                - link "Fact-Checking" [ref=e496] [cursor=pointer]:
+                  - /url: /fact-checking/
+              - listitem [ref=e497]:
+                - link "Privacy" [ref=e498] [cursor=pointer]:
+                  - /url: /privacy/
+              - listitem [ref=e499]:
+                - link "Contact" [ref=e500] [cursor=pointer]:
+                  - /url: /contact/
+          - generic [ref=e501]:
+            - heading "Newsletter" [level=4] [ref=e502]
+            - generic [ref=e503]:
+              - textbox "Email address" [ref=e504]:
+                - /placeholder: Your email
+              - button "Subscribe" [ref=e505] [cursor=pointer]
+        - generic [ref=e506]:
+          - paragraph [ref=e507]:
+            - text: ©
+            - link "Openclaw" [ref=e508] [cursor=pointer]:
+              - /url: /
+          - paragraph [ref=e509]: Written and edited with editorial care.

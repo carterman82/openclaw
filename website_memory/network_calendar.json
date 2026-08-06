@@ -1,0 +1,70 @@
+{
+    "description": "Editorial calendar for the Info Verse network. Tracks seasonal topics per subsite and cross-site coordination opportunities.",
+    "subsites": {
+        "techtools": {
+            "niche": "Technical tool guides, software reviews, developer workflows",
+            "seasonal_topics": [
+                { "season": "Q1", "topics": ["Year-in-tech predictions", "Developer toolkit roundups", "Open-source tool spotlights"] },
+                { "season": "Q2", "topics": ["Summer coding projects", "Hardware upgrade guides", "Cloud infrastructure comparisons"] },
+                { "season": "Q3", "topics": ["Back-to-school tech", "Productivity tools for remote work", "AI tool reviews"] },
+                { "season": "Q4", "topics": ["Holiday gift guides for techies", "Year-end software roundups", "Cybersecurity essentials"] }
+            ]
+        },
+        "dogs": {
+            "niche": "Dog care, training, health, and breed information",
+            "seasonal_topics": [
+                { "season": "Q1", "topics": ["New year dog resolutions", "Winter dog safety", "Breed guide series"] },
+                { "season": "Q2", "topics": ["Summer heat safety for dogs", "Outdoor adventures with dogs", "Training bootcamp guides"] },
+                { "season": "Q3", "topics": ["Back-to-routine after summer", "Dog nutrition guides", "Senior dog care"] },
+                { "season": "Q4", "topics": ["Holiday pet safety", "Winter walking tips", "Adoption guides"] }
+            ]
+        },
+        "gardening": {
+            "niche": "Home gardening, plant care, landscape design",
+            "seasonal_topics": [
+                { "season": "Q1", "topics": ["Indoor gardening", "Seed starting guides", "Plant collection spotlights"] },
+                { "season": "Q2", "topics": ["Spring planting calendar", "Vegetable garden setup", "Perennial garden design"] },
+                { "season": "Q3", "topics": ["Summer garden maintenance", "Harvest guides", "Drought-resistant plants"] },
+                { "season": "Q4", "topics": ["Fall garden prep", "Winter container gardening", "Garden tool guides"] }
+            ]
+        },
+        "boardgames": {
+            "niche": "Board game reviews, strategy guides, industry news",
+            "seasonal_topics": [
+                { "season": "Q1", "topics": ["New release previews", "Strategy deep-dives", "Classic game retrospectives"] },
+                { "season": "Q2", "topics": ["Convention season previews", "Cooperative game guides", "Solo play strategies"] },
+                { "season": "Q3", "topics": ["Back-to-school game nights", "Family game guides", "Card game spotlights"] },
+                { "season": "Q4", "topics": ["Holiday gift guides", "Year-end best-of lists", "Weighted strategy guides"] }
+            ]
+        },
+        "coffee": {
+            "niche": "Coffee culture, brewing methods, bean origins, cafe guides",
+            "seasonal_topics": [
+                { "season": "Q1", "topics": ["Cold brew guides", "Home brewing equipment reviews", "Single-origin spotlights"] },
+                { "season": "Q2", "topics": ["Summer iced coffee recipes", "Cafe hop guides", "Espresso machine reviews"] },
+                { "season": "Q3", "topics": ["Fall spice coffee trends", "Pour-over techniques", "Bean subscription services"] },
+                { "season": "Q4", "topics": ["Holiday coffee drinks", "Gift guides for coffee lovers", "Year-end best beans"] }
+            ]
+        }
+    },
+    "cross_site_opportunities": [
+        {
+            "title": "Home Office Setup Series",
+            "sites": ["techtools", "coffee"],
+            "description": "Tech tools for home office paired with coffee brewing setup guides",
+            "best_quarter": "Q3"
+        },
+        {
+            "title": "Gift Guide Series",
+            "sites": ["techtools", "boardgames", "coffee", "dogs"],
+            "description": "Coordinated holiday gift guides across all niches",
+            "best_quarter": "Q4"
+        },
+        {
+            "title": "Seasonal Home Activities",
+            "sites": ["gardening", "dogs", "boardgames"],
+            "description": "Seasonal activity guides — spring gardening, summer dog outdoor, fall board game nights",
+            "best_quarter": "Q2-Q3"
+        }
+    ]
+}

@@ -284,7 +284,14 @@ def _build_system_prompt(
         "Do NOT invent internal URLs — only use the URLs explicitly listed. If "
         "fewer than 3 candidates are genuinely relevant, link to the ones that are "
         "and stop — never force a link to an off-topic piece just to hit the count. "
-        "Report every internal URL you used in `internal_links_used`."
+        "Report every internal URL you used in `internal_links_used`.\n"
+        "- some candidates carry a `[cross-site: hostname]` tag — these point to "
+        "articles on sister sites within the Info Verse network (techtools, dogs, "
+        "gardening, boardgames, coffee). When a cross-site article is genuinely "
+        "relevant to your topic, link to 1-2 of them per 10 articles on average "
+        "(roughly 1 cross-site link every 5-10 articles). Cross-site links help "
+        "build the network and should not be forced — only link when the article "
+        "is genuinely relevant, just like same-site links."
     )
     data_handling = _DATA_HANDLING
 
@@ -387,11 +394,18 @@ def _build_linking_candidates_message(candidates: list[dict] | None) -> str:
     for c in candidates:
         excerpt = (c.get("excerpt") or "").strip()
         series = (c.get("series") or "").strip()
-        prefix = f"[series: {series}] " if series else ""
+        source_subsite = (c.get("source_subsite") or "").strip()
+        prefixes: list[str] = []
+        if source_subsite:
+            prefixes.append(f"[cross-site: {source_subsite}]")
+        if series:
+            prefixes.append(f"[series: {series}]")
+        prefix = " ".join(prefixes)
+        label = f" {prefix}" if prefix else ""
         if excerpt:
-            lines.append(f"- {prefix}\"{c['title']}\" — {c['link']} — {excerpt}")
+            lines.append(f"- {label}\"{c['title']}\" — {c['link']} — {excerpt}")
         else:
-            lines.append(f"- {prefix}\"{c['title']}\" — {c['link']}")
+            lines.append(f"- {label}\"{c['title']}\" — {c['link']}")
     return (
         "\n\nInternal-linking candidates (existing published articles on this site). "
         "When 3-5 of these are genuinely relevant to your topic, link to them in the "
@@ -471,6 +485,24 @@ def _build_trending_message(signals: dict | None) -> str:
         "underlying anchor with a TOPIC.md §5 angle template.\n"
         + _wrap_data("\n\n".join(sections), "trending_signals")
     )
+
+
+def _build_analytics_message(analytics: dict | None) -> str:
+    """Build a ``<reference_data>`` block injecting traffic signals.
+
+    Called by ``generate_article()`` and ``propose_topics()`` to thread
+    analytics data into the user message.  When ``analytics`` is None or
+    empty, returns "" — no-op, same pattern as ``_build_trending_message``.
+    """
+    if not analytics:
+        return ""
+    # Delegate to analytics module to avoid circular import at module level.
+    try:
+        from .analytics import build_analytics_message as _bam
+        return _bam(analytics)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("Failed to build analytics message: %s", exc)
+        return ""
 
 
 class LocalProviderError(Exception):
@@ -734,6 +766,7 @@ def generate_article(
     site_host: str | None = None,
     internal_link_candidates: list[dict] | None = None,
     trending_signals: dict | None = None,
+    analytics_signals: dict | None = None,
     variation_directives: str | None = None,
     rejection_reason: str | None = None,
     required_sources: int = 2,
@@ -773,6 +806,7 @@ def generate_article(
         + _build_linking_candidates_message(internal_link_candidates)
         + _build_series_message(existing_series)
         + _build_trending_message(trending_signals)
+        + _build_analytics_message(analytics_signals)
         + (f"\n\n{variation_directives}" if variation_directives else "")
         + _build_rejection_feedback_message(rejection_reason)
     )
@@ -807,8 +841,9 @@ def _build_topic_tool_schema(candidates_n: int, categories: tuple[str, ...]) -> 
                             "title": {"type": "string"},
                             "focus_keyphrase": {"type": "string"},
                             "angle": {"type": "string"},
+                            "category": {"type": "string"},
                         },
-                        "required": ["title", "focus_keyphrase", "angle"],
+                        "required": ["title", "focus_keyphrase", "angle", "category"],
                     },
                 },
             },
@@ -830,6 +865,8 @@ def _build_topic_system_prompt(categories: tuple[str, ...], site_host: str) -> s
         "angle-types this takes and the specific credibility source you would "
         "ground it on (same standard the full article schema requires of "
         "unique_angle_justification)\n"
+        "- `category`: the category this candidate belongs to (must be one of "
+        "the allowed categories listed above)\n"
         "Candidates must be genuinely distinct from one another: different "
         "subjects, not reworded angles on the same subject."
     )
@@ -883,7 +920,7 @@ def _validate_topics_payload(payload: dict, candidates_n: int) -> None:
     for i, candidate in enumerate(candidates):
         if not isinstance(candidate, dict):
             raise ValueError(f"candidates[{i}] must be an object")
-        for field in ("title", "focus_keyphrase", "angle"):
+        for field in ("title", "focus_keyphrase", "angle", "category"):
             value = candidate.get(field)
             if not isinstance(value, str) or not value.strip():
                 raise ValueError(f"candidates[{i}] missing/empty field {field!r}")
@@ -897,6 +934,7 @@ def propose_topics(
     site_name: str | None = None,
     site_host: str | None = None,
     trending_signals: dict | None = None,
+    analytics_signals: dict | None = None,
 ) -> list[dict]:
     """Propose `candidates_n` candidate topics before any full article is written.
 
@@ -921,6 +959,7 @@ def propose_topics(
         _build_topic_user_message(candidates_n, category, site_name)
         + _build_avoidance_message(avoidance_titles)
         + _build_trending_message(trending_signals)
+        + _build_analytics_message(analytics_signals)
     )
     tool_schema = _build_topic_tool_schema(candidates_n, effective_categories)
     validate_fn = functools.partial(_validate_topics_payload, candidates_n=candidates_n)
